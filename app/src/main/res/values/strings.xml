@@ -48,4 +48,5 @@
     <string name="settings_degraded_body">保存された設定が壊れているか、新しいバージョンの形式です。元のファイルはそのまま保持しています。このまま初期値で試すか、設定を初期化できます。初期値での試用中は設定は保存されません。</string>
     <string name="settings_degraded_retry">再読み込み</string>
     <string name="settings_degraded_reset">設定を初期化</string>
+    <string name="settings_degraded_continue">初期値で使い続ける</string>
 </resources>

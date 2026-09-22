@@ -225,7 +225,7 @@ private fun RecoveryScreen(
                 Text(stringResource(R.string.settings_degraded_reset))
             }
             OutlinedButton(onClick = onContinue, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.intro_skip))
+                Text(stringResource(R.string.settings_degraded_continue))
             }
         }
     }
