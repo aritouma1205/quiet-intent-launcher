@@ -27,10 +27,10 @@ class AppContainer(context: Context) {
         scope = appScope,
         serializer = settingsSerializer,
         fileProvider = { settingsFile },
-    ) {
+    ) { storeScope ->
         DataStoreFactory.create(
             serializer = settingsSerializer,
-            scope = appScope,
+            scope = storeScope,
             produceFile = { settingsFile },
         )
     }

@@ -4,6 +4,8 @@
 
     <!-- Quiet -->
     <string name="quiet_preview_badge">プレビュー中（既定のホームではありません）</string>
+    <string name="quiet_pane_title">ホーム</string>
+    <string name="quiet_open_search">検索を開く</string>
 
     <!-- Intro -->
     <string name="intro_title">Quiet Intent Launcher</string>
@@ -49,4 +51,8 @@
     <string name="settings_degraded_retry">再読み込み</string>
     <string name="settings_degraded_reset">設定を初期化</string>
     <string name="settings_degraded_continue">初期値で使い続ける</string>
+    <string name="settings_reset_confirm_title">設定を初期化しますか？</string>
+    <string name="settings_reset_confirm_body">保存されている設定ファイルを初期値で上書きします。破損した設定や新しいバージョンの設定は元に戻せなくなります。</string>
+    <string name="settings_reset_confirm">初期化する</string>
+    <string name="cancel">キャンセル</string>
 </resources>

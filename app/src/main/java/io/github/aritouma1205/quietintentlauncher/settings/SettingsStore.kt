@@ -5,7 +5,10 @@ import androidx.datastore.core.DataStore
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +46,7 @@ class SettingsStore(
     private val scope: CoroutineScope,
     private val serializer: SettingsSerializer,
     private val fileProvider: () -> File,
-    private val dataStoreFactory: () -> DataStore<SettingsData>,
+    private val dataStoreFactory: (CoroutineScope) -> DataStore<SettingsData>,
 ) {
     private val _state = MutableStateFlow<SettingsState>(SettingsState.Loading)
     val state: StateFlow<SettingsState> = _state.asStateFlow()
@@ -52,6 +55,13 @@ class SettingsStore(
     private var degraded: Boolean = false
 
     private var dataStore: DataStore<SettingsData>? = null
+
+    /**
+     * Scope that owns the current [dataStore]. Only one DataStore may be
+     * active per file, so this scope is cancelled and joined before any
+     * replacement instance is created.
+     */
+    private var dataStoreScope: CoroutineScope? = null
     private var collectJob: Job? = null
 
     fun start() {
@@ -85,8 +95,10 @@ class SettingsStore(
             store.updateData(transform)
             true
         } catch (e: CorruptionException) {
-            degraded = true
-            _state.value = SettingsState.Degraded(e.message ?: "settings unreadable")
+            degrade(e.message)
+            false
+        } catch (e: IllegalStateException) {
+            degrade(e.message)
             false
         } catch (e: IOException) {
             false
@@ -102,8 +114,13 @@ class SettingsStore(
     /**
      * Recovery: replaces the file with defaults. Only invoked after the
      * user confirms initialization; a failed write leaves the file as is.
+     * The previous DataStore is fully closed before the file is replaced
+     * and a fresh instance is opened.
      */
     suspend fun resetToDefaults(): Boolean {
+        // Stop collecting and release the file before replacing it.
+        collectJob?.cancel()
+        closeDataStore()
         val file = fileProvider()
         val written = try {
             writeAtomically(file, serializer.serialize(SettingsData()))
@@ -113,31 +130,44 @@ class SettingsStore(
         }
         if (!written) return false
         degraded = false
-        collectJob?.cancel()
         _state.value = SettingsState.Loading
         collectJob = scope.launch { openDataStore() }
         return true
     }
 
+    /**
+     * Releases the current DataStore's file registration. Must not touch
+     * [collectJob] — it is also invoked from inside that coroutine.
+     */
+    private suspend fun closeDataStore() {
+        dataStore = null
+        dataStoreScope?.let {
+            it.cancel()
+            it.coroutineContext[Job]?.join()
+        }
+        dataStoreScope = null
+    }
+
     private suspend fun openDataStore() {
+        // A file may only ever be held by one DataStore; release the old
+        // instance's scope before opening a replacement (retry / reset).
+        closeDataStore()
+        val storeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val store = try {
-            dataStoreFactory()
+            dataStoreFactory(storeScope)
         } catch (e: IllegalStateException) {
-            // A previously opened store for this file was poisoned by a
-            // mid-session corruption; a restart is required to re-read it.
-            degraded = true
-            _state.value = SettingsState.Degraded(e.message ?: "settings unreadable")
+            storeScope.cancel()
+            degrade(e.message)
             return
         }
+        dataStoreScope = storeScope
         dataStore = store
         store.data
             .catch { e ->
                 when (e) {
-                    is CorruptionException, is IOException -> {
-                        degraded = true
-                        _state.value =
-                            SettingsState.Degraded(e.message ?: "settings unreadable")
-                    }
+                    is CorruptionException, is IOException,
+                    is IllegalStateException,
+                    -> degrade(e.message)
                     else -> throw e
                 }
             }
@@ -145,6 +175,11 @@ class SettingsStore(
                 degraded = false
                 _state.value = SettingsState.Ready(it)
             }
+    }
+
+    private fun degrade(message: String?) {
+        degraded = true
+        _state.value = SettingsState.Degraded(message ?: "settings unreadable")
     }
 
     private fun writeAtomically(file: File, text: String) {

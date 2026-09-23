@@ -40,10 +40,10 @@ class SettingsStoreTest {
         scope = scope,
         serializer = serializer,
         fileProvider = { file },
-        dataStoreFactory = {
+        dataStoreFactory = { storeScope ->
             DataStoreFactory.create(
                 serializer = serializer,
-                scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                scope = storeScope,
                 produceFile = { file },
             )
         },
@@ -139,4 +139,34 @@ class SettingsStoreTest {
         assertEquals(SettingsData(), (state as SettingsState.Ready).data)
         assertTrue(file.readText().contains("\"schemaVersion\":1"))
     }
+
+    @Test
+    fun `retry after a live store reopens without a duplicate instance`() =
+        runBlocking {
+            file.writeText("""{"schemaVersion":1,"introCompleted":true}""")
+            val store = newStore()
+            store.start()
+            assertTrue(awaitSettled(store) is SettingsState.Ready)
+
+            // The first DataStore is still registered for this file; retry
+            // must release it before opening a replacement instead of
+            // crashing on the single-instance check.
+            store.retry()
+            val state = awaitSettled(store)
+            assertTrue(state is SettingsState.Ready)
+            assertTrue((state as SettingsState.Ready).data.introCompleted)
+        }
+
+    @Test
+    fun `reset after a live store reopens without a duplicate instance`() =
+        runBlocking {
+            val store = newStore()
+            store.start()
+            assertTrue(awaitSettled(store) is SettingsState.Ready)
+
+            assertTrue(store.resetToDefaults())
+            val state = awaitSettled(store)
+            assertTrue(state is SettingsState.Ready)
+            assertEquals(SettingsData(), (state as SettingsState.Ready).data)
+        }
 }

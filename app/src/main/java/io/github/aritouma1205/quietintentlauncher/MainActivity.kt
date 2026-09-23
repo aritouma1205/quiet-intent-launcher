@@ -64,7 +64,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        viewModel.nav.onBackgrounded()
+        // A recreation (rotation etc.) keeps the ViewModel and must not
+        // collapse the navigation stack; only real backgrounding returns
+        // the home UI to Quiet (design 3).
+        if (!isChangingConfigurations) viewModel.nav.onBackgrounded()
     }
 
     private fun requestHomeRole() {

@@ -12,20 +12,29 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -84,6 +93,7 @@ fun QuietLauncherRoot(
         }
 
         val showRecovery = settingsState is SettingsState.Degraded && !recoveryDismissed
+        var resetConfirm by remember { mutableStateOf(false) }
         BackHandler(enabled = showRecovery || screen != HomeScreen.Quiet) {
             if (showRecovery) viewModel.dismissRecovery() else viewModel.nav.back()
         }
@@ -93,13 +103,15 @@ fun QuietLauncherRoot(
                 showRecovery -> RecoveryScreen(
                     message = (settingsState as SettingsState.Degraded).message,
                     onRetry = viewModel::retrySettings,
-                    onReset = viewModel::resetSettings,
+                    onReset = { resetConfirm = true },
                     onContinue = viewModel::dismissRecovery,
                 )
                 else -> when (screen) {
                     HomeScreen.Quiet -> QuietScreen(
                         isDefaultHome = isDefaultHome,
                         onOpenSearch = { viewModel.nav.navigateTo(HomeScreen.Search) },
+                        onOpenAllApps = { viewModel.nav.navigateTo(HomeScreen.AllApps) },
+                        onOpenSettings = { viewModel.nav.navigateTo(HomeScreen.Settings) },
                     )
                     HomeScreen.Intro -> IntroScreen(
                         isDefaultHome = isDefaultHome,
@@ -148,21 +160,69 @@ fun QuietLauncherRoot(
                 }
             }
         }
+
+        if (resetConfirm) {
+            AlertDialog(
+                onDismissRequest = { resetConfirm = false },
+                title = { Text(stringResource(R.string.settings_reset_confirm_title)) },
+                text = { Text(stringResource(R.string.settings_reset_confirm_body)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        resetConfirm = false
+                        viewModel.resetSettings()
+                    }) {
+                        Text(stringResource(R.string.settings_reset_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { resetConfirm = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+            )
+        }
     }
 }
 
-/** Quiet: wallpaper only. The up-swipe opens the search/deep entry. */
+/**
+ * Quiet: wallpaper only. The up-swipe opens the search/deep entry, and the
+ * same destinations are exposed as labelled accessibility actions so
+ * TalkBack and switch access can reach them without the gesture.
+ */
 @Composable
 private fun QuietScreen(
     isDefaultHome: Boolean,
     onOpenSearch: () -> Unit,
+    onOpenAllApps: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val description = stringResource(R.string.quiet_preview_badge)
+    val paneTitle = stringResource(R.string.quiet_pane_title)
+    val openSearchLabel = stringResource(R.string.quiet_open_search)
+    val allAppsLabel = stringResource(R.string.all_apps_entry)
+    val settingsLabel = stringResource(R.string.settings_entry)
     Box(
         Modifier
             .fillMaxSize()
             .semantics {
+                this.paneTitle = paneTitle
                 if (!isDefaultHome) contentDescription = description
+                // Assistive-tech double-tap opens search; the other entries
+                // are exposed as labelled custom actions.
+                onClick(label = openSearchLabel) {
+                    onOpenSearch()
+                    true
+                }
+                customActions = listOf(
+                    CustomAccessibilityAction(allAppsLabel) {
+                        onOpenAllApps()
+                        true
+                    },
+                    CustomAccessibilityAction(settingsLabel) {
+                        onOpenSettings()
+                        true
+                    },
+                )
             }
             .pointerInput(Unit) { detectUpSwipe(onOpenSearch) },
     ) {
