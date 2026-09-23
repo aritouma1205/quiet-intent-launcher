@@ -32,10 +32,12 @@ import io.github.aritouma1205.quietintentlauncher.ui.DeepScrim
 fun SettingsScreen(
     isDefaultHome: Boolean,
     edgeSettingsEnabled: Boolean,
+    doSettingsEnabled: Boolean,
     onSetHome: () -> Unit,
     onRestoreHome: () -> Unit,
     onChangeWallpaper: () -> Unit,
     onEdgeSettings: () -> Unit,
+    onDoSettings: () -> Unit,
     onReplayIntro: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onBack: () -> Unit,
@@ -113,6 +115,19 @@ fun SettingsScreen(
                     },
                     onClick = onEdgeSettings,
                     enabled = edgeSettingsEnabled,
+                )
+            }
+
+            SettingsSection(stringResource(R.string.settings_section_actions)) {
+                SettingsButton(
+                    label = stringResource(R.string.settings_actions_entry),
+                    note = if (doSettingsEnabled) {
+                        stringResource(R.string.settings_actions_note)
+                    } else {
+                        stringResource(R.string.edge_settings_unavailable)
+                    },
+                    onClick = onDoSettings,
+                    enabled = doSettingsEnabled,
                 )
             }
 

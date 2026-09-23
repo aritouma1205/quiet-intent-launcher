@@ -12,6 +12,7 @@ enum class HomeScreen {
     AllApps,
     Settings,
     EdgeSettings,
+    DoSettings,
     Edit,
 }
 

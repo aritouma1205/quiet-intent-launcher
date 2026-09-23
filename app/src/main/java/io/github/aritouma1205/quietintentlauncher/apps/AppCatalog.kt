@@ -141,4 +141,30 @@ class AppCatalog(
 
     fun loadIcon(entry: AppEntry): Drawable? =
         infoByComponent[entry.component]?.getIcon(densityDpi)
+
+    /** The personal-profile user every stored target launches as. */
+    val currentUser: UserHandle get() = userHandle
+
+    /**
+     * Resolves a stored flattened component against live OS state (design 6:
+     * a deleted or disabled app reads as unavailable without touching the
+     * saved configuration). Returns null when the component string is
+     * malformed or the activity is not currently launchable.
+     */
+    suspend fun resolveApp(flattenedComponent: String): AppEntry? =
+        withContext(Dispatchers.IO) {
+            val component = ComponentName.unflattenFromString(flattenedComponent)
+                ?: return@withContext null
+            launcherApps.getActivityList(component.packageName, userHandle)
+                .firstOrNull { it.componentName == component }
+                ?.let { info ->
+                    AppEntry(
+                        component = info.componentName,
+                        user = info.user,
+                        label = info.label?.toString()
+                            ?.takeIf { it.isNotBlank() }
+                            ?: info.componentName.packageName,
+                    )
+                }
+        }
 }
