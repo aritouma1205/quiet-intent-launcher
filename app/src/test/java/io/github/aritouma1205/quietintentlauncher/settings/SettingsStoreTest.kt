@@ -141,7 +141,11 @@ class SettingsStoreTest {
         val state = awaitSettled(store)
         assertTrue(state is SettingsState.Ready)
         assertEquals(SettingsData(), (state as SettingsState.Ready).data)
-        assertTrue(file.readText().contains("\"schemaVersion\":1"))
+        assertTrue(
+            file.readText().contains(
+                "\"schemaVersion\":${SettingsData.CURRENT_SCHEMA_VERSION}",
+            ),
+        )
     }
 
     @Test

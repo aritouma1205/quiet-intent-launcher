@@ -56,8 +56,15 @@ class SettingsSerializer(
         json.encodeToString(SettingsData.serializer(), data)
 
     private fun migrate(data: SettingsData): SettingsData {
-        // Sequential migrations per schemaVersion go here in later stages.
-        // v1 is the only version today; normalize the stored version field.
-        return data.copy(schemaVersion = SettingsData.CURRENT_SCHEMA_VERSION)
+        // Sequential migrations per schemaVersion. v1 -> v2 adds the edge-bar,
+        // TOOLS and system-action fields, all with defaults, so decoding an old
+        // file already fills them; sanitize keeps stored values inside the
+        // designed ranges.
+        return data.copy(
+            schemaVersion = SettingsData.CURRENT_SCHEMA_VERSION,
+            leftBar = data.leftBar.sanitized(),
+            rightBar = data.rightBar.sanitized(),
+            tools = data.tools.sanitized(),
+        )
     }
 }

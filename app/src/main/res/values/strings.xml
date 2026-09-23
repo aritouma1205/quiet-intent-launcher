@@ -6,10 +6,48 @@
     <string name="quiet_preview_badge">プレビュー中（既定のホームではありません）</string>
     <string name="quiet_pane_title">ホーム</string>
     <string name="quiet_open_search">検索を開く</string>
+    <string name="quiet_edit_action">ホーム編集を開く</string>
+    <string name="edge_bar_open_do">行動パネルを開く</string>
+    <string name="edge_bar_open_today">今日の情報パネルを開く</string>
+
+    <!-- Panels -->
+    <string name="panel_do_title">DO</string>
+    <string name="panel_today_title">TODAY</string>
+    <string name="close">閉じる</string>
+    <string name="do_target_unset">起動先 未設定</string>
+    <string name="tools_expand">TOOLS</string>
+    <string name="tools_title">TOOLS</string>
+    <string name="tools_back_to_do">DOに戻る</string>
+    <string name="feature_later">この機能は今後の段階で追加されます</string>
+    <string name="notification_hint">下スワイプで通知を開く機能は今後の段階で追加されます</string>
+
+    <!-- DO actions (design 6) -->
+    <string name="action_take">撮る</string>
+    <string name="action_talk">話す</string>
+    <string name="action_listen">聴く</string>
+    <string name="action_watch">見る</string>
+    <string name="action_go">移動する</string>
+    <string name="action_lookup">調べる</string>
+
+    <!-- TOOLS (design 7) -->
+    <string name="tool_light">ライト</string>
+    <string name="tool_calculator">電卓</string>
+    <string name="tool_qr">QR</string>
+    <string name="tool_timer">タイマー</string>
+    <string name="tool_screenshot">スクリーンショット</string>
+
+    <!-- TODAY / GLANCE -->
+    <string name="today_battery">バッテリー %1$d%%</string>
+    <string name="today_battery_charging">バッテリー %1$d%%（充電中）</string>
+
+    <!-- Home edit sheet -->
+    <string name="edit_title">ホーム編集</string>
+    <string name="edit_body">行動や配置の編集は今後の段階で追加されます。いまは設定から各項目を変更できます。</string>
+    <string name="edit_open_settings">設定を開く</string>
 
     <!-- Intro -->
     <string name="intro_title">Quiet Intent Launcher</string>
-    <string name="intro_body">何もしていない時は壁紙だけ。何かしたい時だけ、操作が現れます。\n\n壁紙の空いているところを上にスワイプすると検索が開き、そこから全アプリと設定に進めます。</string>
+    <string name="intro_body">何もしていない時は壁紙だけ。何かしたい時だけ、操作が現れます。\n\n画面の右端のバーを引くと行動（DO）、左端のバーを引くと今日の情報（TODAY）が開きます。壁紙の空いているところを上にスワイプすると検索が開き、そこから全アプリと設定に進めます。</string>
     <string name="intro_set_home">ホームアプリに設定する</string>
     <string name="intro_skip">あとで設定する</string>
     <string name="intro_done">はじめる</string>
@@ -40,6 +78,30 @@
     <string name="settings_section_display">表示</string>
     <string name="settings_change_wallpaper">壁紙を変更する</string>
     <string name="settings_change_wallpaper_note">OSの壁紙選択を開きます。壁紙はOSが管理し、このアプリは画像を保持しません。</string>
+    <string name="settings_section_edge">エッジ操作</string>
+    <string name="settings_edge_entry">バーとTOOLSの設定</string>
+    <string name="settings_edge_note">左右のバーの位置・長さ・太さ・濃さ・色、TOOLSの開き方、振動を変更します。</string>
+    <string name="edge_settings_title">エッジ操作</string>
+    <string name="edge_settings_unavailable">設定を読み込めない状態のため、変更できません。</string>
+    <string name="edge_bar_right">右バー（DO）</string>
+    <string name="edge_bar_left">左バー（TODAY）</string>
+    <string name="edge_bar_position">上下位置</string>
+    <string name="edge_bar_length">長さ</string>
+    <string name="edge_bar_thickness">太さ</string>
+    <string name="edge_bar_opacity">濃さ</string>
+    <string name="edge_color_white">白</string>
+    <string name="edge_color_black">黒</string>
+    <string name="edge_tools_title">TOOLSの開き方</string>
+    <string name="edge_tools_tap">タップで開く</string>
+    <string name="edge_tools_deep">深く引いて開く</string>
+    <string name="edge_tools_depth">深さの閾値</string>
+    <string name="edge_vibration_title">振動</string>
+    <string name="edge_vibration_system">システムに従う</string>
+    <string name="edge_vibration_off">無効</string>
+    <string name="percent_format">%1$d%%</string>
+    <string name="dp_format">%1$ddp</string>
+    <string name="save">保存</string>
+    <string name="settings_save_failed">設定を保存できませんでした。変更は保存されていません。</string>
     <string name="settings_section_about">このアプリについて</string>
     <string name="settings_replay_intro">説明をもう一度見る</string>
     <string name="settings_app_info">アプリ情報</string>
