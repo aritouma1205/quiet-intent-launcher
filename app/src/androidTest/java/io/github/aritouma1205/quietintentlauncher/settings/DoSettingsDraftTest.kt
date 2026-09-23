@@ -189,6 +189,64 @@ class DoSettingsDraftTest {
     }
 
     @Test
+    fun clearingInvalidLinkAllowsSavingUnsetTarget() {
+        var saveAttempts = 0
+        var saved: SettingsData? = null
+        val initial = SettingsData().let { data ->
+            data.copy(
+                actions = data.actions.mapIndexed { index, action ->
+                    if (index == 0) {
+                        action.copy(
+                            target = StoredTarget.HttpsLink(
+                                "https://example.com/old",
+                            ),
+                        )
+                    } else {
+                        action
+                    }
+                },
+            )
+        }
+        setContent(
+            initial = initial,
+            onSave = { data, done -> saveAttempts++; saved = data; done(true) },
+        )
+
+        // Open the first action's target picker and switch to the link mode.
+        rule.onAllNodesWithText(res(R.string.action_target_change))
+            .onFirst()
+            .performScrollTo()
+            .performClick()
+        rule.onNodeWithText(res(R.string.target_kind_link))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        // Replace the stored URL with an invalid non-blank input so the
+        // editor reports a pending invalid link.
+        rule.onNode(
+            hasSetTextAction() and hasText("https://example.com/old"),
+        )
+            .assertIsDisplayed()
+            .performTextReplacement("http://example.com/new")
+        rule.waitForIdle()
+
+        // 「解除する」 must clear the pending-invalid flag together with the
+        // assignment, so saving afterwards persists an unset target.
+        rule.onNodeWithText(res(R.string.target_clear))
+            .performClick()
+        rule.waitForIdle()
+
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        assertEquals(1, saveAttempts)
+        assertEquals(null, saved?.actions?.first()?.target)
+    }
+
+    @Test
     fun dirtyBackShowsConfirm() {
         var backed = false
         setContent(

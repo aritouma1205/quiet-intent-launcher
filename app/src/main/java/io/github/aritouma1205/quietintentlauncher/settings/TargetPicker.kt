@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -68,6 +70,11 @@ fun TargetPicker(
     }
     val activeMode = PickerMode.valueOf(mode)
 
+    // Bumping this recreates the link editor below so 「解除する」 also
+    // resets a pending invalid input and its reported validity, letting an
+    // explicitly cleared target save as unset.
+    var clearCount by rememberSaveable { mutableIntStateOf(0) }
+
     Column(Modifier.fillMaxWidth()) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -92,7 +99,7 @@ fun TargetPicker(
             )
             if (current != null) {
                 TextButton(
-                    onClick = { onPick(null) },
+                    onClick = { clearCount++; onPick(null) },
                     modifier = Modifier.align(Alignment.CenterVertically),
                 ) {
                     Text(stringResource(R.string.target_clear))
@@ -108,11 +115,13 @@ fun TargetPicker(
                     onPick(StoredTarget.App(entry.component.flattenToShortString()))
                 },
             )
-            PickerMode.Link -> HttpsLinkEditor(
-                current = current as? StoredTarget.HttpsLink,
-                onPick = onPick,
-                onPendingInvalid = onPendingInvalid,
-            )
+            PickerMode.Link -> key(clearCount) {
+                HttpsLinkEditor(
+                    current = current as? StoredTarget.HttpsLink,
+                    onPick = onPick,
+                    onPendingInvalid = onPendingInvalid,
+                )
+            }
             PickerMode.Shortcut -> ShortcutPickList(
                 apps = apps,
                 iconLoader = iconLoader,
