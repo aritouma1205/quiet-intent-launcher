@@ -31,9 +31,11 @@ import io.github.aritouma1205.quietintentlauncher.ui.DeepScrim
 @Composable
 fun SettingsScreen(
     isDefaultHome: Boolean,
+    edgeSettingsEnabled: Boolean,
     onSetHome: () -> Unit,
     onRestoreHome: () -> Unit,
     onChangeWallpaper: () -> Unit,
+    onEdgeSettings: () -> Unit,
     onReplayIntro: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onBack: () -> Unit,
@@ -101,6 +103,19 @@ fun SettingsScreen(
                 )
             }
 
+            SettingsSection(stringResource(R.string.settings_section_edge)) {
+                SettingsButton(
+                    label = stringResource(R.string.settings_edge_entry),
+                    note = if (edgeSettingsEnabled) {
+                        stringResource(R.string.settings_edge_note)
+                    } else {
+                        stringResource(R.string.edge_settings_unavailable)
+                    },
+                    onClick = onEdgeSettings,
+                    enabled = edgeSettingsEnabled,
+                )
+            }
+
             SettingsSection(stringResource(R.string.settings_section_about)) {
                 SettingsButton(
                     label = stringResource(R.string.settings_replay_intro),
@@ -135,9 +150,18 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun SettingsButton(label: String, note: String?, onClick: () -> Unit) {
+private fun SettingsButton(
+    label: String,
+    note: String?,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
     Column(Modifier.padding(vertical = 4.dp)) {
-        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Text(label)
         }
         if (note != null) {

@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
             QuietLauncherRoot(
                 viewModel = viewModel,
                 iconLoader = container.appCatalog::loadIcon,
+                todayInfo = container.todayData::current,
                 onRequestHomeRole = ::requestHomeRole,
                 onRestoreHome = ::openDefaultHomeSettings,
                 onChangeWallpaper = ::openWallpaperPicker,
@@ -51,12 +52,12 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // HOME pressed while we are visible always lands on Quiet (design 3).
-        viewModel.nav.onHomeInvoked()
+        viewModel.onHomeInvoked()
     }
 
     override fun onStart() {
         super.onStart()
-        viewModel.nav.onForegrounded()
+        viewModel.onForegrounded()
         viewModel.refreshHomeRole()
         // Consistency check for app installs/removals while away (design 15).
         container.appCatalog.reloadAll()
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
         // A recreation (rotation etc.) keeps the ViewModel and must not
         // collapse the navigation stack; only real backgrounding returns
         // the home UI to Quiet (design 3).
-        if (!isChangingConfigurations) viewModel.nav.onBackgrounded()
+        if (!isChangingConfigurations) viewModel.onBackgrounded()
     }
 
     private fun requestHomeRole() {

@@ -4,13 +4,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Screens reachable in stage 1 (design 3). Deeper panels arrive later. */
+/** Stack screens (design 3). Reveal panels are overlays, not stack entries. */
 enum class HomeScreen {
     Quiet,
     Intro,
     Search,
     AllApps,
     Settings,
+    EdgeSettings,
+    Edit,
 }
 
 /**

@@ -2,18 +2,28 @@ package io.github.aritouma1205.quietintentlauncher.home
 
 import android.app.Activity
 import android.graphics.drawable.Drawable
+import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animate
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,14 +31,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -45,18 +61,24 @@ import io.github.aritouma1205.quietintentlauncher.apps.AllAppsScreen
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
 import io.github.aritouma1205.quietintentlauncher.intro.IntroScreen
 import io.github.aritouma1205.quietintentlauncher.search.SearchScreen
+import io.github.aritouma1205.quietintentlauncher.settings.EdgeSettingsScreen
+import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
+import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
+import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
+import io.github.aritouma1205.quietintentlauncher.today.TodayInfo
 import io.github.aritouma1205.quietintentlauncher.ui.DeepScrim
 import io.github.aritouma1205.quietintentlauncher.ui.QuietBadgeBackground
 import io.github.aritouma1205.quietintentlauncher.ui.QuietLauncherTheme
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlin.math.min
+import kotlinx.coroutines.launch
 
 @Composable
 fun QuietLauncherRoot(
     viewModel: HomeViewModel,
     iconLoader: (AppEntry) -> Drawable?,
+    todayInfo: () -> TodayInfo,
     onRequestHomeRole: () -> Unit,
     onRestoreHome: () -> Unit,
     onChangeWallpaper: () -> Unit,
@@ -64,6 +86,7 @@ fun QuietLauncherRoot(
 ) {
     QuietLauncherTheme {
         val screen by viewModel.screen.collectAsState()
+        val overlay by viewModel.overlay.collectAsState()
         val settingsState by viewModel.settingsState.collectAsState()
         val isDefaultHome by viewModel.isDefaultHome.collectAsState()
         val recoveryDismissed by viewModel.recoveryDismissed.collectAsState()
@@ -87,6 +110,8 @@ fun QuietLauncherRoot(
                 val text = when (message) {
                     HomeMessage.LaunchFailed -> R.string.all_apps_launch_failed
                     HomeMessage.LaunchBusy -> R.string.all_apps_duplicate
+                    HomeMessage.FeatureLater -> R.string.feature_later
+                    HomeMessage.NotificationHint -> R.string.notification_hint
                 }
                 Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
             }
@@ -94,8 +119,10 @@ fun QuietLauncherRoot(
 
         val showRecovery = settingsState is SettingsState.Degraded && !recoveryDismissed
         var resetConfirm by remember { mutableStateOf(false) }
-        BackHandler(enabled = showRecovery || screen != HomeScreen.Quiet) {
-            if (showRecovery) viewModel.dismissRecovery() else viewModel.nav.back()
+        BackHandler(
+            enabled = showRecovery || overlay != null || screen != HomeScreen.Quiet,
+        ) {
+            if (showRecovery) viewModel.dismissRecovery() else viewModel.handleBack()
         }
 
         Box(Modifier.fillMaxSize()) {
@@ -109,9 +136,22 @@ fun QuietLauncherRoot(
                 else -> when (screen) {
                     HomeScreen.Quiet -> QuietScreen(
                         isDefaultHome = isDefaultHome,
+                        overlay = overlay,
+                        settings = viewModel.currentSettings(),
+                        todayInfo = todayInfo,
+                        onFreeAreaEvent = viewModel::onFreeAreaEvent,
+                        onGlanceHold = viewModel::setGlanceHold,
                         onOpenSearch = { viewModel.nav.navigateTo(HomeScreen.Search) },
                         onOpenAllApps = { viewModel.nav.navigateTo(HomeScreen.AllApps) },
                         onOpenSettings = { viewModel.nav.navigateTo(HomeScreen.Settings) },
+                        onOpenDoPanel = viewModel::openDoPanel,
+                        onOpenTodayPanel = viewModel::openTodayPanel,
+                        onExpandTools = viewModel::expandTools,
+                        onCollapseTools = viewModel::collapseTools,
+                        onCloseOverlay = viewModel::closeOverlay,
+                        onUnavailable = {
+                            viewModel.emitMessage(HomeMessage.FeatureLater)
+                        },
                     )
                     HomeScreen.Intro -> IntroScreen(
                         isDefaultHome = isDefaultHome,
@@ -138,6 +178,7 @@ fun QuietLauncherRoot(
                     )
                     HomeScreen.Settings -> SettingsScreen(
                         isDefaultHome = isDefaultHome,
+                        edgeSettingsEnabled = settingsState is SettingsState.Ready,
                         onSetHome = {
                             viewModel.nav.beginExternalFlow()
                             onRequestHomeRole()
@@ -150,12 +191,35 @@ fun QuietLauncherRoot(
                             viewModel.nav.beginExternalFlow()
                             onChangeWallpaper()
                         },
+                        onEdgeSettings = {
+                            viewModel.nav.navigateTo(HomeScreen.EdgeSettings)
+                        },
                         onReplayIntro = { viewModel.nav.navigateTo(HomeScreen.Intro) },
                         onOpenAppInfo = {
                             viewModel.nav.beginExternalFlow()
                             onOpenAppInfo(context.packageName)
                         },
                         onBack = { viewModel.nav.back() },
+                    )
+                    HomeScreen.EdgeSettings -> {
+                        val data = (settingsState as? SettingsState.Ready)?.data
+                        if (data != null) {
+                            EdgeSettingsScreen(
+                                initial = data,
+                                onSave = viewModel::saveSettings,
+                                onBack = { viewModel.nav.back() },
+                            )
+                        } else {
+                            EdgeSettingsUnavailable(
+                                onBack = { viewModel.nav.back() },
+                            )
+                        }
+                    }
+                    HomeScreen.Edit -> HomeEditSheet(
+                        onOpenSettings = {
+                            viewModel.nav.navigateTo(HomeScreen.Settings)
+                        },
+                        onDismiss = { viewModel.nav.back() },
                     )
                 }
             }
@@ -185,30 +249,43 @@ fun QuietLauncherRoot(
 }
 
 /**
- * Quiet: wallpaper only. The up-swipe opens the search/deep entry, and the
- * same destinations are exposed as labelled accessibility actions so
- * TalkBack and switch access can reach them without the gesture.
+ * Quiet: wallpaper, the two edge bars and the free area (design 3, 4, 5).
+ * Bars stay while GLANCE is up and are hidden while a Reveal panel is open.
  */
 @Composable
 private fun QuietScreen(
     isDefaultHome: Boolean,
+    overlay: HomeOverlay?,
+    settings: SettingsData,
+    todayInfo: () -> TodayInfo,
+    onFreeAreaEvent: (FreeAreaEvent) -> Unit,
+    onGlanceHold: (Boolean) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenAllApps: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDoPanel: (Boolean) -> Unit,
+    onOpenTodayPanel: () -> Unit,
+    onExpandTools: () -> Unit,
+    onCollapseTools: () -> Unit,
+    onCloseOverlay: () -> Unit,
+    onUnavailable: () -> Unit,
 ) {
     val description = stringResource(R.string.quiet_preview_badge)
     val paneTitle = stringResource(R.string.quiet_pane_title)
     val openSearchLabel = stringResource(R.string.quiet_open_search)
     val allAppsLabel = stringResource(R.string.all_apps_entry)
     val settingsLabel = stringResource(R.string.settings_entry)
-    Box(
+    val editLabel = stringResource(R.string.quiet_edit_action)
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .semantics {
                 this.paneTitle = paneTitle
                 if (!isDefaultHome) contentDescription = description
-                // Assistive-tech double-tap opens search; the other entries
-                // are exposed as labelled custom actions.
                 onClick(label = openSearchLabel) {
                     onOpenSearch()
                     true
@@ -222,14 +299,230 @@ private fun QuietScreen(
                         onOpenSettings()
                         true
                     },
+                    CustomAccessibilityAction(editLabel) {
+                        onFreeAreaEvent(FreeAreaEvent.LongPress)
+                        true
+                    },
                 )
-            }
-            .pointerInput(Unit) { detectUpSwipe(onOpenSearch) },
+            },
     ) {
+        val widthPx = constraints.maxWidth.toFloat()
+        val heightPx = constraints.maxHeight.toFloat()
+
+        val systemBars = WindowInsets.systemBars
+        val cutout = WindowInsets.displayCutout
+        val layoutDirection = LocalLayoutDirection.current
+        val topPx = maxOf(
+            systemBars.getTop(density),
+            cutout.getTop(density),
+        ).toFloat()
+        val bottomPx = maxOf(
+            systemBars.getBottom(density),
+            cutout.getBottom(density),
+        ).toFloat()
+        val leftPx = maxOf(
+            systemBars.getLeft(density, layoutDirection),
+            cutout.getLeft(density, layoutDirection),
+        ).toFloat()
+        val rightPx = maxOf(
+            systemBars.getRight(density, layoutDirection),
+            cutout.getRight(density, layoutDirection),
+        ).toFloat()
+        val systemGestureBottomPx =
+            WindowInsets.systemGestures.getBottom(density).toFloat()
+
+        // Design 12: the smaller of 88% of the width and 360dp.
+        val panelWidthPx = min(
+            0.88f * widthPx,
+            with(density) { 360.dp.toPx() },
+        )
+
+        val usableTop = topPx
+        val usableHeight = (heightPx - topPx - bottomPx).coerceAtLeast(0f)
+
+        var visualPanel by remember { mutableStateOf<EdgeSide?>(null) }
+        var previewToolsExpanded by remember { mutableStateOf(false) }
+        val panelProgress = remember { mutableFloatStateOf(0f) }
+        var dragging by remember { mutableStateOf(false) }
+
+        // Drive the visual panel from the overlay state; a preview drag owns
+        // the visuals directly and commits through the VM on release.
+        LaunchedEffect(overlay) {
+            when (overlay) {
+                is HomeOverlay.Do -> {
+                    if (visualPanel == null) {
+                        visualPanel = EdgeSide.Right
+                        panelProgress.floatValue = 0f
+                        animate(0f, 1f) { v, _ -> panelProgress.floatValue = v }
+                    }
+                }
+                is HomeOverlay.Today -> {
+                    if (visualPanel == null) {
+                        visualPanel = EdgeSide.Left
+                        panelProgress.floatValue = 0f
+                        animate(0f, 1f) { v, _ -> panelProgress.floatValue = v }
+                    }
+                }
+                else -> {
+                    if (visualPanel != null && !dragging) {
+                        animate(panelProgress.floatValue, 0f) { v, _ ->
+                            panelProgress.floatValue = v
+                        }
+                        visualPanel = null
+                        previewToolsExpanded = false
+                    }
+                }
+            }
+        }
+
+        fun handleBarEvent(side: EdgeSide, event: EdgeDragEvent) {
+            when (event) {
+                is EdgeDragEvent.Progress -> {
+                    dragging = true
+                    visualPanel = side
+                    panelProgress.floatValue = event.fraction.coerceIn(0f, 1f)
+                }
+                is EdgeDragEvent.ToolsExpanded -> {
+                    previewToolsExpanded = true
+                    panelProgress.floatValue = event.fraction.coerceIn(0f, 1f)
+                }
+                is EdgeDragEvent.ToolsCollapsed -> {
+                    previewToolsExpanded = false
+                    panelProgress.floatValue = event.fraction.coerceIn(0f, 1f)
+                }
+                is EdgeDragEvent.Opened -> scope.launch {
+                    animate(panelProgress.floatValue, 1f) { v, _ ->
+                        panelProgress.floatValue = v
+                    }
+                    dragging = false
+                    if (side == EdgeSide.Right) {
+                        onOpenDoPanel(event.toolsExpanded)
+                    } else {
+                        onOpenTodayPanel()
+                    }
+                }
+                EdgeDragEvent.Closed -> scope.launch {
+                    animate(panelProgress.floatValue, 0f) { v, _ ->
+                        panelProgress.floatValue = v
+                    }
+                    visualPanel = null
+                    dragging = false
+                    previewToolsExpanded = false
+                }
+                EdgeDragEvent.Tapped -> {
+                    if (side == EdgeSide.Right) onOpenDoPanel(false) else onOpenTodayPanel()
+                }
+            }
+        }
+
+        val barsVisible = overlay == null || overlay == HomeOverlay.Glance
+        val freeAreaGate = remember { FreeAreaGate() }
+        val viewConfiguration = LocalViewConfiguration.current
+
+        // Free area first (bottom layer); bars and overlays sit above it, so
+        // touches inside a bar never reach the free area (design 5 order).
+        if (barsVisible) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .freeAreaGestures(
+                        gate = freeAreaGate,
+                        touchSlopPx = viewConfiguration.touchSlop,
+                        isSwipeStartAllowed = { offset ->
+                            offset.y < heightPx - systemGestureBottomPx
+                        },
+                        doubleTapEnabled =
+                            settings.systemActions.screenOffEnabled,
+                        onHoldChange = onGlanceHold,
+                        onEvent = onFreeAreaEvent,
+                    ),
+            )
+
+            EdgeBar(
+                side = EdgeSide.Left,
+                settings = settings.leftBar,
+                containerWidthPx = widthPx,
+                usableTopPx = usableTop,
+                usableHeightPx = usableHeight,
+                insetSidePx = leftPx,
+                panelWidthPx = panelWidthPx,
+                deepPullEnabled = false,
+                toolsThreshold = settings.tools.deepPullFraction,
+                hapticsEnabled = settings.vibration == VibrationMode.System,
+                openLabel = stringResource(R.string.edge_bar_open_today),
+                onEvent = ::handleBarEvent,
+                onHaptic = {
+                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                },
+            )
+            EdgeBar(
+                side = EdgeSide.Right,
+                settings = settings.rightBar,
+                containerWidthPx = widthPx,
+                usableTopPx = usableTop,
+                usableHeightPx = usableHeight,
+                insetSidePx = rightPx,
+                panelWidthPx = panelWidthPx,
+                deepPullEnabled =
+                    settings.tools.openMode == ToolsOpenMode.DeepPull,
+                toolsThreshold = settings.tools.deepPullFraction,
+                hapticsEnabled = settings.vibration == VibrationMode.System,
+                openLabel = stringResource(R.string.edge_bar_open_do),
+                onEvent = ::handleBarEvent,
+                onHaptic = {
+                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                },
+            )
+        }
+
+        // Reveal panel: open state from the VM, or the drag preview.
+        val openPanel = overlay
+        val panelSide = visualPanel
+        if (panelSide != null) {
+            val toolsExpanded = when (val o = openPanel) {
+                is HomeOverlay.Do -> o.toolsExpanded
+                else -> previewToolsExpanded
+            }
+            PanelLayer(
+                side = panelSide,
+                progress = panelProgress.floatValue,
+                panelWidthPx = panelWidthPx,
+                paneTitle = stringResource(
+                    if (panelSide == EdgeSide.Right) {
+                        R.string.panel_do_title
+                    } else {
+                        R.string.panel_today_title
+                    },
+                ),
+                onClose = onCloseOverlay,
+            ) {
+                if (panelSide == EdgeSide.Right) {
+                    DoPanel(
+                        toolsExpanded = toolsExpanded,
+                        panelWidthPx = panelWidthPx,
+                        onExpandTools = onExpandTools,
+                        onCollapseTools = onCollapseTools,
+                        onClose = onCloseOverlay,
+                        onUnavailable = onUnavailable,
+                    )
+                } else {
+                    TodayPanel(
+                        info = todayInfo(),
+                        panelWidthPx = panelWidthPx,
+                        onClose = onCloseOverlay,
+                    )
+                }
+            }
+        }
+
+        if (overlay == HomeOverlay.Glance) {
+            GlanceOverlay(todayInfo())
+        }
+
         if (!isDefaultHome) {
             Text(
                 text = description,
-                color = androidx.compose.ui.graphics.Color.White,
+                color = Color.White,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -261,7 +554,7 @@ private fun RecoveryScreen(
     ) {
         Text(
             text = stringResource(R.string.settings_degraded_title),
-            style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleLarge,
         )
         Text(
             text = stringResource(R.string.settings_degraded_body),
@@ -269,7 +562,7 @@ private fun RecoveryScreen(
         )
         Text(
             text = message,
-            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )
         Column(
@@ -288,5 +581,26 @@ private fun RecoveryScreen(
                 Text(stringResource(R.string.settings_degraded_continue))
             }
         }
+    }
+}
+
+@Composable
+private fun EdgeSettingsUnavailable(onBack: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DeepScrim)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(24.dp),
+    ) {
+        TextButton(onClick = onBack) {
+            Text(stringResource(R.string.back))
+        }
+        Text(
+            text = stringResource(R.string.edge_settings_unavailable),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 16.dp),
+        )
     }
 }
