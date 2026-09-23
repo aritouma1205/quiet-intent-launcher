@@ -11,6 +11,7 @@ import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -47,6 +48,7 @@ fun EdgeBar(
     toolsThreshold: Float,
     hapticsEnabled: Boolean,
     openLabel: String,
+    wasMultiPointer: () -> Boolean,
     onEvent: (EdgeSide, EdgeDragEvent) -> Unit,
     onHaptic: () -> Unit,
 ) {
@@ -96,6 +98,7 @@ fun EdgeBar(
                     toolsThreshold = toolsThreshold,
                     toolsHysteresis = ToolsSettings.HYSTERESIS_FRACTION,
                     hapticsEnabled = hapticsEnabled,
+                    wasMultiPointer = wasMultiPointer,
                     onEvent = { event -> onEvent(side, event) },
                     onHaptic = onHaptic,
                 )
@@ -116,6 +119,7 @@ private suspend fun PointerInputScope.detectEdgeDrag(
     toolsThreshold: Float,
     toolsHysteresis: Float,
     hapticsEnabled: Boolean,
+    wasMultiPointer: () -> Boolean,
     onEvent: (EdgeDragEvent) -> Unit,
     onHaptic: () -> Unit,
 ) {
@@ -140,19 +144,40 @@ private suspend fun PointerInputScope.detectEdgeDrag(
         var totalDy = 0f
         while (true) {
             val event = awaitPointerEvent()
-            if (event.changes.count { it.pressed } > 1) {
+            // A second finger is often outside this bar's bounds and never
+            // reaches this event stream; the shared latch covers it.
+            if (
+                event.changes.count { it.pressed } > 1 || wasMultiPointer()
+            ) {
                 machine.onPointerCountChanged(2)?.let(::dispatch)
                 break
             }
             val change = event.changes.firstOrNull { it.id == down.id }
-            if (change == null || !change.pressed) {
-                machine.onUp()?.let(::dispatch)
-                break
+            when {
+                // The tracked pointer vanished without a release: the OS
+                // interrupted the input stream — treat as cancel.
+                change == null -> {
+                    machine.onCancel()?.let(::dispatch)
+                    break
+                }
+                !change.pressed -> {
+                    // A synthetic consumed release is the OS cancelling the
+                    // stream (system gesture steal, focus loss); a real
+                    // finger-up arrives unconsumed as a Release event.
+                    if (event.type == PointerEventType.Release && !change.isConsumed) {
+                        machine.onUp()?.let(::dispatch)
+                    } else {
+                        machine.onCancel()?.let(::dispatch)
+                    }
+                    break
+                }
+                else -> {
+                    totalDx += change.positionChange().x
+                    totalDy += change.positionChange().y
+                    if (change.positionChanged()) change.consume()
+                    machine.onMove(totalDx, totalDy)?.let(::dispatch)
+                }
             }
-            totalDx += change.positionChange().x
-            totalDy += change.positionChange().y
-            if (change.positionChanged()) change.consume()
-            machine.onMove(totalDx, totalDy)?.let(::dispatch)
         }
     }
 }

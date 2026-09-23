@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -280,9 +281,36 @@ private fun QuietScreen(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
 
+    // Whole-surface pointer tracking: a second finger often lands outside
+    // the bar's or the free area's own event stream, so arming multi-touch
+    // detection on each detector alone misses it (design 4.2, 5). The
+    // parent sees every pointer's down/up and latches "multi" until the
+    // last finger leaves.
+    val activePointerIds = remember { mutableSetOf<PointerId>() }
+    var sawMultiPointer by remember { mutableStateOf(false) }
+
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
+            .pointerInput(Unit) {
+                while (true) {
+                    awaitPointerEventScope {
+                        val event = awaitPointerEvent()
+                        for (change in event.changes) {
+                            when {
+                                change.pressed && !change.previousPressed ->
+                                    activePointerIds += change.id
+                                !change.pressed && change.previousPressed ->
+                                    activePointerIds -= change.id
+                            }
+                        }
+                        when {
+                            activePointerIds.isEmpty() -> sawMultiPointer = false
+                            activePointerIds.size > 1 -> sawMultiPointer = true
+                        }
+                    }
+                }
+            }
             .semantics {
                 this.paneTitle = paneTitle
                 if (!isDefaultHome) contentDescription = description
@@ -433,6 +461,7 @@ private fun QuietScreen(
                         },
                         doubleTapEnabled =
                             settings.systemActions.screenOffEnabled,
+                        wasMultiPointer = { sawMultiPointer },
                         onHoldChange = onGlanceHold,
                         onEvent = onFreeAreaEvent,
                     ),
@@ -450,6 +479,7 @@ private fun QuietScreen(
                 toolsThreshold = settings.tools.deepPullFraction,
                 hapticsEnabled = settings.vibration == VibrationMode.System,
                 openLabel = stringResource(R.string.edge_bar_open_today),
+                wasMultiPointer = { sawMultiPointer },
                 onEvent = ::handleBarEvent,
                 onHaptic = {
                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
@@ -468,6 +498,7 @@ private fun QuietScreen(
                 toolsThreshold = settings.tools.deepPullFraction,
                 hapticsEnabled = settings.vibration == VibrationMode.System,
                 openLabel = stringResource(R.string.edge_bar_open_do),
+                wasMultiPointer = { sawMultiPointer },
                 onEvent = ::handleBarEvent,
                 onHaptic = {
                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)

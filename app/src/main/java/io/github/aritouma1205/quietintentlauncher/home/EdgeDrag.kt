@@ -62,6 +62,14 @@ class EdgeDragStateMachine(
 
     private var phase = Phase.Idle
 
+    /**
+     * Whether the input can still end as a bar tap. Any movement beyond
+     * touch slop — including diagonal travel that never resolved into a
+     * direction — revokes it, so a release after unresolved movement is
+     * [EdgeDragEvent.Closed], never [EdgeDragEvent.Tapped] (design 4.2).
+     */
+    private var tapEligible = false
+
     /** Latest inward progress as a fraction of panel width (>= 0). */
     var progress: Float = 0f
         private set
@@ -72,6 +80,7 @@ class EdgeDragStateMachine(
 
     fun onDown(startedOnBar: Boolean) {
         phase = if (startedOnBar) Phase.Armed else Phase.Idle
+        tapEligible = startedOnBar
         progress = 0f
         toolsExpanded = false
     }
@@ -81,6 +90,9 @@ class EdgeDragStateMachine(
      * one event per call; callers render [Progress] continuously.
      */
     fun onMove(totalDx: Float, totalDy: Float): EdgeDragEvent? {
+        if (abs(totalDx) > touchSlop || abs(totalDy) > touchSlop) {
+            tapEligible = false
+        }
         val inward = if (side == EdgeSide.Right) -totalDx else totalDx
         return when (phase) {
             Phase.Armed -> resolveDirection(inward, totalDy)
@@ -141,7 +153,7 @@ class EdgeDragStateMachine(
     fun onUp(): EdgeDragEvent? = when (phase) {
         Phase.Armed -> {
             phase = Phase.Done
-            EdgeDragEvent.Tapped
+            if (tapEligible) EdgeDragEvent.Tapped else EdgeDragEvent.Closed
         }
         Phase.Dragging -> {
             phase = Phase.Done

@@ -140,6 +140,36 @@ class EdgeDragTest {
     }
 
     @Test
+    fun `large unresolved diagonal move is not a tap`() {
+        val m = rightBar()
+        m.onDown(true)
+        // Reviewer repro: dx=-160, dy=160 stays direction-pending; the
+        // release must close, not tap.
+        assertNull(m.onMove(-160f, 160f))
+        assertEquals(EdgeDragEvent.Closed, m.onUp())
+    }
+
+    @Test
+    fun `move beyond slop without a direction still closes`() {
+        val m = rightBar()
+        m.onDown(true)
+        // 45-degree drift: neither direction wins the 1.5x ratio.
+        assertNull(m.onMove(-30f, 30f))
+        assertNull(m.onMove(-20f, 20f))
+        assertEquals(EdgeDragEvent.Closed, m.onUp())
+    }
+
+    @Test
+    fun `movement past slop then return to origin is not a tap`() {
+        val m = rightBar()
+        m.onDown(true)
+        m.onMove(-160f, 160f)
+        // Cumulative totals return to zero, but tap eligibility is gone.
+        m.onMove(0f, 0f)
+        assertEquals(EdgeDragEvent.Closed, m.onUp())
+    }
+
+    @Test
     fun `deep pull expands tools at the threshold with hysteresis`() {
         val m = rightBar(deepPull = true)
         m.onDown(true)

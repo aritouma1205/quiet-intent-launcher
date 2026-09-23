@@ -36,16 +36,21 @@ fun HomeEditSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetTitle = stringResource(R.string.edit_title)
-    Box(
-        Modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClickLabel = stringResource(R.string.close),
-                onClick = onDismiss,
-            ),
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        // Outside area dismisses. The scrim must stay a sibling of the
+        // sheet: paneTitle may not live inside a mergeDescendants subtree
+        // (merging panes crashes), so the sheet cannot sit inside the
+        // clickable node.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClickLabel = stringResource(R.string.close),
+                    onClick = onDismiss,
+                ),
+        )
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)

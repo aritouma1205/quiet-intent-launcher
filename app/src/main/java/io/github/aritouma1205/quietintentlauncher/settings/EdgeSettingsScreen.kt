@@ -28,6 +28,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.ui.DeepScrim
+import kotlinx.serialization.json.Json
 
 /**
  * Edge-gesture settings (design 4.1, 4.3, 11.2): bar geometry for both bars,
@@ -49,8 +52,18 @@ fun EdgeSettingsScreen(
     onSave: (SettingsData, (Boolean) -> Unit) -> Unit,
     onBack: () -> Unit,
 ) {
-    var draft by remember { mutableStateOf(initial) }
-    var saveFailed by remember { mutableStateOf(false) }
+    // Unsaved edits survive Activity recreation (design 3): the draft is a
+    // JSON round-trip in the saved-state bundle, independent of the file.
+    val settingsSaver = remember {
+        Saver<SettingsData, String>(
+            save = { Json.encodeToString(SettingsData.serializer(), it) },
+            restore = { Json.decodeFromString(SettingsData.serializer(), it) },
+        )
+    }
+    var draft by rememberSaveable(stateSaver = settingsSaver) {
+        mutableStateOf(initial)
+    }
+    var saveFailed by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
