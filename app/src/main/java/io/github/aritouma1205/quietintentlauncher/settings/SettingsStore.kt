@@ -4,6 +4,8 @@ import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -69,13 +71,16 @@ class SettingsStore(
         _state.value = SettingsState.Loading
         collectJob = scope.launch {
             val file = fileProvider()
-            if (file.exists() && file.length() > 0L) {
+            if (file.exists()) {
                 try {
                     file.inputStream().use { serializer.readFrom(it) }
                 } catch (e: CorruptionException) {
-                    degraded = true
-                    _state.value =
-                        SettingsState.Degraded(e.message ?: "settings unreadable")
+                    degrade(e.message)
+                    return@launch
+                } catch (e: IOException) {
+                    // The open itself failed (permission, vanished file,
+                    // non-file path): degrade, never crash, keep the file.
+                    degrade(e.message)
                     return@launch
                 }
             }
@@ -182,12 +187,24 @@ class SettingsStore(
         _state.value = SettingsState.Degraded(message ?: "settings unreadable")
     }
 
+    /**
+     * Replaces [file] atomically via a scratch file. If the atomic move is
+     * not possible the scratch file is removed and an [IOException] is
+     * thrown — the original is never partially overwritten.
+     */
     private fun writeAtomically(file: File, text: String) {
         val tmp = File(file.parentFile, file.name + ".tmp")
         tmp.writeText(text, Charsets.UTF_8)
-        if (!tmp.renameTo(file)) {
-            tmp.copyTo(file, overwrite = true)
-            tmp.delete()
+        try {
+            Files.move(
+                tmp.toPath(),
+                file.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE,
+            )
+        } catch (e: IOException) {
+            Files.deleteIfExists(tmp.toPath())
+            throw e
         }
     }
 }

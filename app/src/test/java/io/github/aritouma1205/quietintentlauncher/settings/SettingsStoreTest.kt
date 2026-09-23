@@ -1,7 +1,11 @@
 package io.github.aritouma1205.quietintentlauncher.settings
 
+import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStoreFactory
+import androidx.datastore.core.Serializer
 import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -169,4 +173,93 @@ class SettingsStoreTest {
             assertTrue(state is SettingsState.Ready)
             assertEquals(SettingsData(), (state as SettingsState.Ready).data)
         }
+
+    @Test
+    fun `file open failure degrades without crashing`() = runBlocking {
+        // A path that exists but cannot be opened as a file (a directory)
+        // fails the pre-read open itself, before the serializer runs.
+        val dirPath = File(dir, "blocked_settings.json").apply { mkdirs() }
+        val store = SettingsStore(
+            scope = scope,
+            serializer = serializer,
+            fileProvider = { dirPath },
+            dataStoreFactory = { s ->
+                DataStoreFactory.create(
+                    serializer = serializer,
+                    scope = s,
+                    produceFile = { dirPath },
+                )
+            },
+        )
+        store.start()
+        assertTrue(awaitSettled(store) is SettingsState.Degraded)
+        // The original path is untouched.
+        assertTrue(dirPath.isDirectory)
+    }
+
+    @Test
+    fun `read failure after open degrades and retry recovers`() = runBlocking {
+        val flaky = object : Serializer<SettingsData> {
+            private val delegate = SettingsSerializer()
+            var failReads = true
+            override val defaultValue: SettingsData get() = delegate.defaultValue
+            override suspend fun readFrom(input: InputStream): SettingsData {
+                if (failReads) throw CorruptionException("injected", null)
+                return delegate.readFrom(input)
+            }
+            override suspend fun writeTo(t: SettingsData, output: OutputStream) =
+                delegate.writeTo(t, output)
+        }
+        file.writeText("""{"schemaVersion":1,"introCompleted":true}""")
+        val store = SettingsStore(
+            scope = scope,
+            serializer = serializer,
+            fileProvider = { file },
+            dataStoreFactory = { s ->
+                DataStoreFactory.create(
+                    serializer = flaky,
+                    scope = s,
+                    produceFile = { file },
+                )
+            },
+        )
+        store.start()
+        // The pre-read (real serializer) passes but the DataStore read
+        // fails, degrading the session with a live DataStore instance.
+        assertTrue(awaitSettled(store) is SettingsState.Degraded)
+
+        // Retry after the read failure must close the live instance and
+        // reopen cleanly instead of registering a second DataStore.
+        flaky.failReads = false
+        store.retry()
+        val state = awaitSettled(store)
+        assertTrue(state is SettingsState.Ready)
+        assertTrue((state as SettingsState.Ready).data.introCompleted)
+    }
+
+    @Test
+    fun `failed replace preserves the original file`() = runBlocking {
+        // The target is a directory: the atomic move cannot replace it, so
+        // reset must fail while leaving the original path untouched.
+        val dirPath = File(dir, "blocked_settings.json").apply { mkdirs() }
+        val store = SettingsStore(
+            scope = scope,
+            serializer = serializer,
+            fileProvider = { dirPath },
+            dataStoreFactory = { s ->
+                DataStoreFactory.create(
+                    serializer = serializer,
+                    scope = s,
+                    produceFile = { dirPath },
+                )
+            },
+        )
+        store.start()
+        assertTrue(awaitSettled(store) is SettingsState.Degraded)
+
+        assertFalse(store.resetToDefaults())
+        assertTrue(dirPath.isDirectory)
+        // No scratch file is left behind either.
+        assertFalse(File(dir, "blocked_settings.json.tmp").exists())
+    }
 }
