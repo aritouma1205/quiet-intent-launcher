@@ -1,5 +1,6 @@
 package io.github.aritouma1205.quietintentlauncher.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,6 +65,25 @@ fun EdgeSettingsScreen(
         mutableStateOf(initial)
     }
     var saveFailed by rememberSaveable { mutableStateOf(false) }
+    var exitConfirm by rememberSaveable { mutableStateOf(false) }
+
+    fun attemptSave() {
+        onSave(draft.sanitizedForSave()) { ok ->
+            if (ok) onBack() else saveFailed = true
+        }
+    }
+
+    // Design 3: leaving with unsaved changes asks 保存 / 破棄 / 編集に戻る.
+    // This inner handler also intercepts the OS back before HomeUi's outer
+    // one discards the draft.
+    fun requestExit() {
+        // Read the draft at call time: a back press can arrive between a
+        // draft write and the recomposition that would refresh a captured
+        // dirty flag.
+        val dirty = draft != initial
+        if (dirty) exitConfirm = true else onBack()
+    }
+    BackHandler { requestExit() }
 
     Column(
         modifier = Modifier
@@ -78,7 +98,7 @@ fun EdgeSettingsScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 8.dp),
         ) {
-            TextButton(onClick = onBack) {
+            TextButton(onClick = { requestExit() }) {
                 Text(stringResource(R.string.back))
             }
             Text(
@@ -171,23 +191,33 @@ fun EdgeSettingsScreen(
                     .padding(vertical = 24.dp),
             ) {
                 OutlinedButton(
-                    onClick = onBack,
+                    onClick = { requestExit() },
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(stringResource(R.string.cancel))
                 }
                 Button(
-                    onClick = {
-                        onSave(draft.sanitizedForSave()) { ok ->
-                            if (ok) onBack() else saveFailed = true
-                        }
-                    },
+                    onClick = { attemptSave() },
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(stringResource(R.string.save))
                 }
             }
         }
+    }
+
+    if (exitConfirm) {
+        UnsavedChangesDialog(
+            onSave = {
+                exitConfirm = false
+                attemptSave()
+            },
+            onDiscard = {
+                exitConfirm = false
+                onBack()
+            },
+            onKeepEditing = { exitConfirm = false },
+        )
     }
 }
 

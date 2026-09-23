@@ -63,7 +63,7 @@ fun IntroScreen(
     apps: List<AppEntry>?,
     iconLoader: (AppEntry) -> Drawable?,
     onSetHome: () -> Unit,
-    onDone: (List<DoAction>) -> Unit,
+    onDone: (List<DoAction>, (Boolean) -> Unit) -> Unit,
 ) {
     var step by rememberSaveable { mutableIntStateOf(1) }
     val actionsSaver = remember {
@@ -96,7 +96,7 @@ fun IntroScreen(
                 }
             },
             onBack = { step = 1 },
-            onDone = { onDone(actionsDraft) },
+            onDone = { done -> onDone(actionsDraft, done) },
         )
     }
 }
@@ -156,9 +156,11 @@ private fun IntroActionsStep(
     iconLoader: (AppEntry) -> Drawable?,
     onAssign: (String, StoredTarget) -> Unit,
     onBack: () -> Unit,
-    onDone: () -> Unit,
+    onDone: ((Boolean) -> Unit) -> Unit,
 ) {
     var pickFor by remember { mutableStateOf<DoAction?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    var saveFailed by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -214,6 +216,16 @@ private fun IntroActionsStep(
                 }
             }
         }
+        if (saveFailed) {
+            // A failed write keeps the draft and this step so はじめる can
+            // be retried.
+            Text(
+                text = stringResource(R.string.settings_save_failed),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
@@ -224,7 +236,18 @@ private fun IntroActionsStep(
             TextButton(onClick = onBack, modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.back))
             }
-            Button(onClick = onDone, modifier = Modifier.weight(1f)) {
+            Button(
+                onClick = {
+                    saving = true
+                    saveFailed = false
+                    onDone { ok ->
+                        saving = false
+                        if (!ok) saveFailed = true
+                    }
+                },
+                enabled = !saving,
+                modifier = Modifier.weight(1f),
+            ) {
                 Text(stringResource(R.string.intro_done))
             }
         }

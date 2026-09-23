@@ -1,6 +1,7 @@
 package io.github.aritouma1205.quietintentlauncher.settings
 
 import android.graphics.drawable.Drawable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -86,10 +87,52 @@ fun DoSettingsScreen(
     var saveFailed by rememberSaveable { mutableStateOf(false) }
     var validationError by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteCandidate by remember { mutableStateOf<DoAction?>(null) }
+    var exitConfirm by rememberSaveable { mutableStateOf(false) }
 
     // Expanded target picker: "actionId" for the action target,
     // "actionId|opId" for a derived op target.
     var pickerSlot by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // The open link editor reports an invalid non-blank input here; saving
+    // while one is pending would silently keep the previous target.
+    var pendingInvalidLink by rememberSaveable { mutableStateOf(false) }
+    var linkPendingError by rememberSaveable { mutableStateOf(false) }
+
+    fun attemptSave() {
+        when {
+            pendingInvalidLink -> {
+                linkPendingError = true
+                validationError = null
+                saveFailed = false
+            }
+            else -> {
+                val error = ActionRules.validateActions(draft.actions)
+                if (error != null) {
+                    validationError = error.name
+                    linkPendingError = false
+                    saveFailed = false
+                } else {
+                    validationError = null
+                    linkPendingError = false
+                    onSave(draft) { ok ->
+                        if (ok) onBack() else saveFailed = true
+                    }
+                }
+            }
+        }
+    }
+
+    // Design 3: leaving with unsaved changes asks 保存 / 破棄 / 編集に戻る.
+    // This inner handler also intercepts the OS back before HomeUi's outer
+    // one discards the draft.
+    fun requestExit() {
+        // Read the states at call time: a back press can arrive between a
+        // draft write and the recomposition that would refresh a captured
+        // dirty flag. A typed-but-unpicked link input counts as dirty too.
+        val dirty = draft != initial || pendingInvalidLink
+        if (dirty) exitConfirm = true else onBack()
+    }
+    BackHandler { requestExit() }
 
     val scrollState = rememberScrollState()
     val itemOffsets = remember { mutableStateMapOf<String, Int>() }
@@ -114,7 +157,7 @@ fun DoSettingsScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 8.dp),
         ) {
-            TextButton(onClick = onBack) {
+            TextButton(onClick = { requestExit() }) {
                 Text(stringResource(R.string.back))
             }
             Text(
@@ -142,6 +185,7 @@ fun DoSettingsScreen(
                         iconLoader = iconLoader,
                         isHomeRoleHeld = isHomeRoleHeld,
                         shortcutsFor = shortcutsFor,
+                        onPendingInvalid = { pendingInvalidLink = it },
                         onChange = { updated ->
                             draft = draft.copy(
                                 actions = draft.actions.map {
@@ -206,6 +250,14 @@ fun DoSettingsScreen(
                     modifier = Modifier.padding(top = 16.dp),
                 )
             }
+            if (linkPendingError && pendingInvalidLink) {
+                Text(
+                    text = stringResource(R.string.action_error_link_pending),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
             if (saveFailed) {
                 Text(
                     text = stringResource(R.string.settings_save_failed),
@@ -222,24 +274,13 @@ fun DoSettingsScreen(
                     .padding(vertical = 24.dp),
             ) {
                 OutlinedButton(
-                    onClick = onBack,
+                    onClick = { requestExit() },
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(stringResource(R.string.cancel))
                 }
                 Button(
-                    onClick = {
-                        val error = ActionRules.validateActions(draft.actions)
-                        if (error != null) {
-                            validationError = error.name
-                            saveFailed = false
-                        } else {
-                            validationError = null
-                            onSave(draft) { ok ->
-                                if (ok) onBack() else saveFailed = true
-                            }
-                        }
-                    },
+                    onClick = { attemptSave() },
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(stringResource(R.string.save))
@@ -272,6 +313,20 @@ fun DoSettingsScreen(
             },
         )
     }
+
+    if (exitConfirm) {
+        UnsavedChangesDialog(
+            onSave = {
+                exitConfirm = false
+                attemptSave()
+            },
+            onDiscard = {
+                exitConfirm = false
+                onBack()
+            },
+            onKeepEditing = { exitConfirm = false },
+        )
+    }
 }
 
 /**
@@ -291,6 +346,7 @@ private fun ActionEditor(
     iconLoader: (AppEntry) -> Drawable?,
     isHomeRoleHeld: Boolean,
     shortcutsFor: suspend (String) -> List<ShortcutEntry>,
+    onPendingInvalid: (Boolean) -> Unit,
     onChange: (DoAction) -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
@@ -419,6 +475,7 @@ private fun ActionEditor(
                     isHomeRoleHeld = isHomeRoleHeld,
                     shortcutsFor = shortcutsFor,
                     onPick = { onChange(action.copy(target = it)) },
+                    onPendingInvalid = onPendingInvalid,
                 )
             }
         }
@@ -478,6 +535,7 @@ private fun ActionEditor(
                     iconLoader = iconLoader,
                     isHomeRoleHeld = isHomeRoleHeld,
                     shortcutsFor = shortcutsFor,
+                    onPendingInvalid = onPendingInvalid,
                     onChange = { updated ->
                         onChange(
                             action.copy(
@@ -572,6 +630,7 @@ private fun DerivedOpEditor(
     iconLoader: (AppEntry) -> Drawable?,
     isHomeRoleHeld: Boolean,
     shortcutsFor: suspend (String) -> List<ShortcutEntry>,
+    onPendingInvalid: (Boolean) -> Unit,
     onChange: (DerivedOp) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -618,6 +677,7 @@ private fun DerivedOpEditor(
                     isHomeRoleHeld = isHomeRoleHeld,
                     shortcutsFor = shortcutsFor,
                     onPick = { onChange(op.copy(target = it)) },
+                    onPendingInvalid = onPendingInvalid,
                 )
             }
         }

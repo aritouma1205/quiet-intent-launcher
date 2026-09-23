@@ -77,6 +77,7 @@
     <string name="action_error_alias">別名は各1〜32文字・最大8個です</string>
     <string name="action_error_ops">派生操作は最大6件です</string>
     <string name="action_error_count">行動は最大12件です</string>
+    <string name="action_error_link_pending">リンクの入力を確認してください</string>
 
     <!-- TOOLS (design 7) -->
     <string name="tool_light">ライト</string>
@@ -157,6 +158,11 @@
     <string name="dp_format">%1$ddp</string>
     <string name="save">保存</string>
     <string name="settings_save_failed">設定を保存できませんでした。変更は保存されていません。</string>
+    <string name="unsaved_title">変更を保存しますか？</string>
+    <string name="unsaved_body">保存していない変更は失われます。</string>
+    <string name="unsaved_save">保存する</string>
+    <string name="unsaved_discard">破棄する</string>
+    <string name="unsaved_keep">編集を続ける</string>
     <string name="settings_section_about">このアプリについて</string>
     <string name="settings_replay_intro">説明をもう一度見る</string>
     <string name="settings_app_info">アプリ情報</string>

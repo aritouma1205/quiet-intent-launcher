@@ -112,13 +112,16 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         _isDefaultHome.value = container.homeRole.isHeld()
     }
 
-    fun completeIntro(actions: List<DoAction>) {
+    fun completeIntro(actions: List<DoAction>, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            container.settingsStore.update {
+            // The intro screen is only left once the write succeeded; a
+            // failed update keeps the draft so it can be retried.
+            val ok = container.settingsStore.update {
                 it.copy(introCompleted = true, actions = actions)
             }
+            if (ok) nav.resetToQuiet()
+            onResult(ok)
         }
-        nav.resetToQuiet()
     }
 
     fun launchApp(entry: AppEntry) {

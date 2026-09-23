@@ -261,6 +261,9 @@ class DoActionIntegrationTest {
             .performScrollTo()
             .performClick()
         rule.waitForIdle()
+        // The dirty draft asks before discarding (design 3).
+        rule.onNodeWithText(res(R.string.unsaved_discard)).performClick()
+        rule.waitForIdle()
         assertEquals(HomeScreen.Quiet, viewModel.screen.value)
         val data = (viewModel.settingsState.value as SettingsState.Ready).data
         assertEquals("撮る", data.actions.first().name)

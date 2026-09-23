@@ -19,6 +19,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -52,6 +54,7 @@ fun TargetPicker(
     isHomeRoleHeld: Boolean,
     shortcutsFor: suspend (String) -> List<ShortcutEntry>,
     onPick: (StoredTarget?) -> Unit,
+    onPendingInvalid: (Boolean) -> Unit = {},
 ) {
     var mode by rememberSaveable {
         mutableStateOf(
@@ -108,6 +111,7 @@ fun TargetPicker(
             PickerMode.Link -> HttpsLinkEditor(
                 current = current as? StoredTarget.HttpsLink,
                 onPick = onPick,
+                onPendingInvalid = onPendingInvalid,
             )
             PickerMode.Shortcut -> ShortcutPickList(
                 apps = apps,
@@ -190,10 +194,20 @@ fun AppPickList(
 private fun HttpsLinkEditor(
     current: StoredTarget.HttpsLink?,
     onPick: (StoredTarget?) -> Unit,
+    onPendingInvalid: (Boolean) -> Unit,
 ) {
     var raw by rememberSaveable { mutableStateOf(current?.url ?: "") }
     val valid = LinkValidation.isValidHttpsUrl(raw)
     val host = LinkValidation.httpsHost(raw)
+
+    // An invalid non-blank input never reaches the draft; report it so the
+    // parent can refuse to save while it is pending. Leaving the editor
+    // (mode switch, picker close) clears the pending flag.
+    val invalid = raw.isNotBlank() && !valid
+    LaunchedEffect(invalid) { onPendingInvalid(invalid) }
+    DisposableEffect(Unit) {
+        onDispose { onPendingInvalid(false) }
+    }
 
     OutlinedTextField(
         value = raw,
