@@ -161,6 +161,19 @@ fun Modifier.freeAreaGestures(
     var secondTapArmed = false
     var pendingTapJob: Job? = null
 
+    /**
+     * The pending first tap resolves as a single tap. Called when the
+     * second input turns out not to be a tap, or when the gesture ends.
+     */
+    fun flushPendingTap() {
+        if (secondTapArmed) {
+            secondTapArmed = false
+            pendingTapJob?.cancel()
+            pendingTapJob = null
+            onEvent(FreeAreaEvent.Tap)
+        }
+    }
+
     fun settleTap() {
         if (!doubleTapEnabled) {
             onEvent(FreeAreaEvent.Tap)
@@ -183,6 +196,12 @@ fun Modifier.freeAreaGestures(
 
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
+        // A second down inside the double-tap window suspends the pending
+        // tap's deadline — the pair is decided by how this press ends,
+        // not by the wall clock while a finger is held.
+        val pendingFromPrevious = secondTapArmed
+        pendingTapJob?.cancel()
+        pendingTapJob = null
         gate.longPressActive = false
         onHoldChange(true)
 
@@ -193,9 +212,12 @@ fun Modifier.freeAreaGestures(
 
         val longPressJob = inputScope.launch {
             delay(longPressTimeoutMs)
-            if (tracker.isTapEligible) {
+            // A second finger resting elsewhere (e.g. on a bar) produces no
+            // events on this surface, so the latch must be checked here too.
+            if (tracker.isTapEligible && !wasMultiPointer()) {
                 gate.longPressActive = true
                 tracker.onActionFired()
+                flushPendingTap()
                 onEvent(FreeAreaEvent.LongPress)
             }
         }
@@ -223,7 +245,10 @@ fun Modifier.freeAreaGestures(
                     change.pressed -> {
                         totalDx += change.positionChange().x
                         totalDy += change.positionChange().y
-                        tracker.onMove(totalDx, totalDy)?.let { onEvent(it) }
+                        tracker.onMove(totalDx, totalDy)?.let {
+                            flushPendingTap()
+                            onEvent(it)
+                        }
                     }
                     else -> {
                         // A synthetic consumed release means the OS stole the
@@ -242,6 +267,12 @@ fun Modifier.freeAreaGestures(
             }
         } finally {
             longPressJob.cancel()
+            // Only a pending tap armed by a PREVIOUS gesture resolves here:
+            // this input ended without completing the pair, so it was a
+            // single tap. A tap armed by this gesture keeps waiting on its
+            // own deadline — flushing it now would turn every first tap
+            // into an immediate single tap and break double-tap entirely.
+            if (pendingFromPrevious) flushPendingTap()
             onHoldChange(false)
         }
     }

@@ -16,10 +16,15 @@ import io.github.aritouma1205.quietintentlauncher.QuietLauncherApp
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -280,6 +285,79 @@ class HomeInputIntegrationTest {
         rule.waitForIdle()
         assertEquals(HomeScreen.Quiet, viewModel.screen.value)
         assertNull(viewModel.overlay.value)
+    }
+
+    @Test
+    fun secondFingerOnBarSuppressesFreeAreaLongPress() {
+        // Reviewer repro: one finger rests on the free area, a second on
+        // the bar, both held past the long-press deadline. The bar finger
+        // never enters this surface's event stream, so the shared latch is
+        // the only thing that can stop the timer (design 5).
+        rule.onRoot().performTouchInput {
+            val free = Offset(width * 0.4f, height * 0.5f)
+            val bar = Offset(width - 10f, height * 0.5f)
+            down(0, free)
+            down(1, bar)
+            advanceEventTime(800)
+            up(1)
+            up(0)
+        }
+        rule.mainClock.advanceTimeBy(1000)
+        rule.waitForIdle()
+        assertEquals(HomeScreen.Quiet, viewModel.screen.value)
+        assertNull(viewModel.overlay.value)
+    }
+
+    @Test
+    fun heldSecondTapStillCountsAsDoubleTap() {
+        // Reviewer repro (doubleTapEnabled): tap -> short gap -> press and
+        // hold past the remaining window. The pending tap must not fire
+        // while the second finger is still down.
+        val app = InstrumentationRegistry.getInstrumentation()
+            .targetContext.applicationContext as QuietLauncherApp
+        runBlocking {
+            app.container.settingsStore.update {
+                it.copy(
+                    systemActions = it.systemActions.copy(
+                        screenOffEnabled = true,
+                    ),
+                )
+            }
+        }
+        val received = CopyOnWriteArrayList<HomeMessage>()
+        val collectJob = CoroutineScope(Dispatchers.Main).launch {
+            viewModel.messages.collect { received += it }
+        }
+        try {
+            // The modifier keys on screenOffEnabled and requestScreenOff
+            // re-reads settingsState, so the store write must have reached
+            // the StateFlow before the gesture runs.
+            rule.waitUntil(timeoutMillis = 5_000) {
+                (
+                    (viewModel.settingsState.value as? SettingsState.Ready)
+                        ?.data?.systemActions?.screenOffEnabled
+                ) == true
+            }
+            rule.waitForIdle()
+            rule.onRoot().performTouchInput {
+                val point = Offset(width * 0.4f, height * 0.5f)
+                down(point)
+                advanceEventTime(20)
+                up()
+                advanceEventTime(100)
+                down(point)
+                advanceEventTime(250)
+                up()
+            }
+            rule.mainClock.advanceTimeBy(600)
+            rule.waitForIdle()
+            // DoubleTap reached the screen-off path (FeatureLater), and no
+            // stray single tap toggled GLANCE along the way.
+            assertTrue(received.contains(HomeMessage.FeatureLater))
+            assertNull(viewModel.overlay.value)
+        } finally {
+            collectJob.cancel()
+        }
     }
 
     @Test
