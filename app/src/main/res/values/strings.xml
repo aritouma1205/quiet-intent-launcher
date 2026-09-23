@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Quiet Intent Launcher</string>
+
+    <!-- Quiet -->
+    <string name="quiet_preview_badge">プレビュー中（既定のホームではありません）</string>
+    <string name="quiet_pane_title">ホーム</string>
+    <string name="quiet_open_search">検索を開く</string>
+
+    <!-- Intro -->
+    <string name="intro_title">Quiet Intent Launcher</string>
+    <string name="intro_body">何もしていない時は壁紙だけ。何かしたい時だけ、操作が現れます。\n\n壁紙の空いているところを上にスワイプすると検索が開き、そこから全アプリと設定に進めます。</string>
+    <string name="intro_set_home">ホームアプリに設定する</string>
+    <string name="intro_skip">あとで設定する</string>
+    <string name="intro_done">はじめる</string>
+    <string name="intro_note">設定せずに試すこともできます。説明は設定からいつでも再表示できます。</string>
+
+    <!-- Search -->
+    <string name="search_hint">検索</string>
+    <string name="search_not_implemented">検索機能は今後の段階で追加されます</string>
+    <string name="all_apps_entry">すべてのアプリ</string>
+    <string name="settings_entry">設定</string>
+    <string name="back">戻る</string>
+
+    <!-- All apps -->
+    <string name="all_apps_title">すべてのアプリ</string>
+    <string name="all_apps_empty">起動できるアプリが見つかりません</string>
+    <string name="all_apps_launch_failed">このアプリを起動できませんでした</string>
+    <string name="all_apps_duplicate">このアプリは既に起動しています</string>
+    <string name="app_info">アプリ情報</string>
+
+    <!-- Settings -->
+    <string name="settings_title">設定</string>
+    <string name="settings_section_home">ホーム</string>
+    <string name="settings_home_state_default">このアプリが既定のホームです</string>
+    <string name="settings_home_state_not_default">既定のホームではありません（プレビュー中）</string>
+    <string name="settings_set_home">ホームアプリに設定する</string>
+    <string name="settings_restore_home">元のホームへ戻す</string>
+    <string name="settings_restore_home_note">ホームアプリの選択画面を開きます。変更はOS側で即時に適用され、このアプリのキャンセル対象にはなりません。</string>
+    <string name="settings_section_display">表示</string>
+    <string name="settings_change_wallpaper">壁紙を変更する</string>
+    <string name="settings_change_wallpaper_note">OSの壁紙選択を開きます。壁紙はOSが管理し、このアプリは画像を保持しません。</string>
+    <string name="settings_section_about">このアプリについて</string>
+    <string name="settings_replay_intro">説明をもう一度見る</string>
+    <string name="settings_app_info">アプリ情報</string>
+    <string name="settings_version">バージョン %1$s</string>
+
+    <!-- Settings store recovery -->
+    <string name="settings_degraded_title">設定を読み込めません</string>
+    <string name="settings_degraded_body">保存された設定が壊れているか、新しいバージョンの形式です。元のファイルはそのまま保持しています。このまま初期値で試すか、設定を初期化できます。初期値での試用中は設定は保存されません。</string>
+    <string name="settings_degraded_retry">再読み込み</string>
+    <string name="settings_degraded_reset">設定を初期化</string>
+    <string name="settings_degraded_continue">初期値で使い続ける</string>
+    <string name="settings_reset_confirm_title">設定を初期化しますか？</string>
+    <string name="settings_reset_confirm_body">保存されている設定ファイルを初期値で上書きします。破損した設定や新しいバージョンの設定は元に戻せなくなります。</string>
+    <string name="settings_reset_confirm">初期化する</string>
+    <string name="cancel">キャンセル</string>
+</resources>

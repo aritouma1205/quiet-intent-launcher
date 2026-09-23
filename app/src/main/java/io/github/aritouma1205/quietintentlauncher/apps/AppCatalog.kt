@@ -1,0 +1,144 @@
+package io.github.aritouma1205.quietintentlauncher.apps
+
+import android.content.ComponentName
+import android.content.Context
+import android.content.pm.LauncherActivityInfo
+import android.content.pm.LauncherApps
+import android.graphics.drawable.Drawable
+import android.os.Process
+import android.os.UserHandle
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+
+/** One launchable activity of the personal profile. */
+data class AppEntry(
+    val component: ComponentName,
+    val user: UserHandle,
+    val label: String,
+) {
+    val packageName: String get() = component.packageName
+    val key: String get() = component.flattenToShortString()
+}
+
+/**
+ * Launchable apps of the personal profile, kept in memory and maintained by
+ * OS change callbacks plus a consistency refresh on foreground (design 15).
+ *
+ * A null [apps] value means the first load has not finished yet; callers must
+ * keep unrelated entries (e.g. settings) reachable while it loads (9.3).
+ */
+class AppCatalog(
+    context: Context,
+    private val scope: CoroutineScope,
+) {
+    private val launcherApps = context.getSystemService(LauncherApps::class.java)
+    private val userHandle: UserHandle = Process.myUserHandle()
+    private val densityDpi: Int = context.resources.displayMetrics.densityDpi
+
+    private val _apps = MutableStateFlow<List<AppEntry>?>(null)
+    val apps: StateFlow<List<AppEntry>?> = _apps.asStateFlow()
+
+    private val infoByComponent = ConcurrentHashMap<ComponentName, LauncherActivityInfo>()
+    private val listLock = Mutex()
+
+    private val callback = object : LauncherApps.Callback() {
+        override fun onPackageRemoved(packageName: String, user: UserHandle) {
+            if (user == userHandle) refreshPackage(packageName)
+        }
+
+        override fun onPackageAdded(packageName: String, user: UserHandle) {
+            if (user == userHandle) refreshPackage(packageName)
+        }
+
+        override fun onPackageChanged(packageName: String, user: UserHandle) {
+            if (user == userHandle) refreshPackage(packageName)
+        }
+
+        override fun onPackagesAvailable(
+            packageNames: Array<out String>,
+            user: UserHandle,
+            replacing: Boolean,
+        ) {
+            if (user == userHandle) packageNames.forEach(::refreshPackage)
+        }
+
+        override fun onPackagesUnavailable(
+            packageNames: Array<out String>,
+            user: UserHandle,
+            replacing: Boolean,
+        ) {
+            if (user == userHandle) packageNames.forEach(::refreshPackage)
+        }
+
+        override fun onPackageLoadingProgressChanged(
+            packageName: String,
+            user: UserHandle,
+            progress: Float,
+        ) = Unit
+
+        override fun onShortcutsChanged(
+            packageName: String,
+            shortcuts: MutableList<android.content.pm.ShortcutInfo>,
+            user: UserHandle,
+        ) = Unit
+    }
+
+    fun start() {
+        launcherApps.registerCallback(callback)
+        reloadAll()
+    }
+
+    /** Full re-query; also used as the foreground consistency check (15). */
+    fun reloadAll() {
+        scope.launch { _apps.value = query(null) }
+    }
+
+    /** Incremental update for a single package (design 15: 差分更新). */
+    private fun refreshPackage(packageName: String) {
+        scope.launch {
+            listLock.withLock {
+                val current = _apps.value ?: return@withLock reloadAll()
+                val fresh = query(packageName)
+                _apps.value = sorted(current.filter { it.packageName != packageName } + fresh)
+            }
+        }
+    }
+
+    private suspend fun query(packageName: String?): List<AppEntry> =
+        withContext(Dispatchers.IO) {
+            val infos = launcherApps
+                .getActivityList(packageName, userHandle)
+                .orEmpty()
+            if (packageName == null) {
+                infoByComponent.clear()
+            } else {
+                infoByComponent.keys.removeIf { it.packageName == packageName }
+            }
+            infos.forEach { infoByComponent[it.componentName] = it }
+            val entries = infos.map { info ->
+                AppEntry(
+                    component = info.componentName,
+                    user = info.user,
+                    label = info.label?.toString()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: info.componentName.packageName,
+                )
+            }
+            sorted(entries)
+        }
+
+    private fun sorted(entries: List<AppEntry>): List<AppEntry> = AppSort.sorted(entries) {
+        AppSortKey(it.label, it.packageName, it.component.className)
+    }
+
+    fun loadIcon(entry: AppEntry): Drawable? =
+        infoByComponent[entry.component]?.getIcon(densityDpi)
+}
