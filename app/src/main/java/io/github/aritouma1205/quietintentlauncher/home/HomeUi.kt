@@ -62,6 +62,9 @@ import io.github.aritouma1205.quietintentlauncher.apps.AllAppsScreen
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
 import io.github.aritouma1205.quietintentlauncher.intro.IntroScreen
 import io.github.aritouma1205.quietintentlauncher.search.SearchScreen
+import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
+import io.github.aritouma1205.quietintentlauncher.settings.DoAction
+import io.github.aritouma1205.quietintentlauncher.settings.DoSettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.EdgeSettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsScreen
@@ -111,6 +114,8 @@ fun QuietLauncherRoot(
                 val text = when (message) {
                     HomeMessage.LaunchFailed -> R.string.all_apps_launch_failed
                     HomeMessage.LaunchBusy -> R.string.all_apps_duplicate
+                    HomeMessage.TargetUnavailable ->
+                        R.string.do_launch_unavailable
                     HomeMessage.FeatureLater -> R.string.feature_later
                     HomeMessage.NotificationHint -> R.string.notification_hint
                 }
@@ -150,12 +155,19 @@ fun QuietLauncherRoot(
                         onExpandTools = viewModel::expandTools,
                         onCollapseTools = viewModel::collapseTools,
                         onCloseOverlay = viewModel::closeOverlay,
+                        actionRows = viewModel.actionRows.collectAsState().value,
+                        onActionTap = viewModel::onActionTapped,
+                        onActionEdit = { viewModel.openActionEditor(it.id) },
+                        onDerivedOp = viewModel::onDerivedOpTapped,
                         onUnavailable = {
                             viewModel.emitMessage(HomeMessage.FeatureLater)
                         },
                     )
                     HomeScreen.Intro -> IntroScreen(
                         isDefaultHome = isDefaultHome,
+                        actions = viewModel.currentSettings().actions,
+                        apps = viewModel.apps.collectAsState().value,
+                        iconLoader = iconLoader,
                         onSetHome = {
                             viewModel.nav.beginExternalFlow()
                             onRequestHomeRole()
@@ -180,6 +192,7 @@ fun QuietLauncherRoot(
                     HomeScreen.Settings -> SettingsScreen(
                         isDefaultHome = isDefaultHome,
                         edgeSettingsEnabled = settingsState is SettingsState.Ready,
+                        doSettingsEnabled = settingsState is SettingsState.Ready,
                         onSetHome = {
                             viewModel.nav.beginExternalFlow()
                             onRequestHomeRole()
@@ -195,6 +208,9 @@ fun QuietLauncherRoot(
                         onEdgeSettings = {
                             viewModel.nav.navigateTo(HomeScreen.EdgeSettings)
                         },
+                        onDoSettings = {
+                            viewModel.openActionEditor(null)
+                        },
                         onReplayIntro = { viewModel.nav.navigateTo(HomeScreen.Intro) },
                         onOpenAppInfo = {
                             viewModel.nav.beginExternalFlow()
@@ -207,6 +223,26 @@ fun QuietLauncherRoot(
                         if (data != null) {
                             EdgeSettingsScreen(
                                 initial = data,
+                                onSave = viewModel::saveSettings,
+                                onBack = { viewModel.nav.back() },
+                            )
+                        } else {
+                            EdgeSettingsUnavailable(
+                                onBack = { viewModel.nav.back() },
+                            )
+                        }
+                    }
+                    HomeScreen.DoSettings -> {
+                        val data = (settingsState as? SettingsState.Ready)?.data
+                        if (data != null) {
+                            DoSettingsScreen(
+                                initial = data,
+                                focusActionId = viewModel.actionEditFocus
+                                    .collectAsState().value,
+                                apps = viewModel.apps.collectAsState().value,
+                                iconLoader = iconLoader,
+                                isHomeRoleHeld = isDefaultHome,
+                                shortcutsFor = viewModel::shortcutsFor,
                                 onSave = viewModel::saveSettings,
                                 onBack = { viewModel.nav.back() },
                             )
@@ -269,6 +305,10 @@ private fun QuietScreen(
     onExpandTools: () -> Unit,
     onCollapseTools: () -> Unit,
     onCloseOverlay: () -> Unit,
+    actionRows: List<ActionRow>,
+    onActionTap: (DoAction) -> Unit,
+    onActionEdit: (DoAction) -> Unit,
+    onDerivedOp: (DoAction, DerivedOp) -> Unit,
     onUnavailable: () -> Unit,
 ) {
     val description = stringResource(R.string.quiet_preview_badge)
@@ -529,11 +569,15 @@ private fun QuietScreen(
             ) {
                 if (panelSide == EdgeSide.Right) {
                     DoPanel(
+                        rows = actionRows,
                         toolsExpanded = toolsExpanded,
                         panelWidthPx = panelWidthPx,
                         onExpandTools = onExpandTools,
                         onCollapseTools = onCollapseTools,
                         onClose = onCloseOverlay,
+                        onActionTap = onActionTap,
+                        onActionEdit = onActionEdit,
+                        onDerivedOp = onDerivedOp,
                         onUnavailable = onUnavailable,
                     )
                 } else {

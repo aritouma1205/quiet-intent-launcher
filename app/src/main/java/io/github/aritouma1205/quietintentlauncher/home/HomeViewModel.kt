@@ -1,5 +1,6 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
@@ -8,10 +9,15 @@ import io.github.aritouma1205.quietintentlauncher.AppContainer
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
 import io.github.aritouma1205.quietintentlauncher.launch.LaunchResult
 import io.github.aritouma1205.quietintentlauncher.launch.LaunchTarget
+import io.github.aritouma1205.quietintentlauncher.launch.toLaunchTarget
+import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
+import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
+import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,11 +27,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** One-shot UI events carrying a string resource id. */
 enum class HomeMessage {
     LaunchFailed,
     LaunchBusy,
+
+    /**
+     * The configured target is gone or unusable (app removed/disabled,
+     * shortcut revoked, no HTTPS handler). The action's config is kept;
+     * the DO panel row explains and offers 変更する (design 6).
+     */
+    TargetUnavailable,
 
     /** An optional feature that has no backing implementation yet. */
     FeatureLater,
@@ -53,6 +67,17 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private val _messages = MutableSharedFlow<HomeMessage>(extraBufferCapacity = 4)
     val messages: SharedFlow<HomeMessage> = _messages.asSharedFlow()
 
+    /** DO panel rows: visible actions + availability resolved from live OS state. */
+    private val _actionRows = MutableStateFlow<List<ActionRow>>(emptyList())
+    val actionRows: StateFlow<List<ActionRow>> = _actionRows.asStateFlow()
+
+    /** Serializes [refreshActionRows]: a newer request cancels the older one. */
+    private var refreshJob: Job? = null
+
+    /** Action the DoSettings screen should focus (set by panel navigation). */
+    private val _actionEditFocus = MutableStateFlow<String?>(null)
+    val actionEditFocus: StateFlow<String?> = _actionEditFocus.asStateFlow()
+
     /** GLANCE auto-dismiss is paused while a finger is held (design 8.3). */
     private val _glanceHold = MutableStateFlow(false)
     private var glanceJob: Job? = null
@@ -61,7 +86,11 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         viewModelScope.launch {
+            container.appCatalog.apps.collect { refreshActionRows() }
+        }
+        viewModelScope.launch {
             settingsState.collect { state ->
+                refreshActionRows()
                 when (state) {
                     is SettingsState.Ready -> {
                         _recoveryDismissed.value = false
@@ -83,17 +112,104 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         _isDefaultHome.value = container.homeRole.isHeld()
     }
 
-    fun completeIntro() {
+    fun completeIntro(actions: List<DoAction>, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            container.settingsStore.update { it.copy(introCompleted = true) }
+            // The intro screen is only left once the write succeeded; a
+            // failed update keeps the draft so it can be retried.
+            val ok = container.settingsStore.update {
+                it.copy(introCompleted = true, actions = actions)
+            }
+            if (ok) nav.resetToQuiet()
+            onResult(ok)
         }
-        nav.resetToQuiet()
     }
 
     fun launchApp(entry: AppEntry) {
-        val result = container.targetLauncher.launch(
-            LaunchTarget.AppActivity(entry.component, entry.user),
+        applyLaunchResult(
+            container.targetLauncher.launch(
+                LaunchTarget.AppActivity(entry.component, entry.user),
+            ),
         )
+    }
+
+    // ---- DO actions (design 6) --------------------------------------------
+
+    /**
+     * Re-resolves every visible action's availability against live OS state:
+     * the app catalog for apps, the LauncherApps shortcut query for
+     * shortcuts and the package manager for HTTPS handlers. While settings
+     * are Loading/Degraded the in-memory defaults keep the panel usable.
+     */
+    fun refreshActionRows() {
+        // Serialize refreshes: an older, slower pass must not overwrite a
+        // newer snapshot.
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
+            val data = (settingsState.value as? SettingsState.Ready)?.data
+                ?: SettingsData()
+            // Binder calls (LauncherApps, PackageManager) stay off the UI
+            // thread (design 15).
+            _actionRows.value = withContext(Dispatchers.IO) {
+                data.actions
+                    .filter { it.visible }
+                    .map { action -> ActionRow(action, resolveStatus(action)) }
+            }
+        }
+    }
+
+    private suspend fun resolveStatus(action: DoAction): ActionStatus =
+        when (val target = action.target) {
+            null -> ActionStatus.Unset
+            is StoredTarget.App -> container.appCatalog
+                .resolveApp(target.component)
+                ?.let { ActionStatus.Available(it.label) }
+                ?: ActionStatus.Unavailable(UnavailableReason.AppGone)
+            is StoredTarget.Shortcut -> container.shortcutCatalog
+                .listNow(target.packageName)
+                .firstOrNull { it.id == target.shortcutId }
+                ?.let { ActionStatus.Available(it.label) }
+                ?: ActionStatus.Unavailable(UnavailableReason.ShortcutGone)
+            is StoredTarget.HttpsLink ->
+                if (container.targetLauncher.canOpenHttps(target.url)) {
+                    ActionStatus.Available(
+                        Uri.parse(target.url).host ?: target.url,
+                    )
+                } else {
+                    ActionStatus.Unavailable(UnavailableReason.NoHandler)
+                }
+        }
+
+    /** Tap on an action row (design 6). Unset opens the target picker. */
+    fun onActionTapped(action: DoAction) {
+        val target = action.target?.toLaunchTarget(container.appCatalog.currentUser)
+        if (target == null) {
+            openActionEditor(action.id)
+            return
+        }
+        applyLaunchResult(container.targetLauncher.launch(target))
+    }
+
+    /** A derived op launches through the same shared path as the action. */
+    fun onDerivedOpTapped(action: DoAction, op: DerivedOp) {
+        val target = op.target?.toLaunchTarget(container.appCatalog.currentUser)
+        if (target == null) {
+            openActionEditor(action.id)
+            return
+        }
+        applyLaunchResult(container.targetLauncher.launch(target))
+    }
+
+    /** Opens the action editor, optionally focused on one action. */
+    fun openActionEditor(actionId: String?) {
+        _actionEditFocus.value = actionId
+        overlays.clear()
+        nav.navigateTo(HomeScreen.DoSettings)
+    }
+
+    suspend fun shortcutsFor(packageName: String) =
+        container.shortcutCatalog.list(packageName)
+
+    private fun applyLaunchResult(result: LaunchResult) {
         when (result) {
             LaunchResult.Success -> {
                 // Successful external launch returns the home side to Quiet
@@ -102,11 +218,18 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 nav.resetToQuiet()
             }
             LaunchResult.Busy -> _messages.tryEmit(HomeMessage.LaunchBusy)
-            LaunchResult.NotFound -> {
-                _messages.tryEmit(HomeMessage.LaunchFailed)
+            LaunchResult.NotFound,
+            LaunchResult.ShortcutUnavailable,
+            LaunchResult.NoHandler,
+            -> {
+                // Gone/unusable target: keep the action's config, explain,
+                // and refresh the row so it offers 変更する (design 6).
+                _messages.tryEmit(HomeMessage.TargetUnavailable)
                 container.appCatalog.reloadAll()
+                refreshActionRows()
             }
-            is LaunchResult.Failure -> _messages.tryEmit(HomeMessage.LaunchFailed)
+            is LaunchResult.Failure ->
+                _messages.tryEmit(HomeMessage.LaunchFailed)
         }
     }
 
@@ -116,7 +239,11 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         _messages.tryEmit(message)
     }
 
-    fun openDoPanel(toolsExpanded: Boolean) = overlays.openDo(toolsExpanded)
+    fun openDoPanel(toolsExpanded: Boolean) {
+        // Availability is re-checked on every open (design 6, 15).
+        refreshActionRows()
+        overlays.openDo(toolsExpanded)
+    }
 
     fun openTodayPanel() = overlays.openToday()
 

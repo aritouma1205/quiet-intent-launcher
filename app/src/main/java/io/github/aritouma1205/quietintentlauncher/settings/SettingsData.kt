@@ -17,9 +17,14 @@ data class SettingsData(
     val vibration: VibrationMode = VibrationMode.System,
     val systemActions: SystemActionSettings = SystemActionSettings(),
     val notificationHintShown: Boolean = false,
+    /**
+     * The configured DO actions in display order (design 6, 14.1). Added in
+     * schemaVersion 3; v1/v2 files are seeded by the serializer migration.
+     */
+    val actions: List<DoAction> = DoActionDefaults.defaults(),
 ) {
     companion object {
-        const val CURRENT_SCHEMA_VERSION: Int = 2
+        const val CURRENT_SCHEMA_VERSION: Int = 3
     }
 }
 

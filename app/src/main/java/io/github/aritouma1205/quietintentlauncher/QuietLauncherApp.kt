@@ -6,6 +6,7 @@ import android.view.accessibility.AccessibilityManager
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
 import io.github.aritouma1205.quietintentlauncher.apps.AppCatalog
+import io.github.aritouma1205.quietintentlauncher.apps.ShortcutCatalog
 import io.github.aritouma1205.quietintentlauncher.home.HomeRole
 import io.github.aritouma1205.quietintentlauncher.launch.TargetLauncher
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
@@ -39,7 +40,12 @@ class AppContainer(context: Context) {
 
     val homeRole = HomeRole(context)
     val appCatalog = AppCatalog(context, appScope)
-    val targetLauncher = TargetLauncher(context)
+    val shortcutCatalog = ShortcutCatalog(context) { homeRole.isHeld() }
+    val targetLauncher = TargetLauncher(
+        context = context,
+        isHomeRoleHeld = { homeRole.isHeld() },
+        shortcutCatalog = shortcutCatalog,
+    )
     val todayData = TodayDataProvider(context)
 
     /** Any accessibility service on (design 8.3: GLANCE must not time out). */

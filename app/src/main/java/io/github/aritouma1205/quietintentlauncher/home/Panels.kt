@@ -1,7 +1,9 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -9,16 +11,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -27,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -45,7 +52,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
+import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.today.TodayInfo
+import io.github.aritouma1205.quietintentlauncher.ui.imageVector
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
 
@@ -159,21 +169,28 @@ private fun PanelHeader(
 }
 
 /**
- * DO panel (right). This stage renders the fixed action list and the TOOLS
- * area; assigning launch targets and running tools are later stages, so the
- * rows explain that instead of pretending to work.
+ * DO panel (right, design 6). Renders the configured actions in stored order
+ * — auxiliary icon + name (the primary element) + target status — and the
+ * TOOLS area. Tapping launches through the shared path; a long press shows
+ * the derived ops and the edit entry.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DoPanel(
+    rows: List<ActionRow>,
     toolsExpanded: Boolean,
     panelWidthPx: Float,
     onExpandTools: () -> Unit,
     onCollapseTools: () -> Unit,
     onClose: () -> Unit,
+    onActionTap: (DoAction) -> Unit,
+    onActionEdit: (DoAction) -> Unit,
+    onDerivedOp: (DoAction, DerivedOp) -> Unit,
     onUnavailable: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
     var toolsHeadingY by remember { mutableFloatStateOf(0f) }
+    var menuAction by remember { mutableStateOf<DoAction?>(null) }
 
     LaunchedEffect(toolsExpanded) {
         if (toolsExpanded) {
@@ -197,26 +214,13 @@ fun DoPanel(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp),
         ) {
-            DefaultAction.entries.forEach { action ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onUnavailable)
-                        .padding(vertical = 14.dp),
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(action.labelRes),
-                            fontSize = 20.sp,
-                        )
-                        Text(
-                            text = stringResource(R.string.do_target_unset),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.6f),
-                        )
-                    }
-                }
+            rows.forEach { row ->
+                ActionRowItem(
+                    row = row,
+                    onTap = { onActionTap(row.action) },
+                    onLongPress = { menuAction = row.action },
+                    onChangeTarget = { onActionEdit(row.action) },
+                )
             }
 
             OutlinedButton(
@@ -261,6 +265,119 @@ fun DoPanel(
             }
         }
     }
+
+    // Long-press menu (design 6): the action's derived ops and the edit
+    // entry. An op launches through the same shared path as a tap.
+    menuAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { menuAction = null },
+            title = { Text(action.name) },
+            text = {
+                Column {
+                    action.derivedOps.forEach { op ->
+                        TextButton(
+                            onClick = {
+                                menuAction = null
+                                onDerivedOp(action, op)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(op.label.ifBlank { action.name })
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            menuAction = null
+                            onActionEdit(action)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.do_edit_action))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { menuAction = null }) {
+                    Text(stringResource(R.string.close))
+                }
+            },
+        )
+    }
+}
+
+/**
+ * One action row (design 6): auxiliary icon + name at 20sp, plus a status
+ * line — the target name when set, 起動先 未設定 when unset, or an
+ * explanation with a 変更する affordance when the target is gone.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ActionRowItem(
+    row: ActionRow,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+    onChangeTarget: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
+            .combinedClickable(
+                onClickLabel = row.action.name,
+                onClick = onTap,
+                onLongClickLabel = stringResource(R.string.do_action_menu),
+                onLongClick = onLongPress,
+            )
+            .padding(vertical = 10.dp),
+    ) {
+        Icon(
+            imageVector = row.action.icon.imageVector(),
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier.size(20.dp),
+        )
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(
+                text = row.action.name,
+                fontSize = 20.sp,
+            )
+            when (val status = row.status) {
+                ActionStatus.Unset -> StatusLine(
+                    text = stringResource(R.string.do_target_unset),
+                )
+                is ActionStatus.Available -> StatusLine(text = status.targetLabel)
+                is ActionStatus.Unavailable -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    StatusLine(
+                        text = stringResource(
+                            when (status.reason) {
+                                UnavailableReason.AppGone ->
+                                    R.string.do_target_unavailable_app
+                                UnavailableReason.ShortcutGone ->
+                                    R.string.do_target_unavailable_shortcut
+                                UnavailableReason.NoHandler ->
+                                    R.string.do_target_no_handler
+                            },
+                        ),
+                    )
+                    TextButton(onClick = onChangeTarget) {
+                        Text(stringResource(R.string.do_change_target))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusLine(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = Color.White.copy(alpha = 0.6f),
+    )
 }
 
 /** TODAY panel (left). Date / weekday / battery only; weather and events

@@ -6,6 +6,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 
 /**
  * JSON serializer for [SettingsData].
@@ -45,8 +46,17 @@ class SettingsSerializer(
                     "supported version ${SettingsData.CURRENT_SCHEMA_VERSION}.",
             )
         }
-        return migrate(parsed)
+        return migrate(parsed, hasExplicitActions(text))
     }
+
+    /**
+     * Whether the file carries an explicit "actions" field. v2 files predate
+     * the field and must be seeded; a v3 file that stores an empty list on
+     * purpose must be kept as is, so absence — not emptiness — triggers the
+     * seed.
+     */
+    private fun hasExplicitActions(text: String): Boolean =
+        (json.parseToJsonElement(text) as? JsonObject)?.containsKey("actions") == true
 
     override suspend fun writeTo(t: SettingsData, output: OutputStream) {
         output.write(serialize(t).toByteArray(Charsets.UTF_8))
@@ -55,16 +65,23 @@ class SettingsSerializer(
     fun serialize(data: SettingsData): String =
         json.encodeToString(SettingsData.serializer(), data)
 
-    private fun migrate(data: SettingsData): SettingsData {
+    private fun migrate(data: SettingsData, hasActions: Boolean): SettingsData {
         // Sequential migrations per schemaVersion. v1 -> v2 adds the edge-bar,
         // TOOLS and system-action fields, all with defaults, so decoding an old
         // file already fills them; sanitize keeps stored values inside the
         // designed ranges.
+        // v2 -> v3 adds the DO action list; files written before v3 carry no
+        // actions field and are seeded with the six unset defaults (design 6).
         return data.copy(
             schemaVersion = SettingsData.CURRENT_SCHEMA_VERSION,
             leftBar = data.leftBar.sanitized(),
             rightBar = data.rightBar.sanitized(),
             tools = data.tools.sanitized(),
+            actions = if (data.schemaVersion < 3 && !hasActions) {
+                DoActionDefaults.defaults()
+            } else {
+                data.actions
+            },
         )
     }
 }

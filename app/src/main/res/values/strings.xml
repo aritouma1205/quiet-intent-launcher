@@ -15,19 +15,69 @@
     <string name="panel_today_title">TODAY</string>
     <string name="close">閉じる</string>
     <string name="do_target_unset">起動先 未設定</string>
+    <string name="do_target_unavailable_app">起動先のアプリが見つかりません（削除または無効）</string>
+    <string name="do_target_unavailable_shortcut">ショートカットが利用できません</string>
+    <string name="do_target_no_handler">このリンクを開けるアプリがありません</string>
+    <string name="do_change_target">変更する</string>
+    <string name="do_edit_action">この行動を編集</string>
+    <string name="do_action_menu">操作メニューを開く</string>
+    <string name="do_launch_unavailable">起動先が使えなくなっています。行動の設定は保持されています</string>
     <string name="tools_expand">TOOLS</string>
     <string name="tools_title">TOOLS</string>
     <string name="tools_back_to_do">DOに戻る</string>
     <string name="feature_later">この機能は今後の段階で追加されます</string>
     <string name="notification_hint">下スワイプで通知を開く機能は今後の段階で追加されます</string>
 
-    <!-- DO actions (design 6) -->
-    <string name="action_take">撮る</string>
-    <string name="action_talk">話す</string>
-    <string name="action_listen">聴く</string>
-    <string name="action_watch">見る</string>
-    <string name="action_go">移動する</string>
-    <string name="action_lookup">調べる</string>
+    <!-- DO action icons (design 6): labels for the fixed icon set -->
+    <string name="icon_star">星</string>
+    <string name="icon_face">顔</string>
+    <string name="icon_call">電話</string>
+    <string name="icon_play">再生</string>
+    <string name="icon_place">場所</string>
+    <string name="icon_search">検索</string>
+    <string name="icon_pen">ペン</string>
+    <string name="icon_heart">ハート</string>
+
+    <!-- DO edit screen (design 6, 11.2) -->
+    <string name="do_settings_title">行動・道具</string>
+    <string name="action_name_label">名前</string>
+    <string name="action_name_rule">1〜24文字。空白のみは使えません。</string>
+    <string name="action_icon_label">アイコン</string>
+    <string name="action_visible">パネルに表示する</string>
+    <string name="action_move_up">上へ</string>
+    <string name="action_move_down">下へ</string>
+    <string name="action_delete">削除</string>
+    <string name="action_delete_title">この行動を削除しますか？</string>
+    <string name="action_delete_body">「%1$s」を削除します。保存するまで確定されません。</string>
+    <string name="action_add">行動を追加</string>
+    <string name="action_count_full">行動は最大12件です</string>
+    <string name="action_aliases_label">検索用の別名</string>
+    <string name="action_alias_hint">別名を入力</string>
+    <string name="action_alias_add">追加</string>
+    <string name="action_alias_remove">削除</string>
+    <string name="action_alias_rule">各1〜32文字・最大8個</string>
+    <string name="action_ops_label">派生操作</string>
+    <string name="action_op_label_hint">操作名</string>
+    <string name="action_op_add">派生操作を追加</string>
+    <string name="action_ops_full">派生操作は最大6件です</string>
+    <string name="action_target_label">起動先</string>
+    <string name="action_target_change">起動先を変更</string>
+    <string name="target_kind_app">アプリ</string>
+    <string name="target_kind_link">HTTPSリンク</string>
+    <string name="target_kind_shortcut">ショートカット</string>
+    <string name="target_clear">解除する</string>
+    <string name="target_link_hint">https://example.com</string>
+    <string name="target_link_invalid">https:// で始まる正しいURLを入力してください</string>
+    <string name="target_link_host">リンク先: %1$s</string>
+    <string name="target_shortcut_summary">%1$s のショートカット</string>
+    <string name="target_shortcut_needs_home">公開ショートカットの利用には、このアプリをホームアプリに設定する必要があります</string>
+    <string name="target_shortcut_empty">公開されているショートカットはありません</string>
+    <string name="target_shortcut_pick_app">ショートカット元のアプリを選んでください</string>
+    <string name="action_error_name">1〜24文字の名前を入力してください（空白のみは使えません）</string>
+    <string name="action_error_alias">別名は各1〜32文字・最大8個です</string>
+    <string name="action_error_ops">派生操作は最大6件です</string>
+    <string name="action_error_count">行動は最大12件です</string>
+    <string name="action_error_link_pending">リンクの入力を確認してください</string>
 
     <!-- TOOLS (design 7) -->
     <string name="tool_light">ライト</string>
@@ -42,16 +92,19 @@
 
     <!-- Home edit sheet -->
     <string name="edit_title">ホーム編集</string>
-    <string name="edit_body">行動や配置の編集は今後の段階で追加されます。いまは設定から各項目を変更できます。</string>
+    <string name="edit_body">行動の編集は設定の「行動・道具」から行えます。その他の項目も設定から変更できます。</string>
     <string name="edit_open_settings">設定を開く</string>
 
     <!-- Intro -->
     <string name="intro_title">Quiet Intent Launcher</string>
     <string name="intro_body">何もしていない時は壁紙だけ。何かしたい時だけ、操作が現れます。\n\n画面の右端のバーを引くと行動（DO）、左端のバーを引くと今日の情報（TODAY）が開きます。壁紙の空いているところを上にスワイプすると検索が開き、そこから全アプリと設定に進めます。</string>
     <string name="intro_set_home">ホームアプリに設定する</string>
-    <string name="intro_skip">あとで設定する</string>
     <string name="intro_done">はじめる</string>
     <string name="intro_note">設定せずに試すこともできます。説明は設定からいつでも再表示できます。</string>
+    <string name="intro_next">次へ</string>
+    <string name="intro_actions_title">行動の起動先</string>
+    <string name="intro_actions_body">6つの行動に起動先を割り当てられます。あとで設定する場合は、このまま「はじめる」へ進んでください。</string>
+    <string name="intro_pick_app">アプリを選ぶ</string>
 
     <!-- Search -->
     <string name="search_hint">検索</string>
@@ -98,10 +151,18 @@
     <string name="edge_vibration_title">振動</string>
     <string name="edge_vibration_system">システムに従う</string>
     <string name="edge_vibration_off">無効</string>
+    <string name="settings_section_actions">行動・道具</string>
+    <string name="settings_actions_entry">行動と起動先の設定</string>
+    <string name="settings_actions_note">DOの行動の名前・アイコン・順序・表示・起動先・別名・派生操作を変更します。</string>
     <string name="percent_format">%1$d%%</string>
     <string name="dp_format">%1$ddp</string>
     <string name="save">保存</string>
     <string name="settings_save_failed">設定を保存できませんでした。変更は保存されていません。</string>
+    <string name="unsaved_title">変更を保存しますか？</string>
+    <string name="unsaved_body">保存していない変更は失われます。</string>
+    <string name="unsaved_save">保存する</string>
+    <string name="unsaved_discard">破棄する</string>
+    <string name="unsaved_keep">編集を続ける</string>
     <string name="settings_section_about">このアプリについて</string>
     <string name="settings_replay_intro">説明をもう一度見る</string>
     <string name="settings_app_info">アプリ情報</string>

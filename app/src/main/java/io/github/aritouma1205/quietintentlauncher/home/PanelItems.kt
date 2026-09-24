@@ -2,19 +2,37 @@ package io.github.aritouma1205.quietintentlauncher.home
 
 import androidx.annotation.StringRes
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 
-/**
- * The six default actions (design 6). Editing launch targets, order and
- * visibility is a later stage; this stage renders the fixed list.
- */
-enum class DefaultAction(val id: String, @param:StringRes val labelRes: Int) {
-    Take("take", R.string.action_take),
-    Talk("talk", R.string.action_talk),
-    Listen("listen", R.string.action_listen),
-    Watch("watch", R.string.action_watch),
-    Go("go", R.string.action_go),
-    LookUp("lookup", R.string.action_lookup),
+/** Why a configured target cannot launch right now (design 6). */
+enum class UnavailableReason {
+    /** The target app was uninstalled or disabled. */
+    AppGone,
+
+    /** The shortcut was revoked, or the HOME role needed to see it is lost. */
+    ShortcutGone,
+
+    /** No installed app can open the HTTPS link. */
+    NoHandler,
 }
+
+/** Launchability of one action row, resolved against live OS state. */
+sealed interface ActionStatus {
+    /** No target configured yet. */
+    data object Unset : ActionStatus
+
+    /** The target resolves; [targetLabel] names the app/link/shortcut. */
+    data class Available(val targetLabel: String) : ActionStatus
+
+    /** The configured target is gone or unusable; config stays intact. */
+    data class Unavailable(val reason: UnavailableReason) : ActionStatus
+}
+
+/** One DO panel row: the configured action plus its resolved status. */
+data class ActionRow(
+    val action: DoAction,
+    val status: ActionStatus,
+)
 
 /** Tool rows of the TOOLS area (design 7). Execution arrives in stage 6. */
 enum class ToolItem(val id: String, @param:StringRes val labelRes: Int) {
