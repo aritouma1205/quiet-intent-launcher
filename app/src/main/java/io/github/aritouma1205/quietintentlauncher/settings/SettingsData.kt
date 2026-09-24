@@ -31,9 +31,17 @@ data class SettingsData(
     val contextSlots: List<ContextSlot> = ContextRules.defaultSlots(),
     /** Universal Search settings (design 9, 11.2). Added in schemaVersion 4. */
     val search: SearchSettings = SearchSettings(),
+    /** Optional small clock on Quiet (design 12). Added in schemaVersion 5. */
+    val clock: ClockSettings = ClockSettings(),
+    /**
+     * GLANCE, weather and calendar-event settings (design 8, 11.2).
+     * Added in schemaVersion 5; both optional integrations stay disabled
+     * until the user turns them on.
+     */
+    val info: InfoSettings = InfoSettings(),
 ) {
     companion object {
-        const val CURRENT_SCHEMA_VERSION: Int = 4
+        const val CURRENT_SCHEMA_VERSION: Int = 5
     }
 }
 

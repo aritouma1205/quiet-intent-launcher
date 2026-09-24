@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 任意連携のための権限（設計8・13）。INTERNETはOpen-Meteoへの
+         手動地域天気のみ。READ_CALENDARはユーザーが予定表示を有効化した
+         時点でだけランタイム要求する。位置情報権限は要求しない。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
     <!-- 個人プロファイル内の起動可能なアプリだけを見るための限定した可視性宣言。
          QUERY_ALL_PACKAGES は要求しない（設計13章）。 -->
     <queries>
@@ -17,6 +23,11 @@
         <intent>
             <action android:name="android.intent.action.SEND" />
             <data android:mimeType="text/plain" />
+        </intent>
+        <!-- 予定をカレンダーアプリで開く受け手の確認（設計8.1）。 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="content" android:host="com.android.calendar" />
         </intent>
     </queries>
 

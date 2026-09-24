@@ -1,11 +1,16 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,6 +65,7 @@ import androidx.core.view.WindowInsetsCompat
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.apps.AllAppsScreen
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
+import io.github.aritouma1205.quietintentlauncher.calendar.TodayEvent
 import io.github.aritouma1205.quietintentlauncher.intro.IntroScreen
 import io.github.aritouma1205.quietintentlauncher.search.SearchRow
 import io.github.aritouma1205.quietintentlauncher.search.SearchScreen
@@ -68,28 +74,33 @@ import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.DoSettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.EdgeSettingsScreen
+import io.github.aritouma1205.quietintentlauncher.settings.InfoSettingsScreen
+import io.github.aritouma1205.quietintentlauncher.settings.QuietClockPosition
 import io.github.aritouma1205.quietintentlauncher.settings.SearchSettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
-import io.github.aritouma1205.quietintentlauncher.today.TodayInfo
+import io.github.aritouma1205.quietintentlauncher.today.TodayUi
 import io.github.aritouma1205.quietintentlauncher.ui.DeepScrim
 import io.github.aritouma1205.quietintentlauncher.ui.QuietBadgeBackground
 import io.github.aritouma1205.quietintentlauncher.ui.QuietLauncherTheme
 import kotlin.math.min
 import kotlinx.coroutines.launch
 
+/** GLANCE fade duration — the 160 ms initial value from design 12. */
+private const val GLANCE_ANIMATION_MS = 160
+
 @Composable
 fun QuietLauncherRoot(
     viewModel: HomeViewModel,
     iconLoader: (AppEntry) -> Drawable?,
-    todayInfo: () -> TodayInfo,
     onRequestHomeRole: () -> Unit,
     onRestoreHome: () -> Unit,
     onChangeWallpaper: () -> Unit,
     onOpenAppInfo: (String) -> Unit,
+    onOpenEvent: (Intent) -> Unit,
 ) {
     QuietLauncherTheme {
         val screen by viewModel.screen.collectAsState()
@@ -123,9 +134,15 @@ fun QuietLauncherRoot(
                     HomeMessage.NotificationHint -> R.string.notification_hint
                     HomeMessage.NoExternalHandler ->
                         R.string.search_no_external_handler
+                    HomeMessage.NoEventHandler -> R.string.event_no_handler
                 }
                 Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
             }
+        }
+
+        LaunchedEffect(Unit) {
+            // Calendar events open in an external calendar app (design 8.1).
+            viewModel.eventIntents.collect { intent -> onOpenEvent(intent) }
         }
 
         val showRecovery = settingsState is SettingsState.Degraded && !recoveryDismissed
@@ -149,7 +166,7 @@ fun QuietLauncherRoot(
                         isDefaultHome = isDefaultHome,
                         overlay = overlay,
                         settings = viewModel.currentSettings(),
-                        todayInfo = todayInfo,
+                        today = viewModel.today.collectAsState().value,
                         onFreeAreaEvent = viewModel::onFreeAreaEvent,
                         onGlanceHold = viewModel::setGlanceHold,
                         onOpenSearch = { viewModel.nav.navigateTo(HomeScreen.Search) },
@@ -167,6 +184,7 @@ fun QuietLauncherRoot(
                         onDerivedOp = viewModel::onDerivedOpTapped,
                         onContextTap = { viewModel.onActionTapped(it.action) },
                         onContextEdit = { viewModel.openContextSlotEditor(it.slotIndex) },
+                        onEventTap = viewModel::onEventTapped,
                         onUnavailable = {
                             viewModel.emitMessage(HomeMessage.FeatureLater)
                         },
@@ -251,6 +269,9 @@ fun QuietLauncherRoot(
                         onSearchSettings = {
                             viewModel.nav.navigateTo(HomeScreen.SearchSettings)
                         },
+                        onInfoSettings = {
+                            viewModel.nav.navigateTo(HomeScreen.InfoSettings)
+                        },
                         onReplayIntro = { viewModel.nav.navigateTo(HomeScreen.Intro) },
                         onOpenAppInfo = {
                             viewModel.nav.beginExternalFlow()
@@ -322,6 +343,30 @@ fun QuietLauncherRoot(
                             )
                         }
                     }
+                    HomeScreen.InfoSettings -> {
+                        val data = (settingsState as? SettingsState.Ready)?.data
+                        if (data != null) {
+                            InfoSettingsScreen(
+                                initial = data,
+                                weatherUi = viewModel.weatherUi.collectAsState().value,
+                                regionResults = viewModel.regionResults
+                                    .collectAsState().value,
+                                calendarGranted = viewModel.calendarGranted
+                                    .collectAsState().value,
+                                calendars = viewModel.calendars.collectAsState().value,
+                                onSave = viewModel::saveInfoSettings,
+                                onSearchRegions = viewModel::searchRegions,
+                                onClearRegionSearch = viewModel::clearRegionSearch,
+                                onRetryWeather = viewModel::retryWeather,
+                                onRefreshCalendars = viewModel::refreshCalendars,
+                                onBack = { viewModel.nav.back() },
+                            )
+                        } else {
+                            EdgeSettingsUnavailable(
+                                onBack = { viewModel.nav.back() },
+                            )
+                        }
+                    }
                     HomeScreen.Edit -> HomeEditSheet(
                         onOpenSettings = {
                             viewModel.nav.navigateTo(HomeScreen.Settings)
@@ -364,7 +409,7 @@ private fun QuietScreen(
     isDefaultHome: Boolean,
     overlay: HomeOverlay?,
     settings: SettingsData,
-    todayInfo: () -> TodayInfo,
+    today: TodayUi,
     onFreeAreaEvent: (FreeAreaEvent) -> Unit,
     onGlanceHold: (Boolean) -> Unit,
     onOpenSearch: () -> Unit,
@@ -382,6 +427,7 @@ private fun QuietScreen(
     onDerivedOp: (DoAction, DerivedOp) -> Unit,
     onContextTap: (ContextRow) -> Unit,
     onContextEdit: (ContextRow) -> Unit,
+    onEventTap: (TodayEvent) -> Unit,
     onUnavailable: () -> Unit,
 ) {
     val description = stringResource(R.string.quiet_preview_badge)
@@ -421,6 +467,9 @@ private fun QuietScreen(
                             activePointerIds.isEmpty() -> sawMultiPointer = false
                             activePointerIds.size > 1 -> sawMultiPointer = true
                         }
+                        // Any finger resting anywhere on the surface pauses
+                        // the GLANCE auto-dismiss (design 8.3 触っている間).
+                        onGlanceHold(activePointerIds.isNotEmpty())
                     }
                 }
             }
@@ -575,7 +624,6 @@ private fun QuietScreen(
                         doubleTapEnabled =
                             settings.systemActions.screenOffEnabled,
                         wasMultiPointer = { sawMultiPointer },
-                        onHoldChange = onGlanceHold,
                         onEvent = onFreeAreaEvent,
                     ),
             )
@@ -658,16 +706,43 @@ private fun QuietScreen(
                     )
                 } else {
                     TodayPanel(
-                        info = todayInfo(),
+                        state = today,
                         panelWidthPx = panelWidthPx,
                         onClose = onCloseOverlay,
+                        onEventTap = onEventTap,
                     )
                 }
             }
         }
 
-        if (overlay == HomeOverlay.Glance) {
-            GlanceOverlay(todayInfo())
+        // GLANCE fades in/out at the designed 160 ms (design 12) and is
+        // never drawn over an incoming Reveal panel — a bar drag preview
+        // already owns the surface (design 8.3: 操作すると消える).
+        AnimatedVisibility(
+            visible = overlay == HomeOverlay.Glance && visualPanel == null,
+            enter = fadeIn(tween(GLANCE_ANIMATION_MS)),
+            exit = fadeOut(tween(GLANCE_ANIMATION_MS)),
+        ) {
+            GlanceOverlay(today, settings.info.glancePosition)
+        }
+
+        // Optional small clock on Quiet (design 12): time only, at the
+        // configured top position; nothing else is added to the surface.
+        if (settings.clock.enabled && overlay == null) {
+            Text(
+                text = today.timeText,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier
+                    .align(
+                        when (settings.clock.position) {
+                            QuietClockPosition.TopStart -> Alignment.TopStart
+                            QuietClockPosition.TopCenter -> Alignment.TopCenter
+                            QuietClockPosition.TopEnd -> Alignment.TopEnd
+                        },
+                    )
+                    .statusBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+            )
         }
 
         if (!isDefaultHome) {

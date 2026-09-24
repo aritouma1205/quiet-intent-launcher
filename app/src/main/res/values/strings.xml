@@ -86,9 +86,73 @@
     <string name="tool_timer">タイマー</string>
     <string name="tool_screenshot">スクリーンショット</string>
 
-    <!-- TODAY / GLANCE -->
+    <!-- TODAY / GLANCE (design 8) -->
     <string name="today_battery">バッテリー %1$d%%</string>
     <string name="today_battery_charging">バッテリー %1$d%%（充電中）</string>
+    <string name="today_weather_line">%1$d° %2$s</string>
+    <string name="weather_region_provider">%1$s · 天気: Open-Meteo</string>
+    <string name="weather_updated_at">更新 %1$s</string>
+    <string name="event_no_title">予定</string>
+    <string name="event_ongoing">開催中 %1$s〜%2$s</string>
+    <string name="event_tomorrow">明日 %1$s</string>
+    <string name="event_allday">終日</string>
+    <string name="event_no_handler">この予定を開けるアプリがありません</string>
+
+    <!-- Weather labels (design 8.2: WMO weather codes; unknown → 天気情報) -->
+    <string name="weather_clear">快晴</string>
+    <string name="weather_mostly_clear">晴れ</string>
+    <string name="weather_partly_cloudy">晴れ時々曇り</string>
+    <string name="weather_overcast">曇り</string>
+    <string name="weather_fog">霧</string>
+    <string name="weather_drizzle">霧雨</string>
+    <string name="weather_rain">雨</string>
+    <string name="weather_freezing_rain">凍雨</string>
+    <string name="weather_snow">雪</string>
+    <string name="weather_rain_shower">にわか雨</string>
+    <string name="weather_snow_shower">にわか雪</string>
+    <string name="weather_thunderstorm">雷雨</string>
+    <string name="weather_thunderstorm_hail">雹を伴う雷雨</string>
+    <string name="weather_unknown">天気情報</string>
+
+    <!-- Info settings (design 8, 11.2, 12) -->
+    <string name="settings_section_info">情報</string>
+    <string name="settings_info_entry">GLANCE・天気・予定の設定</string>
+    <string name="settings_info_note">GLANCEの位置と表示時間、小時計、天気（Open-Meteo）、予定の表示を変更します。</string>
+    <string name="info_settings_title">情報</string>
+    <string name="info_glance_position">GLANCEの位置</string>
+    <string name="info_glance_top">上</string>
+    <string name="info_glance_center">中央</string>
+    <string name="info_glance_bottom">下</string>
+    <string name="info_glance_timeout">自動で消えるまでの時間</string>
+    <string name="info_glance_never">消さない</string>
+    <string name="info_seconds_format">%1$d秒</string>
+    <string name="info_clock">Quietに時計を表示する</string>
+    <string name="info_clock_position">時計の位置</string>
+    <string name="info_clock_left">左上</string>
+    <string name="info_clock_center">中央</string>
+    <string name="info_clock_right">右上</string>
+    <string name="info_weather">天気を表示する</string>
+    <string name="info_weather_note">地域の検索では、入力した地名を提供元（Open-Meteo）へ送信します。天気の更新では、選択した地域の座標を送信します。位置情報権限は使いません。</string>
+    <string name="info_weather_pick_region">地域を選ぶ</string>
+    <string name="info_weather_region_none">地域が未選択です</string>
+    <string name="info_weather_retry">天気を再取得</string>
+    <string name="info_weather_fetching">取得中…</string>
+    <string name="info_weather_failed">前回の取得に失敗しました</string>
+    <string name="info_weather_needs_region">先に地域を選んでください</string>
+    <string name="info_weather_disable_title">天気をオフにしますか？</string>
+    <string name="info_weather_disable_body">地域の設定と保存済みの天気キャッシュを削除します。保存で確定します。</string>
+    <string name="region_search_title">地域を選ぶ</string>
+    <string name="region_search_hint">地名を入力</string>
+    <string name="region_search_note">入力した地名は提供元（Open-Meteo）の地名検索へ送信されます。</string>
+    <string name="region_search_empty">見つかりませんでした</string>
+    <string name="region_search_failed">検索に失敗しました。通信状態を確認して再試行してください。</string>
+    <string name="info_events">予定を表示する</string>
+    <string name="info_events_note">選択したカレンダーから、進行中・24時間以内・当日の終日の予定を読み取ります。予定はメモリ上だけで扱い、保存しません。</string>
+    <string name="info_events_permission_denied">カレンダーの権限がありません。予定は表示されません。</string>
+    <string name="info_events_grant">権限を許可</string>
+    <string name="info_events_pick_calendars">カレンダーを選ぶ</string>
+    <string name="info_events_none_selected">カレンダーが未選択です</string>
+    <string name="info_events_no_calendars">利用できるカレンダーがありません</string>
 
     <!-- Home edit sheet -->
     <string name="edit_title">ホーム編集</string>

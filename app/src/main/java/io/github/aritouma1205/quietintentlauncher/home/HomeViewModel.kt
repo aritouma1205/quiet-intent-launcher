@@ -1,5 +1,6 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
+import android.content.Intent
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,6 +8,9 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.aritouma1205.quietintentlauncher.AppContainer
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
+import io.github.aritouma1205.quietintentlauncher.calendar.CalendarAccess
+import io.github.aritouma1205.quietintentlauncher.calendar.EventRules
+import io.github.aritouma1205.quietintentlauncher.calendar.TodayEvent
 import io.github.aritouma1205.quietintentlauncher.context.ContextEvaluator
 import io.github.aritouma1205.quietintentlauncher.launch.LaunchResult
 import io.github.aritouma1205.quietintentlauncher.launch.LaunchTarget
@@ -27,9 +31,17 @@ import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
+import io.github.aritouma1205.quietintentlauncher.settings.WeatherLocation
+import io.github.aritouma1205.quietintentlauncher.today.TodayUi
+import io.github.aritouma1205.quietintentlauncher.today.WeatherBlock
+import io.github.aritouma1205.quietintentlauncher.weather.WeatherFreshness
+import io.github.aritouma1205.quietintentlauncher.weather.WeatherRules
+import io.github.aritouma1205.quietintentlauncher.weather.WeatherService
 import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +49,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -60,6 +76,9 @@ enum class HomeMessage {
 
     /** No app can run the requested web search or share (design 9.2). */
     NoExternalHandler,
+
+    /** No calendar app can display the tapped event (design 8.1). */
+    NoEventHandler,
 }
 
 /** Resolved external hand-off capability for the search screen. */
@@ -149,6 +168,38 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private val _glanceHold = MutableStateFlow(false)
     private var glanceJob: Job? = null
 
+    /**
+     * TODAY panel + GLANCE content (design 8). Recomputed at the designed
+     * refresh points — never polled in the background.
+     */
+    private val _today = MutableStateFlow(TodayUi())
+    val today: StateFlow<TodayUi> = _today.asStateFlow()
+
+    /** Weather state surfaced to TODAY/GLANCE and the info settings. */
+    val weatherUi: StateFlow<WeatherService.WeatherUi> = container.weatherService.ui
+
+    /** Region-search results for the weather settings picker. */
+    val regionResults: StateFlow<WeatherService.RegionSearchState> =
+        container.weatherService.regionResults
+
+    /** Calendar rows of the TODAY panel (design 8.1); memory-only. */
+    private val _events = MutableStateFlow<List<TodayEvent>>(emptyList())
+
+    /** READ_CALENDAR grant state, refreshed on foreground / settings use. */
+    private val _calendarGranted = MutableStateFlow(false)
+    val calendarGranted: StateFlow<Boolean> = _calendarGranted.asStateFlow()
+
+    /** Selectable calendars for the settings picker. */
+    private val _calendars = MutableStateFlow<List<CalendarAccess.CalendarInfo>>(emptyList())
+    val calendars: StateFlow<List<CalendarAccess.CalendarInfo>> = _calendars.asStateFlow()
+
+    /** VIEW intents for tapped events; the Activity performs the launch. */
+    private val _eventIntents = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
+    val eventIntents: SharedFlow<Intent> = _eventIntents.asSharedFlow()
+
+    private var refreshEventsJob: Job? = null
+    private var eventsObserverUnregister: (() -> Unit)? = null
+
     private var introDecided = false
 
     init {
@@ -221,6 +272,15 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             // (design 3, 9.4). Entering Search re-checks which external
             // receivers exist.
             nav.screen.collect { screen ->
+                // Any stack navigation leaving Quiet dismisses every
+                // overlay — the accessibility actions (search / all-apps /
+                // settings) bypass the gesture path that already closes
+                // GLANCE, and a stale GLANCE would swallow the next Back
+                // and never time out for a screen-reader user (design 3,
+                // 8.3).
+                if (screen != HomeScreen.Quiet) {
+                    overlays.clear()
+                }
                 if (screen != HomeScreen.Search) {
                     resetSearch()
                 } else {
@@ -233,6 +293,88 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 }
             }
         }
+        viewModelScope.launch {
+            // A weather cache update repaints the clock faces (design 8.2).
+            container.weatherService.ui.collect { refreshToday() }
+        }
+        viewModelScope.launch {
+            _events.collect { refreshToday() }
+        }
+        viewModelScope.launch {
+            // Minute ticker — runs only while a clock face is actually
+            // visible: TODAY / GLANCE open, or the optional Quiet clock
+            // enabled (design 15: no launcher-owned periodic work while
+            // everything is off). While TODAY is open the event selection
+            // is re-evaluated at each minute boundary (design 8.1).
+            combine(overlay, screen, settingsState, ::clockVisible)
+                .distinctUntilChanged()
+                .collectLatest { visible ->
+                    if (!visible) return@collectLatest
+                    while (currentCoroutineContext().isActive) {
+                        refreshToday()
+                        if (overlay.value == HomeOverlay.Today) refreshEvents()
+                        delay(msUntilNextMinute())
+                    }
+                }
+        }
+        viewModelScope.launch {
+            // Opening TODAY refreshes everything and watches the provider
+            // while the panel stays open (design 8.1); leaving unregisters
+            // the observer. GLANCE repaints on open but never waits for
+            // the network (design 8.2/8.3).
+            overlay.collect { current ->
+                when (current) {
+                    HomeOverlay.Today -> {
+                        refreshToday()
+                        refreshEvents()
+                        container.weatherService.requestAutoRefresh()
+                        eventsObserverUnregister?.invoke()
+                        eventsObserverUnregister = container.calendarAccess
+                            .observeChanges { refreshEvents() }
+                    }
+                    HomeOverlay.Glance -> refreshToday()
+                    else -> {
+                        eventsObserverUnregister?.invoke()
+                        eventsObserverUnregister = null
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        // viewModelScope cancellation stops the collectors, but the
+        // ContentObserver lives on the ContentResolver — unregister it
+        // explicitly so a cleared ViewModel never keeps watching the
+        // provider (design 15).
+        eventsObserverUnregister?.invoke()
+        eventsObserverUnregister = null
+        super.onCleared()
+    }
+
+    /**
+     * A clock is on screen while TODAY/GLANCE is open or the optional
+     * Quiet clock is enabled on the Quiet surface (design 12, 15).
+     */
+    private fun clockVisible(
+        currentOverlay: HomeOverlay?,
+        currentScreen: HomeScreen,
+        state: SettingsState,
+    ): Boolean =
+        currentOverlay == HomeOverlay.Today ||
+            currentOverlay == HomeOverlay.Glance ||
+            (
+                // The Quiet clock composes only while no overlay is up —
+                // a Reveal panel covering it must not keep the ticker
+                // alive (design 15).
+                currentOverlay == null &&
+                    currentScreen == HomeScreen.Quiet &&
+                    (state as? SettingsState.Ready)?.data?.clock?.enabled == true
+                )
+
+    private fun msUntilNextMinute(): Long {
+        val remainder = container.wallClock() % MINUTE_MS
+        return if (remainder <= 0) MINUTE_MS else MINUTE_MS - remainder
     }
 
     fun refreshHomeRole() {
@@ -557,6 +699,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             SettingsDestination.Actions -> openActionEditor(null)
             SettingsDestination.ContextSlots -> openContextSlotEditor(null)
             SettingsDestination.Search -> nav.navigateTo(HomeScreen.SearchSettings)
+            SettingsDestination.Info -> nav.navigateTo(HomeScreen.InfoSettings)
         }
     }
 
@@ -683,6 +826,148 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     fun openTodayPanel() = overlays.openToday()
 
+    // ---- TODAY / GLANCE / optional integrations (design 8) -------------
+
+    /**
+     * Recomputes TODAY/GLANCE content from live sources (design 8):
+     * time/date/battery from the provider, weather from the key-filtered
+     * cache with freshness applied, events from the in-memory selection.
+     */
+    fun refreshToday() {
+        val info = container.todayData.current()
+        val weather = container.weatherService.ui.value
+        val snapshot = weather.snapshot
+        val freshness = snapshot?.let {
+            WeatherRules.freshness(
+                container.elapsedClock(),
+                container.wallClock(),
+                it,
+            )
+        }
+        _today.value = TodayUi(
+            timeText = info.timeText,
+            dateText = info.dateText,
+            weekdayText = info.weekdayText,
+            weather = if (snapshot != null && freshness != WeatherFreshness.Hidden) {
+                WeatherBlock(
+                    temperatureCelsius = snapshot.temperatureCelsius,
+                    labelRes = WeatherRules.weatherLabelRes(snapshot.weatherCode),
+                    fresh = freshness == WeatherFreshness.Fresh,
+                    fetchedAtWallMs = snapshot.fetchedAtWallMs,
+                    regionName = weather.region?.name.orEmpty(),
+                )
+            } else {
+                null
+            },
+            events = _events.value,
+            batteryPercent = info.batteryPercent,
+            charging = info.charging,
+            nowMs = container.wallClock(),
+        )
+    }
+
+    /**
+     * Re-reads the Calendar Provider selection (design 8.1) on the
+     * designed triggers — TODAY opened, foreground return, provider
+     * change while open, minute boundary while open. A revoked
+     * permission drops the in-memory rows; the latest call wins.
+     */
+    fun refreshEvents() {
+        refreshEventsJob?.cancel()
+        refreshEventsJob = viewModelScope.launch {
+            val data = currentSettings()
+            val granted = withContext(Dispatchers.IO) {
+                container.calendarAccess.hasPermission()
+            }
+            _calendarGranted.value = granted
+            val ids = data.info.selectedCalendarIds.toSet()
+            if (!data.info.eventsEnabled || !granted || ids.isEmpty()) {
+                _events.value = emptyList()
+                return@launch
+            }
+            val nowMs = container.wallClock()
+            val zone = ZoneId.systemDefault()
+            _events.value = withContext(Dispatchers.IO) {
+                try {
+                    EventRules.select(
+                        container.calendarAccess.queryInstances(nowMs, zone, ids),
+                        nowMs,
+                        zone,
+                    )
+                } catch (e: SecurityException) {
+                    // Permission revoked mid-session: drop memory data.
+                    _calendarGranted.value = false
+                    emptyList()
+                }
+            }
+        }
+    }
+
+    /** Loads the calendar picker list (settings entry / grant result). */
+    fun refreshCalendars() {
+        viewModelScope.launch {
+            val granted = withContext(Dispatchers.IO) {
+                container.calendarAccess.hasPermission()
+            }
+            _calendarGranted.value = granted
+            _calendars.value = if (granted) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        container.calendarAccess.listCalendars()
+                    } catch (e: SecurityException) {
+                        _calendarGranted.value = false
+                        emptyList()
+                    }
+                }
+            } else {
+                emptyList()
+            }
+        }
+    }
+
+    /** Tapping an event opens it in a calendar app (design 8.1). */
+    fun onEventTapped(event: TodayEvent) {
+        val intent = container.calendarAccess.viewEventIntent(event)
+        if (container.calendarAccess.canOpenEvent(intent)) {
+            _eventIntents.tryEmit(intent)
+        } else {
+            // No handler: the row stays visible and the UI explains.
+            _messages.tryEmit(HomeMessage.NoEventHandler)
+        }
+    }
+
+    /** Region-name search for the settings picker (design 8.2). */
+    fun searchRegions(query: String) = container.weatherService.searchRegions(query)
+
+    fun clearRegionSearch() = container.weatherService.clearRegionSearch()
+
+    /** Manual weather refresh from settings (design 8.2: 30 s minimum). */
+    fun retryWeather() {
+        container.weatherService.requestManualRefresh()
+    }
+
+    /**
+     * 「情報」 settings save (design 8, 11.2). Disabling weather deletes
+     * the weather cache; the region is dropped from the draft by the
+     * screen itself so the persisted pair stays consistent.
+     */
+    fun saveInfoSettings(data: SettingsData, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val ok = container.settingsStore.update { data }
+            if (ok && !data.info.weather.enabled) {
+                container.weatherService.clearCache()
+            }
+            if (ok) refreshEvents()
+            onResult(ok)
+        }
+    }
+
+    /** Time/date/timezone broadcasts (design 8.1): repaint + re-select. */
+    fun onTimeChanged() {
+        refreshToday()
+        refreshEvents()
+    }
+
     fun expandTools() = overlays.expandTools()
 
     fun collapseTools() = overlays.collapseTools()
@@ -725,14 +1010,24 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private fun scheduleGlance() {
         glanceJob?.cancel()
         if (overlay.value != HomeOverlay.Glance) return
-        // TalkBack / switch users read at their own pace (design 8.3).
-        if (container.isAccessibilityActive()) return
+        val seconds = currentSettings().info.glanceDismissSeconds
+        // 0 = 自動消去なし (design 11.2): stays until an explicit close.
+        if (seconds <= 0) return
+        // The countdown runs even when a screen reader is active: every
+        // tick re-checks it, so GLANCE opened while TalkBack is on simply
+        // never decreases, and turning TalkBack off mid-display resumes a
+        // normal dismissal instead of leaving GLANCE stuck (design 8.3).
         glanceJob = viewModelScope.launch {
-            var remaining = GLANCE_TIMEOUT_MS
+            var remaining = seconds * 1000L
             while (remaining > 0) {
                 delay(GLANCE_TICK_MS)
                 if (overlay.value != HomeOverlay.Glance) return@launch
-                if (!_glanceHold.value) remaining -= GLANCE_TICK_MS
+                // A held finger pauses the countdown; so does a screen
+                // reader / switch access switched on mid-display
+                // (design 8.3: never leave while the user is reading).
+                if (!_glanceHold.value && !container.isAccessibilityActive()) {
+                    remaining -= GLANCE_TICK_MS
+                }
             }
             overlays.close()
         }
@@ -793,6 +1088,13 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     fun onForegrounded() {
         nav.onForegrounded()
+        // Designed refresh points (design 8): repaint the clock faces,
+        // re-read events (permission may have been revoked), and let the
+        // weather service decide whether 30 min passed since the last
+        // success — GLANCE/TODAY never wait on the network.
+        refreshToday()
+        refreshEvents()
+        container.weatherService.requestAutoRefresh()
     }
 
     fun onBackgrounded() {
@@ -816,8 +1118,8 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         currentSettings().vibration == VibrationMode.System
 
     companion object {
-        private const val GLANCE_TIMEOUT_MS = 3000L
         private const val GLANCE_TICK_MS = 50L
+        private const val MINUTE_MS = 60_000L
 
         fun factory(container: AppContainer) = viewModelFactory {
             initializer { HomeViewModel(container) }

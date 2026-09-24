@@ -2,11 +2,13 @@ package io.github.aritouma1205.quietintentlauncher
 
 import android.app.Application
 import android.content.Context
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityManager
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
 import io.github.aritouma1205.quietintentlauncher.apps.AppCatalog
 import io.github.aritouma1205.quietintentlauncher.apps.ShortcutCatalog
+import io.github.aritouma1205.quietintentlauncher.calendar.CalendarAccess
 import io.github.aritouma1205.quietintentlauncher.home.HomeRole
 import io.github.aritouma1205.quietintentlauncher.launch.TargetLauncher
 import io.github.aritouma1205.quietintentlauncher.recent.RecentSerializer
@@ -16,6 +18,9 @@ import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializer
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsStore
 import io.github.aritouma1205.quietintentlauncher.today.TodayDataProvider
+import io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheSerializer
+import io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStore
+import io.github.aritouma1205.quietintentlauncher.weather.WeatherService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,11 +77,39 @@ class AppContainer(context: Context) {
     /** External search / share hand-off (design 9.2). */
     val externalSearch = ExternalSearch(context)
 
+    /**
+     * Opt-in weather (design 8.2): the cache lives in its own disposable
+     * file, deleted together with the region setting when weather is
+     * disabled. No clock skew survives in the age check — the snapshot
+     * carries the boot marker alongside the fetch times.
+     */
+    val weatherSerializer = WeatherCacheSerializer()
+    val weatherFile = context.dataStoreFile("quiet_weather.json")
+    val weatherCacheStore = WeatherCacheStore(
+        scope = appScope,
+        serializer = weatherSerializer,
+        fileProvider = { weatherFile },
+    ) { storeScope ->
+        DataStoreFactory.create(
+            serializer = weatherSerializer,
+            scope = storeScope,
+            produceFile = { weatherFile },
+        )
+    }
+    val weatherService = WeatherService(appScope, settingsStore, weatherCacheStore)
+
+    /** Read-only Calendar Provider bridge (design 8.1); events stay in memory. */
+    val calendarAccess = CalendarAccess(context)
+
+    /** Monotonic + wall clocks, injectable for weather-age tests. */
+    val elapsedClock: () -> Long = { SystemClock.elapsedRealtime() }
+    val wallClock: () -> Long = System::currentTimeMillis
+
     /** String lookup for search-index building off the UI layer. */
     val stringFor: (Int) -> String = { context.getString(it) }
 
     /** Any accessibility service on (design 8.3: GLANCE must not time out). */
-    val isAccessibilityActive: () -> Boolean = {
+    internal var isAccessibilityActive: () -> Boolean = {
         val am = context.getSystemService(AccessibilityManager::class.java)
         am != null && am.isEnabled
     }
@@ -85,6 +118,8 @@ class AppContainer(context: Context) {
         settingsStore.start()
         appCatalog.start()
         recentStore.start()
+        weatherCacheStore.start()
+        weatherService.start()
     }
 }
 

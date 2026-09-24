@@ -45,19 +45,28 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.calendar.EventSection
+import io.github.aritouma1205.quietintentlauncher.calendar.TodayEvent
 import io.github.aritouma1205.quietintentlauncher.context.ContextRule
 import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
-import io.github.aritouma1205.quietintentlauncher.today.TodayInfo
+import io.github.aritouma1205.quietintentlauncher.settings.GlancePosition
+import io.github.aritouma1205.quietintentlauncher.today.TodayUi
 import io.github.aritouma1205.quietintentlauncher.ui.imageVector
+import android.text.format.DateFormat
+import java.time.Instant
+import java.util.Date
+import java.util.TimeZone
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
 
@@ -548,14 +557,24 @@ private fun StatusLine(text: String) {
     )
 }
 
-/** TODAY panel (left). Date / weekday / battery only; weather and events
- * are optional features of a later stage. */
+/**
+ * TODAY panel (left, design 8.1). Order: date/weekday, weather, the next
+ * events, battery. Blocks without data are omitted entirely — the panel
+ * never leaves empty placeholders.
+ */
 @Composable
 fun TodayPanel(
-    info: TodayInfo,
+    state: TodayUi,
     panelWidthPx: Float,
     onClose: () -> Unit,
+    onEventTap: (TodayEvent) -> Unit,
 ) {
+    val context = LocalContext.current
+    // Keyed to the default zone so a TIMEZONE_CHANGED refresh rebuilds the
+    // formatter instead of showing stale-zone times (design 8.1).
+    val timeFormat = remember(TimeZone.getDefault()) {
+        DateFormat.getTimeFormat(context)
+    }
     Column(Modifier.fillMaxSize()) {
         PanelHeader(
             title = stringResource(R.string.panel_today_title),
@@ -568,19 +587,65 @@ fun TodayPanel(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(
-                text = info.weekdayText,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = info.dateText,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            info.batteryPercent?.let { percent ->
+            Column {
                 Text(
-                    text = if (info.charging == true) {
+                    text = state.dateText,
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Text(
+                    text = state.weekdayText,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            state.weather?.let { weather ->
+                Column {
+                    Text(
+                        text = stringResource(
+                            R.string.today_weather_line,
+                            weather.temperatureCelsius.roundToInt(),
+                            stringResource(weather.labelRes),
+                        ),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.weather_region_provider,
+                            weather.regionName,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.6f),
+                    )
+                    if (!weather.fresh) {
+                        Text(
+                            text = stringResource(
+                                R.string.weather_updated_at,
+                                timeFormat.format(Date(weather.fetchedAtWallMs)),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+                    }
+                }
+            }
+
+            if (state.events.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    state.events.forEach { event ->
+                        EventRowItem(
+                            event = event,
+                            nowMs = state.nowMs,
+                            onClick = { onEventTap(event) },
+                        )
+                    }
+                }
+            }
+
+            state.batteryPercent?.let { percent ->
+                Text(
+                    text = if (state.charging) {
                         stringResource(R.string.today_battery_charging, percent)
                     } else {
                         stringResource(R.string.today_battery, percent)
@@ -592,35 +657,116 @@ fun TodayPanel(
     }
 }
 
-/** GLANCE strip over Quiet (design 8.3): time, date and battery, top-centre.
- * Non-interactive: touches pass through to the bars and free area. */
+/**
+ * One event row (design 8.1): a small section label (開催中 / 時刻 /
+ * 明日+時刻 / 終日) above the title, tap opens it in a calendar app.
+ * An empty title falls back to 「予定」.
+ */
 @Composable
-fun GlanceOverlay(info: TodayInfo) {
+private fun EventRowItem(
+    event: TodayEvent,
+    nowMs: Long,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    val timeFormat = remember(TimeZone.getDefault()) {
+        DateFormat.getTimeFormat(context)
+    }
+    val zone = TimeZone.getDefault().toZoneId()
+    val title = event.title.ifBlank { stringResource(R.string.event_no_title) }
+    val label = when (event.section) {
+        EventSection.Ongoing -> stringResource(
+            R.string.event_ongoing,
+            timeFormat.format(Date(event.beginMs)),
+            timeFormat.format(Date(event.endMs)),
+        )
+        EventSection.Upcoming -> {
+            val tomorrow =
+                Instant.ofEpochMilli(event.beginMs).atZone(zone).toLocalDate() >
+                    Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
+            if (tomorrow) {
+                stringResource(
+                    R.string.event_tomorrow,
+                    timeFormat.format(Date(event.beginMs)),
+                )
+            } else {
+                timeFormat.format(Date(event.beginMs))
+            }
+        }
+        EventSection.AllDay -> stringResource(R.string.event_allday)
+    }
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(top = 48.dp)
-            .semantics { paneTitle = "GLANCE" },
+            .defaultMinSize(minHeight = 48.dp)
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp)
+            .semantics { contentDescription = "$label $title" },
     ) {
         Text(
-            text = info.timeText,
-            style = MaterialTheme.typography.displayMedium,
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.6f),
         )
         Text(
-            text = "${info.weekdayText} ${info.dateText}",
-            style = MaterialTheme.typography.bodyMedium,
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
         )
-        info.batteryPercent?.let { percent ->
+    }
+}
+
+/**
+ * GLANCE strip over Quiet (design 8.3): time, date, fresh weather and
+ * battery at the configured position. Non-interactive — touches pass
+ * through to the bars and the free area.
+ */
+@Composable
+fun GlanceOverlay(state: TodayUi, position: GlancePosition) {
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .align(
+                    when (position) {
+                        GlancePosition.Top -> Alignment.TopCenter
+                        GlancePosition.Center -> Alignment.Center
+                        GlancePosition.Bottom -> Alignment.BottomCenter
+                    },
+                )
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(vertical = 48.dp)
+                .semantics { paneTitle = "GLANCE" },
+        ) {
             Text(
-                text = if (info.charging == true) {
-                    stringResource(R.string.today_battery_charging, percent)
-                } else {
-                    stringResource(R.string.today_battery, percent)
-                },
-                style = MaterialTheme.typography.bodySmall,
+                text = state.timeText,
+                style = MaterialTheme.typography.displayMedium,
             )
+            Text(
+                text = "${state.weekdayText} ${state.dateText}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            // GLANCE omits stale weather entirely (design 8.2).
+            state.weather?.takeIf { it.fresh }?.let { weather ->
+                Text(
+                    text = stringResource(
+                        R.string.today_weather_line,
+                        weather.temperatureCelsius.roundToInt(),
+                        stringResource(weather.labelRes),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            state.batteryPercent?.let { percent ->
+                Text(
+                    text = if (state.charging) {
+                        stringResource(R.string.today_battery_charging, percent)
+                    } else {
+                        stringResource(R.string.today_battery, percent)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }

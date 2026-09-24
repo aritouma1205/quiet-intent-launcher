@@ -15,6 +15,7 @@ enum class HomeScreen {
     DoSettings,
     ContextSettings,
     SearchSettings,
+    InfoSettings,
     Edit,
 }
 
