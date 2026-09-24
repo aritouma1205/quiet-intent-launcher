@@ -156,6 +156,14 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             container.appCatalog.apps.collect {
                 refreshActionRows()
                 refreshRecentRows()
+                // A catalog load/update arriving while Search is open
+                // re-runs the current query — the latest submission still
+                // wins through the same generation guard (design 9.1, 15).
+                if (nav.screen.value == HomeScreen.Search &&
+                    _searchQuery.value.isNotBlank()
+                ) {
+                    searchDispatcher.submit(_searchQuery.value)
+                }
             }
         }
         viewModelScope.launch {
@@ -217,6 +225,11 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                     resetSearch()
                 } else {
                     refreshExternalAvailability()
+                    // Entries that crossed the 30-day line while the
+                    // process lived are pruned here — where the history is
+                    // shown — rather than by a background watcher
+                    // (design 9, 15). The emission refreshes 最近 rows.
+                    container.recentStore.prune()
                 }
             }
         }
@@ -445,18 +458,33 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             val payloads = pairs.associate { it.first.id to it.second }
             val rows = LocalSearch.search(query, pairs.map { it.first })
                 .mapNotNull { payloads[it.id] }
-            // Same-named app results carry the package name (design 9.1).
+            // Same-named app results carry the package name (design 9.1);
+            // same-named action results carry the launch-target name so
+            // they stay distinguishable (design 6).
             val duplicatedLabels = rows
                 .filterIsInstance<SearchRow.App>()
                 .groupingBy { it.entry.label }
                 .eachCount()
                 .filterValues { it > 1 }
                 .keys
+            val duplicatedActionNames = rows
+                .filterIsInstance<SearchRow.Action>()
+                .groupingBy { it.action.name }
+                .eachCount()
+                .filterValues { it > 1 }
+                .keys
             rows.map { row ->
-                if (row is SearchRow.App && row.entry.label in duplicatedLabels) {
-                    row.copy(showPackage = true)
-                } else {
-                    row
+                when {
+                    row is SearchRow.App &&
+                        row.entry.label in duplicatedLabels ->
+                        row.copy(showPackage = true)
+                    row is SearchRow.Action &&
+                        row.action.name in duplicatedActionNames ->
+                        row.copy(
+                            targetLabel = (resolveStatus(row.action) as?
+                                ActionStatus.Available)?.targetLabel,
+                        )
+                    else -> row
                 }
             }
         }

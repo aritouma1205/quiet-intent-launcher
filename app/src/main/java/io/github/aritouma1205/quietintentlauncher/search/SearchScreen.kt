@@ -218,7 +218,7 @@ private fun SearchRowItem(
     when (row) {
         is SearchRow.Action -> SearchResultRow(
             title = row.action.name,
-            subtitle = null,
+            subtitle = row.targetLabel,
             icon = {
                 Icon(
                     imageVector = row.action.icon.imageVector(),

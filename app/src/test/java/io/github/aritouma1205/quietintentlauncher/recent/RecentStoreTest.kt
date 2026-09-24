@@ -250,6 +250,23 @@ class RecentStoreTest {
     }
 
     @Test
+    fun `prune removes entries that expired after load`() = runBlocking<Unit> {
+        // Entries that cross the 30-day line while the process lives are
+        // pruned at a request point (Search opening), not only on load —
+        // and the deletion reaches the store itself (design 9).
+        val entry = RecentEntry(appB, now)
+        val store = fakeStore(RecentData(listOf(entry)))
+        store.start()
+        awaitOpen(store)
+        withTimeout(10_000) { store.entries.first { it.size == 1 } }
+
+        now += RecentRules.RETENTION_MILLIS + 1
+        assertTrue(store.prune())
+
+        withTimeout(10_000) { store.entries.first { it.isEmpty() } }
+    }
+
+    @Test
     fun `recording the same target keeps a single entry`() = runBlocking {
         val store = fakeStore(RecentData())
         store.start()

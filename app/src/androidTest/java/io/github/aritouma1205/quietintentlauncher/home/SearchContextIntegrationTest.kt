@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -28,6 +29,9 @@ import io.github.aritouma1205.quietintentlauncher.context.ContextRules
 import io.github.aritouma1205.quietintentlauncher.recent.RecentData
 import io.github.aritouma1205.quietintentlauncher.recent.RecentEntry
 import io.github.aritouma1205.quietintentlauncher.recent.RecentRules
+import io.github.aritouma1205.quietintentlauncher.search.SearchRow
+import io.github.aritouma1205.quietintentlauncher.settings.ActionIcon
+import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.DoActionDefaults
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
@@ -603,5 +607,85 @@ class SearchContextIntegrationTest {
         rule.onNodeWithText(res(R.string.context_slot_title, 2))
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun catalogCompletionRefreshesResultsWithTheSameQuery() {
+        // Regression (design 9.1): an app-catalog load finishing while
+        // Search is open re-runs the current query — the user does not
+        // retype to see apps that arrived late.
+        val app = InstrumentationRegistry.getInstrumentation()
+            .targetContext.applicationContext as QuietLauncherApp
+        val catalog = app.container.appCatalog
+        val loaded = checkNotNull(
+            runBlocking { catalog.apps.first { it != null } },
+        )
+        catalog.replaceAppsForTest(null)
+        try {
+            viewModel.nav.navigateTo(HomeScreen.Search)
+            rule.waitForIdle()
+            rule.onNode(hasSetTextAction()).performTextInput("settings")
+
+            // The debounce + compute settle on the still-empty catalog:
+            // no app row can exist yet.
+            rule.waitForIdle()
+            Thread.sleep(400)
+            assertTrue(
+                viewModel.searchRows.value.none { it is SearchRow.App },
+            )
+
+            // The initial load completes: the same query finds the app.
+            catalog.replaceAppsForTest(loaded)
+            rule.waitUntil(timeoutMillis = 5_000) {
+                viewModel.searchRows.value.any {
+                    it is SearchRow.App && it.entry.label == "Settings"
+                }
+            }
+        } finally {
+            catalog.replaceAppsForTest(loaded)
+        }
+    }
+
+    @Test
+    fun sameNamedActionsShowTheirTargetLabels() {
+        // Regression (design 6): same-named actions stay distinguishable
+        // by their launch-target name — like same-named apps by package.
+        val app = InstrumentationRegistry.getInstrumentation()
+            .targetContext.applicationContext as QuietLauncherApp
+        val ownTarget = ownAppTarget()
+        val ownLabel = checkNotNull(
+            runBlocking {
+                app.container.appCatalog.resolveApp(ownTarget.component)?.label
+            },
+        )
+        setData { data ->
+            data.copy(
+                actions = listOf(
+                    DoAction(
+                        name = "開く",
+                        icon = ActionIcon.Star,
+                        target = ownTarget,
+                    ),
+                    DoAction(
+                        name = "開く",
+                        icon = ActionIcon.Face,
+                        target = StoredTarget.App(
+                            "com.android.settings/.Settings",
+                        ),
+                    ),
+                ),
+            )
+        }
+        viewModel.nav.navigateTo(HomeScreen.Search)
+        rule.waitForIdle()
+        rule.onNode(hasSetTextAction()).performTextInput("開く")
+
+        // Both rows carry their distinct target labels as subtitles.
+        rule.waitUntil(timeoutMillis = 5_000) {
+            rule.onAllNodesWithText(ownLabel)
+                .fetchSemanticsNodes().isNotEmpty() &&
+                rule.onAllNodesWithText("Settings")
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }

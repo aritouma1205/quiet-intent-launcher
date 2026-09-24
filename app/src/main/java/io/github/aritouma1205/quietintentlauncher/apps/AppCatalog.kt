@@ -101,6 +101,14 @@ class AppCatalog(
         scope.launch { _apps.value = query(null) }
     }
 
+    /**
+     * Test seam: replaces the cached list as if the OS reported a change,
+     * so catalog load/update reactions can be exercised deterministically.
+     */
+    internal fun replaceAppsForTest(entries: List<AppEntry>?) {
+        _apps.value = entries
+    }
+
     /** Incremental update for a single package (design 15: 差分更新). */
     private fun refreshPackage(packageName: String) {
         scope.launch {

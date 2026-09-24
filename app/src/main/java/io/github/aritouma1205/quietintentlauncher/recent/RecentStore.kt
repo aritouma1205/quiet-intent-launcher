@@ -105,6 +105,32 @@ class RecentStore(
         }
     }
 
+    /**
+     * Re-normalizes the stored history at a request point (design 9: entries
+     * older than 30 days are deleted). There is no background watcher, so
+     * entries that cross the retention line while the process lives are
+     * pruned where the history is actually shown — when Search opens. The
+     * transform normalizes the CURRENT value inside updateData so it can
+     * never resurrect entries a concurrent clear() removed; an unchanged
+     * result writes nothing.
+     */
+    suspend fun prune(): Boolean {
+        val store = dataStore ?: return false
+        return try {
+            store.updateData { data ->
+                data.copy(entries = RecentRules.normalize(data.entries, clock()))
+            }
+            true
+        } catch (e: CorruptionException) {
+            fileProvider().delete()
+            false
+        } catch (e: IOException) {
+            false
+        } catch (e: IllegalStateException) {
+            false
+        }
+    }
+
     /** Erases the whole history (design 9: 履歴消去). */
     suspend fun clear(): Boolean {
         val store = dataStore ?: return false

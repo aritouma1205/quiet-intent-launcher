@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Instrumented tests host Compose content inside androidx.activity's
+         ComponentActivity (declared by the library with no softInputMode).
+         Left unspecified, API 36 emulators pick adjustPan: the IME pans the
+         whole window up and result rows leave the visible area, so
+         assertIsDisplayed fails even though the row exists. Production
+         MainActivity already uses adjustResize; mirror it for test runs
+         only (this file merges into debug builds just for androidTest). -->
+    <application>
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:windowSoftInputMode="adjustResize" />
+    </application>
+</manifest>

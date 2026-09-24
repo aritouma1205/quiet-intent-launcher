@@ -17,8 +17,16 @@ sealed interface SearchRow {
     /** Stable id shared with the originating [SearchItem]. */
     val id: String
 
-    /** A DO action (visible or hidden — hiding declutters the panel only). */
-    data class Action(val action: DoAction) : SearchRow {
+    /**
+     * A DO action (visible or hidden — hiding declutters the panel only).
+     * [targetLabel] is set only when the result list holds another action
+     * with the same name: it carries the resolved launch-target name so
+     * same-named actions stay distinguishable (design 6).
+     */
+    data class Action(
+        val action: DoAction,
+        val targetLabel: String? = null,
+    ) : SearchRow {
         override val id: String get() = "action:${action.id}"
     }
 
