@@ -158,7 +158,24 @@ class RecentStore(
                 }
             }
             .collect { data ->
-                _entries.value = RecentRules.normalize(data.entries, clock())
+                val normalized = RecentRules.normalize(data.entries, clock())
+                _entries.value = normalized
+                if (normalized != data.entries) {
+                    // Expired/duplicate entries are removed from the file
+                    // itself (design 9: 30日経過で削除), not merely hidden.
+                    // The write emits the normalized list again; normalize
+                    // is idempotent so the pass converges after one write.
+                    try {
+                        store.updateData { it.copy(entries = normalized) }
+                    } catch (e: CorruptionException) {
+                        fileProvider().delete()
+                    } catch (e: IOException) {
+                        // Keep showing the pruned list; the next write
+                        // retries the deletion.
+                    } catch (e: IllegalStateException) {
+                        // The store was closed meanwhile.
+                    }
+                }
             }
     }
 }

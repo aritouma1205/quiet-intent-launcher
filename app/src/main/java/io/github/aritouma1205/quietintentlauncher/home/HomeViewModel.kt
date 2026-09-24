@@ -170,6 +170,15 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                                 nav.navigateTo(HomeScreen.Intro)
                             }
                         }
+                        // Recording off ⇒ stored history must not linger
+                        // (design 9). The entries collector may have run
+                        // before the settings arrived, so retry a failed
+                        // erase here too.
+                        if (!state.data.search.recentRecording &&
+                            container.recentStore.entries.value.isNotEmpty()
+                        ) {
+                            container.recentStore.clear()
+                        }
                     }
                     is SettingsState.Degraded -> _recoveryDismissed.value = false
                     SettingsState.Loading -> Unit
@@ -177,7 +186,17 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             }
         }
         viewModelScope.launch {
-            container.recentStore.entries.collect { refreshRecentRows() }
+            container.recentStore.entries.collect { entries ->
+                refreshRecentRows()
+                // While recording is off no stored history may linger: if an
+                // earlier erase failed, retry it here (design 9). A failed
+                // clear does not emit, so this cannot loop.
+                if (entries.isNotEmpty() &&
+                    !currentSettings().search.recentRecording
+                ) {
+                    container.recentStore.clear()
+                }
+            }
         }
         viewModelScope.launch {
             container.targetLauncher.recentLaunchEvents.collect { record ->
@@ -574,7 +593,9 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     /**
      * Search-settings save; when recording is off or the user asked to
      * clear, saved history is deleted after the settings write succeeded
-     * (design 9: 停止時は保存済み履歴も確認のうえ消す).
+     * (design 9: 停止時は保存済み履歴も確認のうえ消す). A failed erase is
+     * reported as a failed save so the user sees it and can retry — it is
+     * never silently treated as done.
      */
     fun saveSearchSettings(
         data: SettingsData,
@@ -583,10 +604,12 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     ) {
         viewModelScope.launch {
             val ok = container.settingsStore.update { data }
-            if (ok && (clearHistory || !data.search.recentRecording)) {
+            val cleared = if (ok && (clearHistory || !data.search.recentRecording)) {
                 container.recentStore.clear()
+            } else {
+                true
             }
-            onResult(ok)
+            onResult(ok && cleared)
         }
     }
 

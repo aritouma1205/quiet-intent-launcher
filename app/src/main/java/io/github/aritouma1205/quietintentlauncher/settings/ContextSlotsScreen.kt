@@ -95,6 +95,17 @@ fun ContextSlotsScreen(
     }
 
     fun attemptSave() {
+        // Raw time fields are the source of truth for rules being edited:
+        // unparseable or unsettled input must not silently save the last
+        // parsed value (e.g. typing "25:00" must not persist 9:00).
+        val staleTimeInput = draft.contextSlots.any { slot ->
+            slot.rules.any { rule ->
+                timeInputs[rule.id]?.let { (startText, endText) ->
+                    parseMinute(startText) != rule.startMinuteOfDay ||
+                        parseMinute(endText) != rule.endMinuteOfDay
+                } == true
+            }
+        }
         val actionIds = draft.actions.mapTo(HashSet()) { it.id }
         val dangling = draft.contextSlots.any { slot ->
             slot.rules.any { it.actionId != null && it.actionId !in actionIds }
@@ -102,7 +113,13 @@ fun ContextSlotsScreen(
         // A dangling reference never survives a save (design 14.1); the
         // user reassigns or drops the rule instead.
         val error = ContextRules.validateSlots(draft.contextSlots)
-            ?: if (dangling) ContextSlotError.MissingAction else null
+            ?: if (staleTimeInput) {
+                ContextSlotError.InvalidTimeRange
+            } else if (dangling) {
+                ContextSlotError.MissingAction
+            } else {
+                null
+            }
         if (error != null) {
             validationError = error.name
             saveFailed = false

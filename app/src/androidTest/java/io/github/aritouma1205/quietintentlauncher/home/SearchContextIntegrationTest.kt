@@ -23,11 +23,15 @@ import io.github.aritouma1205.quietintentlauncher.QuietLauncherApp
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.context.ContextRule
 import io.github.aritouma1205.quietintentlauncher.context.ContextRules
+import io.github.aritouma1205.quietintentlauncher.recent.RecentData
+import io.github.aritouma1205.quietintentlauncher.recent.RecentEntry
+import io.github.aritouma1205.quietintentlauncher.recent.RecentRules
 import io.github.aritouma1205.quietintentlauncher.settings.DoActionDefaults
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
+import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -426,6 +430,124 @@ class SearchContextIntegrationTest {
         }
         val data = (viewModel.settingsState.value as SettingsState.Ready).data
         assertFalse(data.search.recentRecording)
+    }
+
+    @Test
+    fun expiredHistoryIsRemovedFromTheFileOnLoad() {
+        // Design 9 deletes entries past 30 days from the stored file, not
+        // merely from the shown list: reopening the store prunes the file.
+        val app = InstrumentationRegistry.getInstrumentation()
+            .targetContext.applicationContext as QuietLauncherApp
+        val now = System.currentTimeMillis()
+        val expired = RecentEntry(
+            ownAppTarget(),
+            now - RecentRules.RETENTION_MILLIS - 1,
+        )
+        val fresh = RecentEntry(StoredTarget.App("com.other/.Main"), now)
+        app.container.recentFile.writeText(
+            app.container.recentSerializer.serialize(
+                RecentData(listOf(expired, fresh)),
+            ),
+        )
+        app.container.recentStore.start()
+
+        rule.waitUntil(timeoutMillis = 5_000) {
+            val stored = runBlocking {
+                app.container.recentSerializer.readFrom(
+                    app.container.recentFile.inputStream(),
+                )
+            }
+            stored.entries.map { it.target } == listOf(fresh.target)
+        }
+    }
+
+    @Test
+    fun invalidTimeInputBlocksTheContextSlotSave() {
+        // Regression: a time field that fails to parse ("25:00") must not
+        // silently persist the previously valid minutes.
+        val actionId = DoActionDefaults.defaults().first { it.name == "撮る" }.id
+        setData { data ->
+            data.copy(
+                contextSlots = data.contextSlots.mapIndexed { i, slot ->
+                    if (i == 0) {
+                        slot.copy(
+                            rules = listOf(
+                                ContextRule(
+                                    daysOfWeek = emptySet(),
+                                    startMinuteOfDay = 540,
+                                    endMinuteOfDay = 1080,
+                                    actionId = actionId,
+                                ),
+                            ),
+                        )
+                    } else {
+                        slot
+                    }
+                },
+            )
+        }
+        viewModel.nav.navigateTo(HomeScreen.ContextSettings)
+        rule.waitForIdle()
+
+        // Text fields in order: slot1 label, rule start, rule end, slot2
+        // label. Corrupt the start field.
+        rule.onAllNodes(hasSetTextAction())[1]
+            .performTextReplacement("25:00")
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText(res(R.string.context_error_time))
+            .assertIsDisplayed()
+        assertEquals(HomeScreen.ContextSettings, viewModel.screen.value)
+        // The stored value is untouched.
+        val data = (viewModel.settingsState.value as SettingsState.Ready).data
+        assertEquals(540, data.contextSlots[0].rules.single().startMinuteOfDay)
+    }
+
+    @Test
+    fun failedHistoryClearFailsTheSave() {
+        // Regression: an erase that cannot complete must surface as a failed
+        // save, never as success (design 9).
+        val app = InstrumentationRegistry.getInstrumentation()
+            .targetContext.applicationContext as QuietLauncherApp
+        runBlocking { app.container.recentStore.record(ownAppTarget()) }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            app.container.recentStore.entries.value.isNotEmpty()
+        }
+
+        // Replace the file with a non-empty directory so every subsequent
+        // write (scratch move) fails.
+        val recentFile = app.container.recentFile
+        val backup = File(recentFile.parentFile, "quiet_recents.json.bak")
+        check(recentFile.renameTo(backup))
+        check(recentFile.mkdir())
+        File(recentFile, "stub").writeText("x")
+        try {
+            viewModel.nav.navigateTo(HomeScreen.SearchSettings)
+            rule.waitForIdle()
+            // The only switch on the screen is the recording toggle.
+            rule.onNode(isToggleable()).performClick()
+            rule.waitForIdle()
+            rule.onAllNodesWithText(res(R.string.search_settings_clear))
+                .onLast()
+                .performClick()
+            rule.onNodeWithText(res(R.string.save))
+                .performScrollTo()
+                .performClick()
+
+            rule.waitUntil(timeoutMillis = 5_000) {
+                rule.onAllNodesWithText(res(R.string.settings_save_failed))
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            assertEquals(HomeScreen.SearchSettings, viewModel.screen.value)
+        } finally {
+            File(recentFile, "stub").delete()
+            recentFile.delete()
+            backup.renameTo(recentFile)
+            app.container.recentStore.start()
+        }
     }
 
     @Test

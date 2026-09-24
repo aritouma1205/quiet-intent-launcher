@@ -158,6 +158,42 @@ class RecentStoreTest {
     }
 
     @Test
+    fun `expired entries are pruned back to storage on load`() =
+        runBlocking<Unit> {
+        // Not just hidden: the retained set is written back so the file
+        // itself loses expired/duplicate rows (design 9: 30日経過で削除).
+        val expired = RecentEntry(appA, now - RecentRules.RETENTION_MILLIS - 1)
+        val fresh = RecentEntry(appB, now)
+        val writes = mutableListOf<RecentData>()
+        val fake = object : DataStore<RecentData> {
+            private val state =
+                MutableStateFlow(RecentData(listOf(expired, fresh)))
+            override val data: Flow<RecentData> = state
+            override suspend fun updateData(
+                transform: suspend (RecentData) -> RecentData,
+            ): RecentData {
+                val updated = transform(state.value)
+                state.value = updated
+                writes += updated
+                return updated
+            }
+        }
+        val store = RecentStore(
+            scope = scope,
+            serializer = serializer,
+            fileProvider = { file },
+            dataStoreFactory = { fake },
+            clock = { now },
+        )
+        store.start()
+        awaitOpen(store)
+
+        withTimeout(10_000) { store.entries.first { it == listOf(fresh) } }
+        withTimeout(10_000) { while (writes.isEmpty()) delay(10) }
+        assertEquals(listOf(listOf(fresh)), writes.map { it.entries })
+    }
+
+    @Test
     fun `recording the same target keeps a single entry`() = runBlocking {
         val store = fakeStore(RecentData())
         store.start()
