@@ -165,8 +165,18 @@ class RecentStore(
                     // itself (design 9: 30日経過で削除), not merely hidden.
                     // The write emits the normalized list again; normalize
                     // is idempotent so the pass converges after one write.
+                    // The transform re-normalizes the CURRENT data inside
+                    // the update: writing the stale snapshot instead could
+                    // resurrect entries a concurrent clear() just removed.
                     try {
-                        store.updateData { it.copy(entries = normalized) }
+                        store.updateData { current ->
+                            current.copy(
+                                entries = RecentRules.normalize(
+                                    current.entries,
+                                    clock(),
+                                ),
+                            )
+                        }
                     } catch (e: CorruptionException) {
                         fileProvider().delete()
                     } catch (e: IOException) {

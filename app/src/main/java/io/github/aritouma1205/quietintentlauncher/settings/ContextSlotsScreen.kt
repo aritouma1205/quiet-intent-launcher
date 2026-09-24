@@ -94,18 +94,22 @@ fun ContextSlotsScreen(
         )
     }
 
-    fun attemptSave() {
-        // Raw time fields are the source of truth for rules being edited:
-        // unparseable or unsettled input must not silently save the last
-        // parsed value (e.g. typing "25:00" must not persist 9:00).
-        val staleTimeInput = draft.contextSlots.any { slot ->
-            slot.rules.any { rule ->
-                timeInputs[rule.id]?.let { (startText, endText) ->
-                    parseMinute(startText) != rule.startMinuteOfDay ||
-                        parseMinute(endText) != rule.endMinuteOfDay
-                } == true
-            }
+    // Raw time fields are the source of truth for rules being edited:
+    // unparseable or unsettled input is unsaved work too — it must neither
+    // silently save the last parsed value nor be dropped without the exit
+    // confirmation (e.g. typing "25:00" must not persist 9:00, and Back must
+    // still ask whether to keep editing).
+    fun hasStaleTimeInput(): Boolean = draft.contextSlots.any { slot ->
+        slot.rules.any { rule ->
+            timeInputs[rule.id]?.let { (startText, endText) ->
+                parseMinute(startText) != rule.startMinuteOfDay ||
+                    parseMinute(endText) != rule.endMinuteOfDay
+            } == true
         }
+    }
+
+    fun attemptSave() {
+        val staleTimeInput = hasStaleTimeInput()
         val actionIds = draft.actions.mapTo(HashSet()) { it.id }
         val dangling = draft.contextSlots.any { slot ->
             slot.rules.any { it.actionId != null && it.actionId !in actionIds }
@@ -132,7 +136,7 @@ fun ContextSlotsScreen(
     }
 
     fun requestExit() {
-        if (draft != initial) exitConfirm = true else onBack()
+        if (draft != initial || hasStaleTimeInput()) exitConfirm = true else onBack()
     }
     BackHandler { requestExit() }
 

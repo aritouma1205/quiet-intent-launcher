@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStoreFactory
 import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -191,6 +192,61 @@ class RecentStoreTest {
         withTimeout(10_000) { store.entries.first { it == listOf(fresh) } }
         withTimeout(10_000) { while (writes.isEmpty()) delay(10) }
         assertEquals(listOf(listOf(fresh)), writes.map { it.entries })
+    }
+
+    @Test
+    fun `a concurrent clear is never resurrected by the pruning write`() =
+        runBlocking<Unit> {
+        // The pruning write-back must transform the CURRENT store value:
+        // writing the stale snapshot it was computed from would resurrect
+        // entries that a clear() landing in between just removed.
+        val expired = RecentEntry(appA, now - RecentRules.RETENTION_MILLIS - 1)
+        val fresh = RecentEntry(appB, now)
+        val state = MutableStateFlow(RecentData(listOf(expired, fresh)))
+        val pruneStarted = CompletableDeferred<Unit>()
+        val allowPrune = CompletableDeferred<Unit>()
+        val pruneFinished = CompletableDeferred<Unit>()
+        val fake = object : DataStore<RecentData> {
+            override val data: Flow<RecentData> = state
+            override suspend fun updateData(
+                transform: suspend (RecentData) -> RecentData,
+            ): RecentData {
+                if (!pruneStarted.isCompleted) {
+                    // First update: the pruning write-back. Hold it so the
+                    // racing clear below commits first.
+                    pruneStarted.complete(Unit)
+                    allowPrune.await()
+                    val updated = transform(state.value)
+                    state.value = updated
+                    pruneFinished.complete(Unit)
+                    return updated
+                }
+                val updated = transform(state.value)
+                state.value = updated
+                return updated
+            }
+        }
+        val store = RecentStore(
+            scope = scope,
+            serializer = serializer,
+            fileProvider = { file },
+            dataStoreFactory = { fake },
+            clock = { now },
+        )
+        store.start()
+        awaitOpen(store)
+        withTimeout(10_000) { store.entries.first { it == listOf(fresh) } }
+        pruneStarted.await()
+
+        // The clear commits while the prune is still in flight — entries
+        // cannot reach [] until the gated write finishes because the
+        // collector is suspended inside it, so assert on the store state.
+        assertTrue(store.clear())
+        allowPrune.complete(Unit)
+        pruneFinished.await()
+
+        assertTrue(state.value.entries.isEmpty())
+        withTimeout(10_000) { store.entries.first { it.isEmpty() } }
     }
 
     @Test

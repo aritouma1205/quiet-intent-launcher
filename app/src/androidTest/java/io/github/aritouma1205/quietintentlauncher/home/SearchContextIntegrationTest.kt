@@ -2,9 +2,11 @@ package io.github.aritouma1205.quietintentlauncher.home
 
 import android.content.ComponentName
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -503,6 +505,46 @@ class SearchContextIntegrationTest {
         // The stored value is untouched.
         val data = (viewModel.settingsState.value as SettingsState.Ready).data
         assertEquals(540, data.contextSlots[0].rules.single().startMinuteOfDay)
+    }
+
+    @Test
+    fun invalidTimeInputStillAsksBeforeDroppingTheDraft() {
+        // Regression: unparseable input never reaches the draft, so the
+        // draft still equals the stored data. Back must still treat the raw
+        // input as unsaved work and ask instead of dropping it silently.
+        val actionId = DoActionDefaults.defaults().first { it.name == "撮る" }.id
+        setData { data ->
+            data.copy(
+                contextSlots = data.contextSlots.mapIndexed { i, slot ->
+                    if (i == 0) {
+                        slot.copy(
+                            rules = listOf(
+                                ContextRule(
+                                    daysOfWeek = emptySet(),
+                                    startMinuteOfDay = 540,
+                                    endMinuteOfDay = 1080,
+                                    actionId = actionId,
+                                ),
+                            ),
+                        )
+                    } else {
+                        slot
+                    }
+                },
+            )
+        }
+        viewModel.nav.navigateTo(HomeScreen.ContextSettings)
+        rule.waitForIdle()
+
+        rule.onAllNodes(hasSetTextAction())[1].performTextReplacement("25:00")
+        rule.onNodeWithText(res(R.string.back)).performClick()
+
+        // The invalid input counts as unsaved work: confirm, then keep
+        // editing with the draft (and the raw field) untouched.
+        rule.onNodeWithText(res(R.string.unsaved_title)).assertIsDisplayed()
+        rule.onNodeWithText(res(R.string.unsaved_keep)).performClick()
+        assertEquals(HomeScreen.ContextSettings, viewModel.screen.value)
+        rule.onAllNodes(hasSetTextAction())[1].assert(hasText("25:00"))
     }
 
     @Test
