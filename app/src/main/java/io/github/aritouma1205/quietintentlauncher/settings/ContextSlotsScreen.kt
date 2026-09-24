@@ -136,7 +136,8 @@ fun ContextSlotsScreen(
         val staleTimeInput = hasStaleTimeInput()
         val actionIds = draft.actions.mapTo(HashSet()) { it.id }
         val dangling = draft.contextSlots.any { slot ->
-            slot.rules.any { it.actionId != null && it.actionId !in actionIds }
+            (slot.defaultActionId != null && slot.defaultActionId !in actionIds) ||
+                slot.rules.any { it.actionId != null && it.actionId !in actionIds }
         }
         // A dangling reference never survives a save (design 14.1); the
         // user reassigns or drops the rule instead.

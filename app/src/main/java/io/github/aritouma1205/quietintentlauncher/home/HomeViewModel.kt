@@ -620,10 +620,13 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     /**
      * Search-settings save; when recording is off or the user asked to
-     * clear, saved history is deleted after the settings write succeeded
-     * (design 9: 停止時は保存済み履歴も確認のうえ消す). A failed erase is
-     * reported as a failed save so the user sees it and can retry — it is
-     * never silently treated as done.
+     * clear, the history erase runs BEFORE the settings write (design 9:
+     * 停止時は保存済み履歴も確認のうえ消す). A failed erase reports a failed
+     * save and leaves the stored settings untouched, so recording never
+     * ends up persisted as off while history stays on disk. If the
+     * settings write fails after a successful erase, recording stays on
+     * with an empty history — history is disposable data, so that is the
+     * safer direction.
      */
     fun saveSearchSettings(
         data: SettingsData,
@@ -631,13 +634,13 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         onResult: (Boolean) -> Unit,
     ) {
         viewModelScope.launch {
-            val ok = container.settingsStore.update { data }
-            val cleared = if (ok && (clearHistory || !data.search.recentRecording)) {
+            val cleared = if (clearHistory || !data.search.recentRecording) {
                 container.recentStore.clear()
             } else {
                 true
             }
-            onResult(ok && cleared)
+            val ok = cleared && container.settingsStore.update { data }
+            onResult(ok)
         }
     }
 

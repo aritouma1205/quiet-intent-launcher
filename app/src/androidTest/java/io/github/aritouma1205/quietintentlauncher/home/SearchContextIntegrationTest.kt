@@ -588,12 +588,50 @@ class SearchContextIntegrationTest {
                     .isNotEmpty()
             }
             assertEquals(HomeScreen.SearchSettings, viewModel.screen.value)
+            // The erase runs before the settings write, so a failed clear
+            // must leave the stored settings untouched — recording stays
+            // on and the history stays recorded, ready for a retry.
+            val data = (viewModel.settingsState.value as SettingsState.Ready).data
+            assertTrue(data.search.recentRecording)
+            assertTrue(app.container.recentStore.entries.value.isNotEmpty())
         } finally {
             File(recentFile, "stub").delete()
             recentFile.delete()
             backup.renameTo(recentFile)
             app.container.recentStore.start()
         }
+    }
+
+    @Test
+    fun danglingDefaultActionBlocksTheContextSlotSave() {
+        // Regression: a slot default pointing at an action that no longer
+        // exists must be rejected like a dangling rule reference — no
+        // dangling id may survive a save (design 14.1).
+        setData { data ->
+            data.copy(
+                contextSlots = data.contextSlots.mapIndexed { i, slot ->
+                    if (i == 0) {
+                        slot.copy(defaultActionId = "ghost-action")
+                    } else {
+                        slot
+                    }
+                },
+            )
+        }
+        viewModel.nav.navigateTo(HomeScreen.ContextSettings)
+        rule.waitForIdle()
+
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText(res(R.string.context_error_action))
+            .assertIsDisplayed()
+        assertEquals(HomeScreen.ContextSettings, viewModel.screen.value)
+        // The save was refused: the stored slots still hold the seeded
+        // ghost default rather than a rewritten file.
+        val data = (viewModel.settingsState.value as SettingsState.Ready).data
+        assertEquals("ghost-action", data.contextSlots[0].defaultActionId)
     }
 
     @Test
