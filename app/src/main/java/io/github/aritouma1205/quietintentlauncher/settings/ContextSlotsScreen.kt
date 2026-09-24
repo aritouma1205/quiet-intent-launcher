@@ -31,9 +31,11 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -83,8 +85,30 @@ fun ContextSlotsScreen(
     var exitConfirm by rememberSaveable { mutableStateOf(false) }
 
     // Time fields keep raw text so partial input is not lost while typing;
-    // the raw string is parsed into the draft on each change.
-    val timeInputs = remember { mutableStateMapOf<String, Pair<String, String>>() }
+    // the raw string is parsed into the draft on each change. Raw input is
+    // unsaved work like the draft itself, so it survives Activity
+    // recreation too (design 3) — an unparseable value must still be there
+    // to fix after a config change.
+    val timeInputs = rememberSaveable(
+        saver = listSaver<SnapshotStateMap<String, Pair<String, String>>, String>(
+            save = { map ->
+                buildList {
+                    map.forEach { (ruleId, pair) ->
+                        add(ruleId)
+                        add(pair.first)
+                        add(pair.second)
+                    }
+                }
+            },
+            restore = { flat ->
+                mutableStateMapOf<String, Pair<String, String>>().apply {
+                    flat.chunked(3).forEach { chunk ->
+                        if (chunk.size == 3) this[chunk[0]] = chunk[1] to chunk[2]
+                    }
+                }
+            },
+        ),
+    ) { mutableStateMapOf() }
 
     fun updateSlot(index: Int, slot: ContextSlot) {
         draft = draft.copy(
