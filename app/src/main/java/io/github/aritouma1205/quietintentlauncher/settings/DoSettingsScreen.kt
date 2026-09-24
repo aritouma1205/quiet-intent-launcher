@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
 import io.github.aritouma1205.quietintentlauncher.apps.ShortcutEntry
+import io.github.aritouma1205.quietintentlauncher.context.ContextRules
 import io.github.aritouma1205.quietintentlauncher.ui.DeepScrim
 import io.github.aritouma1205.quietintentlauncher.ui.imageVector
 import io.github.aritouma1205.quietintentlauncher.ui.labelRes
@@ -290,16 +291,32 @@ fun DoSettingsScreen(
     }
 
     deleteCandidate?.let { candidate ->
+        // Referenced by Context Slots? Say so, and clean the references in
+        // the same draft write (design 10, 14.1: no dangling action ids).
+        val referenced = ContextRules.referencesAction(draft.contextSlots, candidate.id)
         AlertDialog(
             onDismissRequest = { deleteCandidate = null },
             title = { Text(stringResource(R.string.action_delete_title)) },
             text = {
-                Text(stringResource(R.string.action_delete_body, candidate.name))
+                Text(
+                    stringResource(
+                        if (referenced) {
+                            R.string.action_delete_body_refs
+                        } else {
+                            R.string.action_delete_body
+                        },
+                        candidate.name,
+                    ),
+                )
             },
             confirmButton = {
                 TextButton(onClick = {
                     draft = draft.copy(
                         actions = draft.actions.filter { it.id != candidate.id },
+                        contextSlots = ContextRules.removingAction(
+                            draft.contextSlots,
+                            candidate.id,
+                        ),
                     )
                     deleteCandidate = null
                 }) {
@@ -332,8 +349,8 @@ fun DoSettingsScreen(
 /**
  * One action card of the draft. Reorder uses explicit 上へ／下へ buttons —
  * the switch-accessible alternative to drag required by design 11.2.
- * Deleting an action that Context Slots reference needs slot cleanup; slots
- * do not exist yet, so a comment marks the stage-4 follow-up.
+ * Deleting an action that Context Slots reference also strips those
+ * references inside the same draft (design 10).
  */
 @Composable
 private fun ActionEditor(

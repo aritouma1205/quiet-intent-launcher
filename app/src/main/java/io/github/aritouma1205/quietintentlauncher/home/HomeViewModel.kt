@@ -1,15 +1,25 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.aritouma1205.quietintentlauncher.AppContainer
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
+import io.github.aritouma1205.quietintentlauncher.context.ContextEvaluator
 import io.github.aritouma1205.quietintentlauncher.launch.LaunchResult
 import io.github.aritouma1205.quietintentlauncher.launch.LaunchTarget
 import io.github.aritouma1205.quietintentlauncher.launch.toLaunchTarget
+import io.github.aritouma1205.quietintentlauncher.recent.RecentEntry
+import io.github.aritouma1205.quietintentlauncher.search.ExternalSearch
+import io.github.aritouma1205.quietintentlauncher.search.LocalSearch
+import io.github.aritouma1205.quietintentlauncher.search.RecentRow
+import io.github.aritouma1205.quietintentlauncher.search.SearchDispatcher
+import io.github.aritouma1205.quietintentlauncher.search.SearchItem
+import io.github.aritouma1205.quietintentlauncher.search.SearchItemKind
+import io.github.aritouma1205.quietintentlauncher.search.SearchRow
+import io.github.aritouma1205.quietintentlauncher.search.SettingsDestination
 import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
@@ -17,6 +27,7 @@ import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
+import java.time.LocalDateTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -46,6 +57,9 @@ enum class HomeMessage {
 
     /** Down-swipe guidance shown once while the feature is unavailable. */
     NotificationHint,
+
+    /** No app can run the requested web search or share (design 9.2). */
+    NoExternalHandler,
 }
 
 class HomeViewModel(private val container: AppContainer) : ViewModel() {
@@ -71,12 +85,47 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private val _actionRows = MutableStateFlow<List<ActionRow>>(emptyList())
     val actionRows: StateFlow<List<ActionRow>> = _actionRows.asStateFlow()
 
+    /**
+     * Context Slot rows of the DO panel (design 10). Evaluated when the
+     * panel opens and after settings saves; frozen while the panel is open
+     * — no background re-evaluation.
+     */
+    private val _contextRows = MutableStateFlow<List<ContextRow>>(emptyList())
+    val contextRows: StateFlow<List<ContextRow>> = _contextRows.asStateFlow()
+
+    /** 「最近」 rows resolved against live OS state (design 9). */
+    private val _recentRows = MutableStateFlow<List<RecentRow>>(emptyList())
+    val recentRows: StateFlow<List<RecentRow>> = _recentRows.asStateFlow()
+
+    /**
+     * Search query owned by the VM, not the composable: screen state must
+     * not resurrect a typed query after the stack left Search (design 3).
+     * Any navigation away from Search clears it (see the screen collector).
+     */
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    /** Local search results; the latest query wins (design 9.1 世代照合). */
+    private val searchDispatcher = SearchDispatcher(
+        scope = viewModelScope,
+        compute = ::computeSearchRows,
+        emptyResult = emptyList(),
+    )
+    val searchRows: StateFlow<List<SearchRow>> = searchDispatcher.results
+
     /** Serializes [refreshActionRows]: a newer request cancels the older one. */
     private var refreshJob: Job? = null
+
+    /** Serializes recent-row resolution against app/shortcut changes. */
+    private var recentResolveJob: Job? = null
 
     /** Action the DoSettings screen should focus (set by panel navigation). */
     private val _actionEditFocus = MutableStateFlow<String?>(null)
     val actionEditFocus: StateFlow<String?> = _actionEditFocus.asStateFlow()
+
+    /** Slot the ContextSlots screen should focus (set by panel navigation). */
+    private val _slotEditFocus = MutableStateFlow<Int?>(null)
+    val slotEditFocus: StateFlow<Int?> = _slotEditFocus.asStateFlow()
 
     /** GLANCE auto-dismiss is paused while a finger is held (design 8.3). */
     private val _glanceHold = MutableStateFlow(false)
@@ -86,7 +135,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            container.appCatalog.apps.collect { refreshActionRows() }
+            container.appCatalog.apps.collect {
+                refreshActionRows()
+                refreshRecentRows()
+            }
         }
         viewModelScope.launch {
             settingsState.collect { state ->
@@ -104,6 +156,26 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                     is SettingsState.Degraded -> _recoveryDismissed.value = false
                     SettingsState.Loading -> Unit
                 }
+            }
+        }
+        viewModelScope.launch {
+            container.recentStore.entries.collect { refreshRecentRows() }
+        }
+        viewModelScope.launch {
+            container.targetLauncher.recentLaunchEvents.collect { record ->
+                // Successful launches only; honoring the recording switch
+                // (design 9). Queries are never recorded.
+                if (currentSettings().search.recentRecording) {
+                    container.recentStore.record(record.target)
+                }
+            }
+        }
+        viewModelScope.launch {
+            // Any screen other than Search drops the query and pending
+            // results — home-return, back, launches and detours alike
+            // (design 3, 9.4).
+            nav.screen.collect { screen ->
+                if (screen != HomeScreen.Search) resetSearch()
             }
         }
     }
@@ -141,6 +213,12 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
      * are Loading/Degraded the in-memory defaults keep the panel usable.
      */
     fun refreshActionRows() {
+        // Slot evaluation is skipped while the DO panel is open so the
+        // shown slots stay stable (design 10); opening re-evaluates.
+        refreshDoContents(evaluateSlots = overlay.value !is HomeOverlay.Do)
+    }
+
+    private fun refreshDoContents(evaluateSlots: Boolean) {
         // Serialize refreshes: an older, slower pass must not overwrite a
         // newer snapshot.
         refreshJob?.cancel()
@@ -149,11 +227,47 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 ?: SettingsData()
             // Binder calls (LauncherApps, PackageManager) stay off the UI
             // thread (design 15).
-            _actionRows.value = withContext(Dispatchers.IO) {
-                data.actions
+            val (rows, context) = withContext(Dispatchers.IO) {
+                val actionRows = data.actions
                     .filter { it.visible }
                     .map { action -> ActionRow(action, resolveStatus(action)) }
+                actionRows to if (evaluateSlots) evaluateContextRows(data) else null
             }
+            _actionRows.value = rows
+            context?.let { _contextRows.value = it }
+        }
+    }
+
+    /**
+     * Resolves every slot to the action it would show now (design 10).
+     * Availability is resolved live so a slot whose selected action is
+     * unusable falls through to the next rule / default.
+     */
+    private suspend fun evaluateContextRows(data: SettingsData): List<ContextRow> {
+        val usable = HashSet<String>()
+        for (action in data.actions) {
+            if (action.visible && action.target != null &&
+                resolveStatus(action) is ActionStatus.Available
+            ) {
+                usable += action.id
+            }
+        }
+        val evaluations = ContextEvaluator.evaluate(
+            slots = data.contextSlots,
+            now = LocalDateTime.now(),
+            isActionUsable = usable::contains,
+        )
+        return evaluations.mapNotNull { evaluation ->
+            val action = data.actions.firstOrNull { it.id == evaluation.actionId }
+                ?: return@mapNotNull null
+            val slot = data.contextSlots.getOrNull(evaluation.slotIndex)
+                ?: return@mapNotNull null
+            ContextRow(
+                slotIndex = evaluation.slotIndex,
+                slotLabel = slot.label,
+                action = action,
+                matchedRule = evaluation.matchedRule,
+            )
         }
     }
 
@@ -172,7 +286,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             is StoredTarget.HttpsLink ->
                 if (container.targetLauncher.canOpenHttps(target.url)) {
                     ActionStatus.Available(
-                        Uri.parse(target.url).host ?: target.url,
+                        target.url.toUri().host ?: target.url,
                     )
                 } else {
                     ActionStatus.Unavailable(UnavailableReason.NoHandler)
@@ -209,6 +323,238 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     suspend fun shortcutsFor(packageName: String) =
         container.shortcutCatalog.list(packageName)
 
+    // ---- Search / 最近 / Context Slots (design 9, 10) --------------------
+
+    /** Query input; debounced and generation-guarded (design 9.1). */
+    fun onSearchQueryChanged(query: String) {
+        val capped = query.take(LocalSearch.MAX_QUERY_CHARS)
+        _searchQuery.value = capped
+        searchDispatcher.submit(capped)
+    }
+
+    /** Clears the query, pending work and published results. */
+    fun resetSearch() {
+        _searchQuery.value = ""
+        searchDispatcher.reset()
+    }
+
+    /**
+     * Builds the searchable index from live settings + the app catalog and
+     * runs the pure matcher. Tool / settings labels resolve through
+     * [AppContainer.stringFor]; hidden actions stay searchable (the flag
+     * declutters the panel, it is not a privacy switch).
+     */
+    private suspend fun computeSearchRows(query: String): List<SearchRow> =
+        withContext(Dispatchers.Default) {
+            val data = currentSettings()
+            val appList = apps.value ?: emptyList()
+            val pairs = ArrayList<Pair<SearchItem, SearchRow>>()
+
+            data.actions.forEachIndexed { index, action ->
+                pairs += SearchItem(
+                    id = "action:${action.id}",
+                    kind = SearchItemKind.Action,
+                    primary = action.name,
+                    aliases = action.aliases,
+                    groupOrder = index,
+                ) to SearchRow.Action(action)
+                action.derivedOps.forEachIndexed { opIndex, op ->
+                    if (op.label.isNotBlank()) {
+                        pairs += SearchItem(
+                            id = "op:${op.id}",
+                            kind = SearchItemKind.DerivedOp,
+                            primary = op.label,
+                            groupOrder = index,
+                            subOrder = opIndex + 1,
+                        ) to SearchRow.Op(action, op)
+                    }
+                }
+            }
+
+            ToolItem.entries.forEachIndexed { index, tool ->
+                pairs += SearchItem(
+                    id = "tool:${tool.id}",
+                    kind = SearchItemKind.ToolSetting,
+                    primary = container.stringFor(tool.labelRes),
+                    groupOrder = index,
+                ) to SearchRow.Tool(tool)
+            }
+            SettingsDestination.entries.forEachIndexed { index, destination ->
+                pairs += SearchItem(
+                    id = "setting:${destination.name}",
+                    kind = SearchItemKind.ToolSetting,
+                    primary = container.stringFor(destination.labelRes),
+                    groupOrder = ToolItem.entries.size + index,
+                ) to SearchRow.Setting(destination)
+            }
+
+            appList.forEachIndexed { index, entry ->
+                pairs += SearchItem(
+                    id = "app:${entry.key}",
+                    kind = SearchItemKind.App,
+                    primary = entry.label,
+                    groupOrder = index,
+                ) to SearchRow.App(entry, showPackage = false)
+            }
+
+            val payloads = pairs.associate { it.first.id to it.second }
+            val rows = LocalSearch.search(query, pairs.map { it.first })
+                .mapNotNull { payloads[it.id] }
+            // Same-named app results carry the package name (design 9.1).
+            val duplicatedLabels = rows
+                .filterIsInstance<SearchRow.App>()
+                .groupingBy { it.entry.label }
+                .eachCount()
+                .filterValues { it > 1 }
+                .keys
+            rows.map { row ->
+                if (row is SearchRow.App && row.entry.label in duplicatedLabels) {
+                    row.copy(showPackage = true)
+                } else {
+                    row
+                }
+            }
+        }
+
+    /** Explicit web search on the configured engine (design 9.2). */
+    fun runWebSearch(query: String) {
+        applyExternalOutcome(
+            container.externalSearch.webSearch(query, currentSettings().search.webEngine),
+        )
+    }
+
+    /**
+     * 「ChatGPTに送る」— falls back to the share chooser when ChatGPT is
+     * not an ACTION_SEND receiver (design 9.2).
+     */
+    fun runShare(query: String) {
+        val outcome = container.externalSearch.shareToChatGpt(query)
+            ?: container.externalSearch.shareWithChooser(query)
+        applyExternalOutcome(outcome)
+    }
+
+    fun chatGptAvailable(): Boolean = container.externalSearch.isChatGptAvailable()
+
+    fun shareAvailable(): Boolean = container.externalSearch.canShare()
+
+    private fun applyExternalOutcome(outcome: ExternalSearch.Outcome) {
+        when (outcome) {
+            ExternalSearch.Outcome.Launched -> {
+                overlays.clear()
+                nav.resetToQuiet()
+            }
+            ExternalSearch.Outcome.NoHandler ->
+                _messages.tryEmit(HomeMessage.NoExternalHandler)
+            is ExternalSearch.Outcome.Failed ->
+                _messages.tryEmit(HomeMessage.LaunchFailed)
+        }
+    }
+
+    /** A 「最近」 row re-launches the stored target (design 9). */
+    fun launchStoredTarget(target: StoredTarget) {
+        val launchTarget = target.toLaunchTarget(container.appCatalog.currentUser)
+        if (launchTarget == null) {
+            _messages.tryEmit(HomeMessage.TargetUnavailable)
+            return
+        }
+        applyLaunchResult(container.targetLauncher.launch(launchTarget))
+    }
+
+    /** A tool result opens the DO panel with TOOLS expanded (design 9.1). */
+    fun openToolsPanelFromSearch() {
+        nav.resetToQuiet()
+        overlays.openDo(toolsExpanded = true)
+        refreshDoContents(evaluateSlots = true)
+    }
+
+    /** A settings result navigates to the matching settings screen. */
+    fun openSettingsDestination(destination: SettingsDestination) {
+        when (destination) {
+            SettingsDestination.Root -> nav.navigateTo(HomeScreen.Settings)
+            SettingsDestination.Edge -> nav.navigateTo(HomeScreen.EdgeSettings)
+            SettingsDestination.Actions -> openActionEditor(null)
+            SettingsDestination.ContextSlots -> openContextSlotEditor(null)
+            SettingsDestination.Search -> nav.navigateTo(HomeScreen.SearchSettings)
+        }
+    }
+
+    /** Context slot editor entry, optionally focused on one slot. */
+    fun openContextSlotEditor(slotIndex: Int?) {
+        _slotEditFocus.value = slotIndex
+        overlays.clear()
+        nav.navigateTo(HomeScreen.ContextSettings)
+    }
+
+    /**
+     * Re-resolves 「最近」 rows against live OS state; entries whose target
+     * disappeared (uninstalled app, revoked shortcut, no HTTPS handler) are
+     * dropped from display — the record itself stays for the retention
+     * window (design 9).
+     */
+    private fun refreshRecentRows() {
+        recentResolveJob?.cancel()
+        recentResolveJob = viewModelScope.launch {
+            val entries = container.recentStore.entries.value
+            _recentRows.value = withContext(Dispatchers.IO) {
+                val rows = entries.mapNotNull { resolveRecentRow(it) }
+                val duplicated = rows
+                    .filter { it.appEntry != null }
+                    .groupingBy { it.label }
+                    .eachCount()
+                    .filterValues { it > 1 }
+                    .keys
+                rows.map { row ->
+                    if (row.appEntry != null && row.label in duplicated) {
+                        row.copy(showPackage = true)
+                    } else {
+                        row
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun resolveRecentRow(entry: RecentEntry): RecentRow? =
+        when (val target = entry.target) {
+            is StoredTarget.App -> container.appCatalog
+                .resolveApp(target.component)
+                ?.let { RecentRow(target, it.label, it, showPackage = false) }
+            is StoredTarget.Shortcut -> container.shortcutCatalog
+                .listNow(target.packageName)
+                .firstOrNull { it.id == target.shortcutId }
+                ?.let { RecentRow(target, it.label, null, showPackage = false) }
+            is StoredTarget.HttpsLink ->
+                if (container.targetLauncher.canOpenHttps(target.url)) {
+                    RecentRow(
+                        target,
+                        target.url.toUri().host ?: target.url,
+                        null,
+                        showPackage = false,
+                    )
+                } else {
+                    null
+                }
+        }
+
+    /**
+     * Search-settings save; when recording is off or the user asked to
+     * clear, saved history is deleted after the settings write succeeded
+     * (design 9: 停止時は保存済み履歴も確認のうえ消す).
+     */
+    fun saveSearchSettings(
+        data: SettingsData,
+        clearHistory: Boolean,
+        onResult: (Boolean) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val ok = container.settingsStore.update { data }
+            if (ok && (clearHistory || !data.search.recentRecording)) {
+                container.recentStore.clear()
+            }
+            onResult(ok)
+        }
+    }
+
     private fun applyLaunchResult(result: LaunchResult) {
         when (result) {
             LaunchResult.Success -> {
@@ -240,9 +586,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun openDoPanel(toolsExpanded: Boolean) {
-        // Availability is re-checked on every open (design 6, 15).
-        refreshActionRows()
         overlays.openDo(toolsExpanded)
+        // Availability and Context Slots are re-evaluated on every open
+        // (design 6, 10, 15). Opening the panel is the evaluation point.
+        refreshDoContents(evaluateSlots = true)
     }
 
     fun openTodayPanel() = overlays.openToday()

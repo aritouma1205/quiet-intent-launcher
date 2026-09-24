@@ -1,5 +1,7 @@
 package io.github.aritouma1205.quietintentlauncher.settings
 
+import io.github.aritouma1205.quietintentlauncher.context.ContextRules
+import io.github.aritouma1205.quietintentlauncher.context.ContextSlot
 import kotlinx.serialization.Serializable
 
 /**
@@ -22,11 +24,37 @@ data class SettingsData(
      * schemaVersion 3; v1/v2 files are seeded by the serializer migration.
      */
     val actions: List<DoAction> = DoActionDefaults.defaults(),
+    /**
+     * The two Context Slots (design 10). Added in schemaVersion 4; earlier
+     * files decode to the two empty defaults.
+     */
+    val contextSlots: List<ContextSlot> = ContextRules.defaultSlots(),
+    /** Universal Search settings (design 9, 11.2). Added in schemaVersion 4. */
+    val search: SearchSettings = SearchSettings(),
 ) {
     companion object {
-        const val CURRENT_SCHEMA_VERSION: Int = 3
+        const val CURRENT_SCHEMA_VERSION: Int = 4
     }
 }
+
+/** Web検索先の選択肢（design 9.2）。任意URLテンプレートはv1では扱わない。 */
+@Serializable
+enum class WebSearchEngine {
+    Google,
+    Bing,
+    DuckDuckGo,
+}
+
+/**
+ * Search settings (design 9, 11.2): whether 「最近」 records launches and
+ * which fixed engine handles web search. The history itself lives in a
+ * separate file — recording off also wipes it (see SearchSettingsScreen).
+ */
+@Serializable
+data class SearchSettings(
+    val recentRecording: Boolean = true,
+    val webEngine: WebSearchEngine = WebSearchEngine.Google,
+)
 
 /** Bar color choice (design 4.1). */
 @Serializable

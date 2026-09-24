@@ -61,11 +61,14 @@ import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.apps.AllAppsScreen
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
 import io.github.aritouma1205.quietintentlauncher.intro.IntroScreen
+import io.github.aritouma1205.quietintentlauncher.search.SearchRow
 import io.github.aritouma1205.quietintentlauncher.search.SearchScreen
+import io.github.aritouma1205.quietintentlauncher.settings.ContextSlotsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.DoSettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.EdgeSettingsScreen
+import io.github.aritouma1205.quietintentlauncher.settings.SearchSettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
@@ -118,6 +121,8 @@ fun QuietLauncherRoot(
                         R.string.do_launch_unavailable
                     HomeMessage.FeatureLater -> R.string.feature_later
                     HomeMessage.NotificationHint -> R.string.notification_hint
+                    HomeMessage.NoExternalHandler ->
+                        R.string.search_no_external_handler
                 }
                 Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
             }
@@ -156,9 +161,12 @@ fun QuietLauncherRoot(
                         onCollapseTools = viewModel::collapseTools,
                         onCloseOverlay = viewModel::closeOverlay,
                         actionRows = viewModel.actionRows.collectAsState().value,
+                        contextRows = viewModel.contextRows.collectAsState().value,
                         onActionTap = viewModel::onActionTapped,
                         onActionEdit = { viewModel.openActionEditor(it.id) },
                         onDerivedOp = viewModel::onDerivedOpTapped,
+                        onContextTap = { viewModel.onActionTapped(it.action) },
+                        onContextEdit = { viewModel.openContextSlotEditor(it.slotIndex) },
                         onUnavailable = {
                             viewModel.emitMessage(HomeMessage.FeatureLater)
                         },
@@ -175,6 +183,30 @@ fun QuietLauncherRoot(
                         onDone = viewModel::completeIntro,
                     )
                     HomeScreen.Search -> SearchScreen(
+                        query = viewModel.searchQuery.collectAsState().value,
+                        rows = viewModel.searchRows.collectAsState().value,
+                        recents = viewModel.recentRows.collectAsState().value,
+                        chatGptAvailable = viewModel.chatGptAvailable(),
+                        shareAvailable = viewModel.shareAvailable(),
+                        iconLoader = iconLoader,
+                        onQueryChanged = viewModel::onSearchQueryChanged,
+                        onRowTapped = { row ->
+                            when (row) {
+                                is SearchRow.Action ->
+                                    viewModel.onActionTapped(row.action)
+                                is SearchRow.Op ->
+                                    viewModel.onDerivedOpTapped(row.action, row.op)
+                                is SearchRow.App ->
+                                    viewModel.launchApp(row.entry)
+                                is SearchRow.Tool ->
+                                    viewModel.openToolsPanelFromSearch()
+                                is SearchRow.Setting ->
+                                    viewModel.openSettingsDestination(row.destination)
+                            }
+                        },
+                        onRecentTapped = { viewModel.launchStoredTarget(it.target) },
+                        onWebSearch = viewModel::runWebSearch,
+                        onShare = viewModel::runShare,
                         onAllApps = { viewModel.nav.navigateTo(HomeScreen.AllApps) },
                         onSettings = { viewModel.nav.navigateTo(HomeScreen.Settings) },
                         onBack = { viewModel.nav.back() },
@@ -211,6 +243,12 @@ fun QuietLauncherRoot(
                         onDoSettings = {
                             viewModel.openActionEditor(null)
                         },
+                        onContextSettings = {
+                            viewModel.nav.navigateTo(HomeScreen.ContextSettings)
+                        },
+                        onSearchSettings = {
+                            viewModel.nav.navigateTo(HomeScreen.SearchSettings)
+                        },
                         onReplayIntro = { viewModel.nav.navigateTo(HomeScreen.Intro) },
                         onOpenAppInfo = {
                             viewModel.nav.beginExternalFlow()
@@ -244,6 +282,36 @@ fun QuietLauncherRoot(
                                 isHomeRoleHeld = isDefaultHome,
                                 shortcutsFor = viewModel::shortcutsFor,
                                 onSave = viewModel::saveSettings,
+                                onBack = { viewModel.nav.back() },
+                            )
+                        } else {
+                            EdgeSettingsUnavailable(
+                                onBack = { viewModel.nav.back() },
+                            )
+                        }
+                    }
+                    HomeScreen.ContextSettings -> {
+                        val data = (settingsState as? SettingsState.Ready)?.data
+                        if (data != null) {
+                            ContextSlotsScreen(
+                                initial = data,
+                                focusSlotIndex = viewModel.slotEditFocus
+                                    .collectAsState().value,
+                                onSave = viewModel::saveSettings,
+                                onBack = { viewModel.nav.back() },
+                            )
+                        } else {
+                            EdgeSettingsUnavailable(
+                                onBack = { viewModel.nav.back() },
+                            )
+                        }
+                    }
+                    HomeScreen.SearchSettings -> {
+                        val data = (settingsState as? SettingsState.Ready)?.data
+                        if (data != null) {
+                            SearchSettingsScreen(
+                                initial = data,
+                                onSave = viewModel::saveSearchSettings,
                                 onBack = { viewModel.nav.back() },
                             )
                         } else {
@@ -306,9 +374,12 @@ private fun QuietScreen(
     onCollapseTools: () -> Unit,
     onCloseOverlay: () -> Unit,
     actionRows: List<ActionRow>,
+    contextRows: List<ContextRow>,
     onActionTap: (DoAction) -> Unit,
     onActionEdit: (DoAction) -> Unit,
     onDerivedOp: (DoAction, DerivedOp) -> Unit,
+    onContextTap: (ContextRow) -> Unit,
+    onContextEdit: (ContextRow) -> Unit,
     onUnavailable: () -> Unit,
 ) {
     val description = stringResource(R.string.quiet_preview_badge)
@@ -570,6 +641,7 @@ private fun QuietScreen(
                 if (panelSide == EdgeSide.Right) {
                     DoPanel(
                         rows = actionRows,
+                        contextRows = contextRows,
                         toolsExpanded = toolsExpanded,
                         panelWidthPx = panelWidthPx,
                         onExpandTools = onExpandTools,
@@ -578,6 +650,8 @@ private fun QuietScreen(
                         onActionTap = onActionTap,
                         onActionEdit = onActionEdit,
                         onDerivedOp = onDerivedOp,
+                        onContextTap = onContextTap,
+                        onContextEdit = onContextEdit,
                         onUnavailable = onUnavailable,
                     )
                 } else {

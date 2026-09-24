@@ -2,6 +2,7 @@ package io.github.aritouma1205.quietintentlauncher.settings
 
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.Serializer
+import io.github.aritouma1205.quietintentlauncher.context.ContextRules
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.serialization.SerializationException
@@ -72,6 +73,8 @@ class SettingsSerializer(
         // designed ranges.
         // v2 -> v3 adds the DO action list; files written before v3 carry no
         // actions field and are seeded with the six unset defaults (design 6).
+        // v3 -> v4 adds Context Slots and search settings; absent fields decode
+        // to the designed defaults, and stored slots are normalized to two.
         return data.copy(
             schemaVersion = SettingsData.CURRENT_SCHEMA_VERSION,
             leftBar = data.leftBar.sanitized(),
@@ -82,6 +85,7 @@ class SettingsSerializer(
             } else {
                 data.actions
             },
+            contextSlots = ContextRules.normalized(data.contextSlots),
         )
     }
 }

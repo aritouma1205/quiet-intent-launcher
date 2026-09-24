@@ -9,6 +9,9 @@ import io.github.aritouma1205.quietintentlauncher.apps.AppCatalog
 import io.github.aritouma1205.quietintentlauncher.apps.ShortcutCatalog
 import io.github.aritouma1205.quietintentlauncher.home.HomeRole
 import io.github.aritouma1205.quietintentlauncher.launch.TargetLauncher
+import io.github.aritouma1205.quietintentlauncher.recent.RecentSerializer
+import io.github.aritouma1205.quietintentlauncher.recent.RecentStore
+import io.github.aritouma1205.quietintentlauncher.search.ExternalSearch
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializer
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsStore
@@ -48,6 +51,30 @@ class AppContainer(context: Context) {
     )
     val todayData = TodayDataProvider(context)
 
+    /**
+     * 「最近」の履歴ストア（design 9）。設定とは別ファイル — 起動記録は
+     * 行動の設定に属さず、記録停止で独立に消せる。検索語は保存しない。
+     */
+    val recentSerializer = RecentSerializer()
+    val recentFile = context.dataStoreFile("quiet_recents.json")
+    val recentStore = RecentStore(
+        scope = appScope,
+        serializer = recentSerializer,
+        fileProvider = { recentFile },
+    ) { storeScope ->
+        DataStoreFactory.create(
+            serializer = recentSerializer,
+            scope = storeScope,
+            produceFile = { recentFile },
+        )
+    }
+
+    /** External search / share hand-off (design 9.2). */
+    val externalSearch = ExternalSearch(context)
+
+    /** String lookup for search-index building off the UI layer. */
+    val stringFor: (Int) -> String = { context.getString(it) }
+
     /** Any accessibility service on (design 8.3: GLANCE must not time out). */
     val isAccessibilityActive: () -> Boolean = {
         val am = context.getSystemService(AccessibilityManager::class.java)
@@ -57,6 +84,7 @@ class AppContainer(context: Context) {
     fun start() {
         settingsStore.start()
         appCatalog.start()
+        recentStore.start()
     }
 }
 

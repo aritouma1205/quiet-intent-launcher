@@ -13,6 +13,8 @@ enum class HomeScreen {
     Settings,
     EdgeSettings,
     DoSettings,
+    ContextSettings,
+    SearchSettings,
     Edit,
 }
 
