@@ -186,8 +186,10 @@ fun QuietLauncherRoot(
                         query = viewModel.searchQuery.collectAsState().value,
                         rows = viewModel.searchRows.collectAsState().value,
                         recents = viewModel.recentRows.collectAsState().value,
-                        chatGptAvailable = viewModel.chatGptAvailable(),
-                        shareAvailable = viewModel.shareAvailable(),
+                        chatGptAvailable = viewModel.externalAvailability
+                            .collectAsState().value.chatGpt,
+                        shareAvailable = viewModel.externalAvailability
+                            .collectAsState().value.share,
                         iconLoader = iconLoader,
                         onQueryChanged = viewModel::onSearchQueryChanged,
                         onRowTapped = { row ->

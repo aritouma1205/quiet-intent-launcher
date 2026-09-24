@@ -279,6 +279,48 @@ class SearchContextIntegrationTest {
     }
 
     @Test
+    fun hiddenActionStillResolvesThroughItsSlot() {
+        // The visible flag declutters the normal action list only; design 10
+        // skips 起動先未設定・削除済み・無効 targets, so a hidden action an
+        // explicitly configured slot points at still resolves.
+        val actionId = DoActionDefaults.defaults().first { it.name == "撮る" }.id
+        setData { data ->
+            data.copy(
+                actions = data.actions.map {
+                    if (it.name == "撮る") {
+                        it.copy(target = ownAppTarget(), visible = false)
+                    } else {
+                        it
+                    }
+                },
+                contextSlots = data.contextSlots.mapIndexed { i, slot ->
+                    if (i == 0) {
+                        slot.copy(
+                            rules = listOf(
+                                ContextRule(daysOfWeek = emptySet(), actionId = actionId),
+                            ),
+                        )
+                    } else {
+                        slot
+                    }
+                },
+            )
+        }
+        // openDoPanel's 6-row wait does not apply with one hidden action.
+        rule.onNodeWithContentDescription(res(R.string.edge_bar_open_do))
+            .performTouchInput {
+                down(center)
+                up()
+            }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.contextRows.value.isNotEmpty()
+        }
+        rule.waitForIdle()
+        // The action row itself is hidden, so 撮る appears exactly once.
+        rule.onAllNodesWithText("撮る").assertCountEquals(1)
+    }
+
+    @Test
     fun contextSlotStaysHiddenWhenItsActionIsUnset() {
         val actionId = DoActionDefaults.defaults().first { it.name == "撮る" }.id
         setData { data ->

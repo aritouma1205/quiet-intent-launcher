@@ -95,7 +95,14 @@ fun ContextSlotsScreen(
     }
 
     fun attemptSave() {
+        val actionIds = draft.actions.mapTo(HashSet()) { it.id }
+        val dangling = draft.contextSlots.any { slot ->
+            slot.rules.any { it.actionId != null && it.actionId !in actionIds }
+        }
+        // A dangling reference never survives a save (design 14.1); the
+        // user reassigns or drops the rule instead.
         val error = ContextRules.validateSlots(draft.contextSlots)
+            ?: if (dangling) ContextSlotError.MissingAction else null
         if (error != null) {
             validationError = error.name
             saveFailed = false
@@ -255,7 +262,9 @@ private fun SlotEditor(
         )
         OutlinedTextField(
             value = slot.label,
-            onValueChange = { onChange(slot.copy(label = it.take(64))) },
+            onValueChange = {
+                onChange(slot.copy(label = it.take(ContextRules.LABEL_MAX_LENGTH)))
+            },
             label = { Text(stringResource(R.string.context_slot_label)) },
             isError = !ContextRules.isValidLabel(slot.label),
             singleLine = true,

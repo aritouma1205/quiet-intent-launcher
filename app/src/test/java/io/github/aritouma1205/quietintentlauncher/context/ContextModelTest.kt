@@ -174,6 +174,20 @@ class ContextModelTest {
     }
 
     @Test
+    fun `normalized pads get unique ids`() {
+        // An explicitly empty stored list pads twice; both pads must get
+        // distinct ids because the editor keys items by slot.id.
+        val padded = ContextRules.normalized(emptyList())
+        assertEquals(2, padded.map { it.id }.distinct().size)
+
+        // A stored slot already holding a pad id pushes the pad past it.
+        val stored = ContextSlot(id = "context-slot-1", label = "kept")
+        val result = ContextRules.normalized(listOf(stored))
+        assertEquals(stored, result[0])
+        assertEquals(setOf("context-slot-1", "context-slot-2"), result.map { it.id }.toSet())
+    }
+
+    @Test
     fun `referencesAction finds rule and default references`() {
         val slots = listOf(
             ContextSlot(rules = listOf(rule("a"))),

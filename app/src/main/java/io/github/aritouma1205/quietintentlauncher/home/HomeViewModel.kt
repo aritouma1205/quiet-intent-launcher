@@ -62,6 +62,12 @@ enum class HomeMessage {
     NoExternalHandler,
 }
 
+/** Resolved external hand-off capability for the search screen. */
+data class ExternalAvailability(
+    val chatGpt: Boolean = false,
+    val share: Boolean = false,
+)
+
 class HomeViewModel(private val container: AppContainer) : ViewModel() {
     val nav = HomeNavigation()
     val screen: StateFlow<HomeScreen> = nav.screen
@@ -112,6 +118,18 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         emptyResult = emptyList(),
     )
     val searchRows: StateFlow<List<SearchRow>> = searchDispatcher.results
+
+    /**
+     * Whether the external hand-off rows can be offered (design 9.2).
+     * Resolved on a worker thread each time Search opens — reading the
+     * package manager inside composition would run a binder call on every
+     * keystroke (design 15).
+     */
+    private val _externalAvailability = MutableStateFlow(ExternalAvailability())
+    val externalAvailability: StateFlow<ExternalAvailability> =
+        _externalAvailability.asStateFlow()
+
+    private var availabilityJob: Job? = null
 
     /** Serializes [refreshActionRows]: a newer request cancels the older one. */
     private var refreshJob: Job? = null
@@ -173,9 +191,14 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             // Any screen other than Search drops the query and pending
             // results — home-return, back, launches and detours alike
-            // (design 3, 9.4).
+            // (design 3, 9.4). Entering Search re-checks which external
+            // receivers exist.
             nav.screen.collect { screen ->
-                if (screen != HomeScreen.Search) resetSearch()
+                if (screen != HomeScreen.Search) {
+                    resetSearch()
+                } else {
+                    refreshExternalAvailability()
+                }
             }
         }
     }
@@ -241,12 +264,15 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     /**
      * Resolves every slot to the action it would show now (design 10).
      * Availability is resolved live so a slot whose selected action is
-     * unusable falls through to the next rule / default.
+     * unusable falls through to the next rule / default. The visible flag
+     * only declutters the normal action list — design 10 skips 起動先未設定・
+     * 削除済み・無効 targets, not hidden ones, and a slot is an explicit
+     * configuration, so a hidden action still resolves here.
      */
     private suspend fun evaluateContextRows(data: SettingsData): List<ContextRow> {
         val usable = HashSet<String>()
         for (action in data.actions) {
-            if (action.visible && action.target != null &&
+            if (action.target != null &&
                 resolveStatus(action) is ActionStatus.Available
             ) {
                 usable += action.id
@@ -433,9 +459,18 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         applyExternalOutcome(outcome)
     }
 
-    fun chatGptAvailable(): Boolean = container.externalSearch.isChatGptAvailable()
-
-    fun shareAvailable(): Boolean = container.externalSearch.canShare()
+    /** Re-resolves which external receivers exist, off the UI thread. */
+    private fun refreshExternalAvailability() {
+        availabilityJob?.cancel()
+        availabilityJob = viewModelScope.launch {
+            _externalAvailability.value = withContext(Dispatchers.IO) {
+                ExternalAvailability(
+                    chatGpt = container.externalSearch.isChatGptAvailable(),
+                    share = container.externalSearch.canShare(),
+                )
+            }
+        }
+    }
 
     private fun applyExternalOutcome(outcome: ExternalSearch.Outcome) {
         when (outcome) {

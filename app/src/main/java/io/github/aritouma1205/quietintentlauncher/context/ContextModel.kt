@@ -107,15 +107,15 @@ object ContextRules {
      * Decode-time normalization (design 14.1): the stored list is truncated
      * or padded to exactly [MAX_SLOTS] so the editor always sees two slots
      * without inventing content for them. Padded slots take a positional id
-     * that does not collide with a stored one.
+     * that collides with neither a stored slot nor another pad.
      */
     fun normalized(slots: List<ContextSlot>): List<ContextSlot> {
         val taken = slots.mapTo(HashSet()) { it.id }
-        var n = 1
         return List(MAX_SLOTS) { i ->
             slots.getOrNull(i) ?: run {
-                while (defaultSlotId(n - 1) in taken) n++
-                ContextSlot(id = defaultSlotId(n - 1))
+                var n = i
+                while (defaultSlotId(n) in taken) n++
+                ContextSlot(id = defaultSlotId(n)).also { taken += it.id }
             }
         }
     }
