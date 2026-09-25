@@ -26,7 +26,7 @@
     <string name="tools_title">TOOLS</string>
     <string name="tools_back_to_do">DOに戻る</string>
     <string name="feature_later">この機能は今後の段階で追加されます</string>
-    <string name="notification_hint">下スワイプで通知を開く機能は今後の段階で追加されます</string>
+    <string name="notification_hint">下スワイプで通知を開くには、設定の「システム操作」で通知を有効にしてください</string>
 
     <!-- DO action icons (design 6): labels for the fixed icon set -->
     <string name="icon_star">星</string>
@@ -85,6 +85,39 @@
     <string name="tool_qr">QR</string>
     <string name="tool_timer">タイマー</string>
     <string name="tool_screenshot">スクリーンショット</string>
+    <string name="tool_state_on">点灯中</string>
+    <string name="tool_state_off">消灯</string>
+    <string name="tool_timer_list">タイマー一覧を開く</string>
+    <string name="tool_target_missing">起動先が使えなくなっています</string>
+    <string name="tool_no_timer_handler">タイマー一覧を開けるアプリがありません</string>
+    <string name="tool_no_flash">この端末にはライトがありません</string>
+    <string name="tool_light_needs_permission">ライトにはカメラ権限が必要です</string>
+    <string name="tool_light_denied">カメラ権限がないためライトを使えません</string>
+    <string name="tool_light_busy">カメラを使用中のため、いまは操作できません</string>
+    <string name="tool_light_failed">ライトを操作できませんでした</string>
+    <string name="tool_service_off">システム操作のサービスが有効ではありません</string>
+    <string name="tool_switch_off_hint">システム操作の設定で有効にできます</string>
+    <string name="tool_action_failed">操作を実行できませんでした</string>
+    <string name="tool_screenshot_note">閉じてから撮影します</string>
+    <string name="tools_edit_heading">道具（TOOLS）</string>
+    <string name="tools_edit_note">ライトは端末のフラッシュを使います。他のアプリがカメラを使っている間は操作できず、他アプリの利用やアプリ終了で消えることがあります。タイマーは一覧を開くだけで、タイマーを開始しません。</string>
+
+    <!-- System actions settings (design 11.2, 13) -->
+    <string name="settings_section_system">システム操作</string>
+    <string name="settings_system_entry">通知・画面OFF・撮影の設定</string>
+    <string name="settings_system_note">通知パネル、画面OFF、スクリーンショットを個別に有効化します。それぞれ任意のサービス許可が必要です。</string>
+    <string name="system_settings_title">システム操作</string>
+    <string name="system_service_state">サービスの状態</string>
+    <string name="system_service_on">有効</string>
+    <string name="system_service_off_state">無効・未接続</string>
+    <string name="system_service_open_settings">サービスを設定する</string>
+    <string name="system_service_description">通知パネルを開く・画面をOFFにする・OSのスクリーンショットを実行するための任意サービスです。</string>
+    <string name="system_service_summary">明示した操作だけを実行します。画面内容・キー入力・通知の内容は取得しません。</string>
+    <string name="system_service_note">このサービスは画面の内容・キー入力・通知の本文を一切取得しません。許可しても各操作はそれぞれのスイッチがONの時だけ動き、サービスが止まっても他の機能はそのまま使えます。通知は画面上端のスワイプ、画面OFFは電源ボタン、撮影は端末の操作でも行えます。</string>
+    <string name="system_notifications_switch">下スワイプで通知を開く</string>
+    <string name="system_screen_off_switch">ダブルタップで画面をOFFにする</string>
+    <string name="system_screenshot_switch">TOOLSのスクリーンショット</string>
+    <string name="system_switch_needs_service">サービスが有効になるまで動作しません</string>
 
     <!-- TODAY / GLANCE (design 8) -->
     <string name="today_battery">バッテリー %1$d%%</string>

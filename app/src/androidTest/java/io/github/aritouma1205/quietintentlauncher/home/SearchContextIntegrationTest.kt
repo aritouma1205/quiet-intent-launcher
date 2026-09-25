@@ -102,6 +102,7 @@ class SearchContextIntegrationTest {
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
                 onOpenEvent = {},
+                onOpenAccessibilitySettings = {},
             )
         }
         rule.waitForIdle()

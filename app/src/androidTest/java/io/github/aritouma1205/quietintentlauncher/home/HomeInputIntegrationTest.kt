@@ -75,6 +75,7 @@ class HomeInputIntegrationTest {
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
                 onOpenEvent = {},
+                onOpenAccessibilitySettings = {},
             )
         }
         rule.waitForIdle()
@@ -139,17 +140,37 @@ class HomeInputIntegrationTest {
     }
 
     @Test
-    fun secondPointerOnBarCancelsDrag() {
+    fun movingSecondPointerCancelsBarDrag() {
+        // Deliberate two-finger input still cancels (design 4.2): the
+        // second contact operates — it moves — so the drag dies.
         rule.onNodeWithContentDescription(res(R.string.edge_bar_open_do))
             .performTouchInput {
                 down(0, center)
                 moveTo(0, center + Offset(-200f, 0f))
                 down(1, center + Offset(-40f, 60f))
+                moveTo(1, center + Offset(-120f, 60f))
                 up(1)
                 up(0)
             }
         rule.waitForIdle()
         assertNull(viewModel.overlay.value)
+    }
+
+    @Test
+    fun restingSecondPointerOnBarKeepsDrag() {
+        // A palm resting on the bar itself is not a second input (r3):
+        // the drag still opens the panel.
+        rule.onNodeWithContentDescription(res(R.string.edge_bar_open_do))
+            .performTouchInput {
+                down(0, center)
+                down(1, center + Offset(0f, 60f))
+                moveTo(0, center + Offset(-400f, 0f))
+                up(0)
+                up(1)
+            }
+        rule.waitForIdle()
+        assertEquals(HomeOverlay.Do(toolsExpanded = false), viewModel.overlay.value)
+        rule.onNodeWithText(res(R.string.panel_do_title)).assertIsDisplayed()
     }
 
     @Test
@@ -272,12 +293,16 @@ class HomeInputIntegrationTest {
     }
 
     @Test
-    fun secondPointerOnFreeAreaSuppressesActions() {
+    fun movingSecondPointerOnFreeAreaSuppressesActions() {
+        // Deliberate two-finger input still suppresses (design 4.2): the
+        // second pointer moves like an operation, so the swipe must not
+        // fire.
         rule.onRoot().performTouchInput {
             val start = Offset(width * 0.4f, height * 0.6f)
             down(0, start)
             moveTo(0, start + Offset(0f, -60f))
             down(1, start + Offset(120f, 0f))
+            moveTo(1, start + Offset(240f, 0f))
             moveTo(0, start + Offset(0f, -500f))
             up(1)
             up(0)
@@ -288,16 +313,66 @@ class HomeInputIntegrationTest {
     }
 
     @Test
-    fun secondFingerOnBarSuppressesFreeAreaLongPress() {
-        // Reviewer repro: one finger rests on the free area, a second on
-        // the bar, both held past the long-press deadline. The bar finger
-        // never enters this surface's event stream, so the shared latch is
-        // the only thing that can stop the timer (design 5).
+    fun restingSecondFingerKeepsTap() {
+        // The r3 fix: a finger resting on the glass is not a second
+        // input — the tap fires as usual.
+        rule.onRoot().performTouchInput {
+            val free = Offset(width * 0.4f, height * 0.5f)
+            val rest = Offset(width * 0.7f, height * 0.7f)
+            down(0, free)
+            down(1, rest)
+            up(0)
+            up(1)
+        }
+        rule.waitForIdle()
+        assertEquals(HomeOverlay.Glance, viewModel.overlay.value)
+    }
+
+    @Test
+    fun restingSecondPointerOnFreeAreaKeepsSwipe() {
+        // Same rule for the swipe: the resting contact cannot cancel it.
+        rule.onRoot().performTouchInput {
+            val start = Offset(width * 0.5f, height * 0.6f)
+            down(0, start)
+            down(1, start + Offset(120f, 120f))
+            moveTo(0, start + Offset(0f, -400f))
+            up(0)
+            up(1)
+        }
+        rule.waitForIdle()
+        assertEquals(HomeScreen.Search, viewModel.screen.value)
+    }
+
+    @Test
+    fun restingFingerOnBarKeepsFreeAreaLongPress() {
+        // The r3 fix: one finger rests on the bar — outside this surface's
+        // event stream — and never moves. It is not a second input, so
+        // the long-press deadline still fires (design 4.2 relaxation).
         rule.onRoot().performTouchInput {
             val free = Offset(width * 0.4f, height * 0.5f)
             val bar = Offset(width - 10f, height * 0.5f)
             down(0, free)
             down(1, bar)
+            advanceEventTime(800)
+            up(1)
+            up(0)
+        }
+        rule.mainClock.advanceTimeBy(1000)
+        rule.waitForIdle()
+        assertEquals(HomeScreen.Edit, viewModel.screen.value)
+        rule.onNodeWithText(res(R.string.edit_title)).assertIsDisplayed()
+    }
+
+    @Test
+    fun movingFingerOnBarSuppressesFreeAreaLongPress() {
+        // Deliberate two-finger input still suppresses: the finger on the
+        // bar moves like a real operation, which the shared latch reports.
+        rule.onRoot().performTouchInput {
+            val free = Offset(width * 0.4f, height * 0.5f)
+            val bar = Offset(width - 10f, height * 0.5f)
+            down(0, free)
+            down(1, bar)
+            moveTo(1, bar + Offset(0f, 120f))
             advanceEventTime(800)
             up(1)
             up(0)
@@ -351,9 +426,10 @@ class HomeInputIntegrationTest {
             }
             rule.mainClock.advanceTimeBy(600)
             rule.waitForIdle()
-            // DoubleTap reached the screen-off path (FeatureLater), and no
-            // stray single tap toggled GLANCE along the way.
-            assertTrue(received.contains(HomeMessage.FeatureLater))
+            // DoubleTap reached the screen-off path (service off here, so
+            // it reports SystemServiceOff), and no stray single tap toggled
+            // GLANCE along the way.
+            assertTrue(received.contains(HomeMessage.SystemServiceOff))
             assertNull(viewModel.overlay.value)
         } finally {
             collectJob.cancel()

@@ -1,6 +1,7 @@
 package io.github.aritouma1205.quietintentlauncher
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityManager
@@ -17,7 +18,12 @@ import io.github.aritouma1205.quietintentlauncher.search.ExternalSearch
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializer
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsStore
+import io.github.aritouma1205.quietintentlauncher.system.AssistiveServiceTracker
+import io.github.aritouma1205.quietintentlauncher.system.QuietSystemService
+import io.github.aritouma1205.quietintentlauncher.system.SystemActions
+import io.github.aritouma1205.quietintentlauncher.system.ToolLauncher
 import io.github.aritouma1205.quietintentlauncher.today.TodayDataProvider
+import io.github.aritouma1205.quietintentlauncher.torch.TorchController
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheSerializer
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStore
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherService
@@ -101,6 +107,22 @@ class AppContainer(context: Context) {
     /** Read-only Calendar Provider bridge (design 8.1); events stay in memory. */
     val calendarAccess = CalendarAccess(context)
 
+    /**
+     * Torch control (design 7, 13): OS-callback state, foreground-only
+     * subscription, CAMERA requested at first use. No resident service.
+     */
+    val torch = TorchController(context)
+
+    /**
+     * Optional system operations (design 13): the facade the service binds
+     * into; every call re-checks enabled+connected state so a revoked
+     * service fails one operation only.
+     */
+    val systemActions = SystemActions(context)
+
+    /** Timer-list hand-off for the TOOLS row (design 7). */
+    val toolLauncher = ToolLauncher(context)
+
     /** Monotonic + wall clocks, injectable for weather-age tests. */
     val elapsedClock: () -> Long = { SystemClock.elapsedRealtime() }
     val wallClock: () -> Long = System::currentTimeMillis
@@ -108,10 +130,51 @@ class AppContainer(context: Context) {
     /** String lookup for search-index building off the UI layer. */
     val stringFor: (Int) -> String = { context.getString(it) }
 
-    /** Any accessibility service on (design 8.3: GLANCE must not time out). */
-    internal var isAccessibilityActive: () -> Boolean = {
-        val am = context.getSystemService(AccessibilityManager::class.java)
-        am != null && am.isEnabled
+    private val accessibilityManager =
+        context.getSystemService(AccessibilityManager::class.java)
+
+    private val quietSystemServiceComponent = ComponentName(
+        context.packageName,
+        QuietSystemService::class.java.name,
+    )
+
+    /**
+     * Observer-driven cache for the external-assistive-service check —
+     * the GLANCE tick must not run a binder RPC every 50ms.
+     */
+    internal val assistiveTracker = AssistiveServiceTracker(
+        context,
+        quietSystemServiceComponent,
+    )
+
+    /**
+     * Touch exploration is on — a TalkBack-style reader is interpreting
+     * taps (design 12). While it is, the free-area double tap is suspended
+     * so the home gesture never steals the assistive double tap.
+     * QuietSystemService requests no accessibility flags, so enabling the
+     * launcher's own service alone does NOT turn this on. A failed read
+     * resolves to the conservative side (exploration on) so the gesture
+     * can never steal an assistive double tap through a broken query.
+     */
+    internal var isTouchExplorationActive: () -> Boolean = {
+        runCatching {
+            accessibilityManager?.isTouchExplorationEnabled == true
+        }.getOrElse { true }
+    }
+
+    /**
+     * An assistive service OTHER than QuietSystemService is enabled
+     * (design 8.3): such services may be reading or operating the screen,
+     * so GLANCE must not time out. Our own service reads nothing and
+     * requests nothing — enabling it alone must not pause the timer,
+     * which is why the enabled-service list is filtered by component.
+     * Reads the observer-maintained cache, not the framework, so the
+     * GLANCE tick costs a volatile load instead of a binder RPC; a query
+     * failure inside the tracker resolves to true (conservative: keep
+     * GLANCE on screen).
+     */
+    internal var isAssistiveServiceActive: () -> Boolean = {
+        assistiveTracker.active()
     }
 
     fun start() {

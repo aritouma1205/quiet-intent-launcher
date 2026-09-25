@@ -6,11 +6,15 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isOff
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -113,6 +117,27 @@ class DoSettingsDraftTest {
                     AnnotatedString("写真"),
                 ),
             )
+    }
+
+    @Test
+    fun failedSaveKeepsToolVisibilityDraft() {
+        // Tools section: the last toggleable node is the last tool's 表示
+        // switch; a failed save must keep the draft edit (design 7, 11.2).
+        var saveAttempts = 0
+        setContent(onSave = { _, done -> saveAttempts++; done(false) })
+
+        rule.onAllNodes(isToggleable()).onLast()
+            .performScrollTo()
+            .performClick()
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        assertEquals(1, saveAttempts)
+        rule.onNodeWithText(res(R.string.settings_save_failed))
+            .assertIsDisplayed()
+        rule.onAllNodes(isOff()).onLast().assertIsOff()
     }
 
     @Test

@@ -41,6 +41,7 @@ fun SettingsScreen(
     onContextSettings: () -> Unit,
     onSearchSettings: () -> Unit,
     onInfoSettings: () -> Unit,
+    onSystemSettings: () -> Unit,
     onReplayIntro: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onBack: () -> Unit,
@@ -169,6 +170,19 @@ fun SettingsScreen(
                         stringResource(R.string.edge_settings_unavailable)
                     },
                     onClick = onInfoSettings,
+                    enabled = doSettingsEnabled,
+                )
+            }
+
+            SettingsSection(stringResource(R.string.settings_section_system)) {
+                SettingsButton(
+                    label = stringResource(R.string.settings_system_entry),
+                    note = if (doSettingsEnabled) {
+                        stringResource(R.string.settings_system_note)
+                    } else {
+                        stringResource(R.string.edge_settings_unavailable)
+                    },
+                    onClick = onSystemSettings,
                     enabled = doSettingsEnabled,
                 )
             }

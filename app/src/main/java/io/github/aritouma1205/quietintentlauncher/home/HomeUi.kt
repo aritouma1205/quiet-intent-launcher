@@ -1,11 +1,14 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
@@ -38,11 +41,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
@@ -80,6 +85,8 @@ import io.github.aritouma1205.quietintentlauncher.settings.SearchSettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
+import io.github.aritouma1205.quietintentlauncher.settings.SystemActionsSettingsScreen
+import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
 import io.github.aritouma1205.quietintentlauncher.today.TodayUi
@@ -101,6 +108,7 @@ fun QuietLauncherRoot(
     onChangeWallpaper: () -> Unit,
     onOpenAppInfo: (String) -> Unit,
     onOpenEvent: (Intent) -> Unit,
+    onOpenAccessibilitySettings: () -> Unit,
 ) {
     QuietLauncherTheme {
         val screen by viewModel.screen.collectAsState()
@@ -135,6 +143,14 @@ fun QuietLauncherRoot(
                     HomeMessage.NoExternalHandler ->
                         R.string.search_no_external_handler
                     HomeMessage.NoEventHandler -> R.string.event_no_handler
+                    HomeMessage.SystemServiceOff -> R.string.tool_service_off
+                    HomeMessage.SystemActionFailed -> R.string.tool_action_failed
+                    HomeMessage.ToolNoFlash -> R.string.tool_no_flash
+                    HomeMessage.ToolLightBusy -> R.string.tool_light_busy
+                    HomeMessage.ToolLightDenied -> R.string.tool_light_denied
+                    HomeMessage.ToolLightFailed -> R.string.tool_light_failed
+                    HomeMessage.ToolNoTimerHandler ->
+                        R.string.tool_no_timer_handler
                 }
                 Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
             }
@@ -143,6 +159,23 @@ fun QuietLauncherRoot(
         LaunchedEffect(Unit) {
             // Calendar events open in an external calendar app (design 8.1).
             viewModel.eventIntents.collect { intent -> onOpenEvent(intent) }
+        }
+
+        // CAMERA is requested at first torch use (design 13); the result
+        // returns through the ViewModel so a grant completes the toggle the
+        // user asked for.
+        val cameraPermissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted -> viewModel.onCameraPermissionResult(granted) }
+        LaunchedEffect(Unit) {
+            viewModel.cameraPermissionRequests.collect {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+        LaunchedEffect(Unit) {
+            viewModel.accessibilitySettingsRequests.collect {
+                onOpenAccessibilitySettings()
+            }
         }
 
         val showRecovery = settingsState is SettingsState.Degraded && !recoveryDismissed
@@ -185,9 +218,11 @@ fun QuietLauncherRoot(
                         onContextTap = { viewModel.onActionTapped(it.action) },
                         onContextEdit = { viewModel.openContextSlotEditor(it.slotIndex) },
                         onEventTap = viewModel::onEventTapped,
-                        onUnavailable = {
-                            viewModel.emitMessage(HomeMessage.FeatureLater)
-                        },
+                        toolRows = viewModel.toolRows.collectAsState().value,
+                        onToolTap = viewModel::onToolTapped,
+                        onRevealSettled = viewModel::onRevealSettled,
+                        touchExplorationActive =
+                            viewModel::isTouchExplorationActive,
                     )
                     HomeScreen.Intro -> IntroScreen(
                         isDefaultHome = isDefaultHome,
@@ -272,6 +307,9 @@ fun QuietLauncherRoot(
                         onInfoSettings = {
                             viewModel.nav.navigateTo(HomeScreen.InfoSettings)
                         },
+                        onSystemSettings = {
+                            viewModel.nav.navigateTo(HomeScreen.SystemSettings)
+                        },
                         onReplayIntro = { viewModel.nav.navigateTo(HomeScreen.Intro) },
                         onOpenAppInfo = {
                             viewModel.nav.beginExternalFlow()
@@ -300,6 +338,10 @@ fun QuietLauncherRoot(
                                 initial = data,
                                 focusActionId = viewModel.actionEditFocus
                                     .collectAsState().value,
+                                focusToolId = viewModel.toolEditFocus
+                                    .collectAsState().value,
+                                onEditFocusConsumed =
+                                    viewModel::consumeEditFocus,
                                 apps = viewModel.apps.collectAsState().value,
                                 iconLoader = iconLoader,
                                 isHomeRoleHeld = isDefaultHome,
@@ -359,6 +401,26 @@ fun QuietLauncherRoot(
                                 onClearRegionSearch = viewModel::clearRegionSearch,
                                 onRetryWeather = viewModel::retryWeather,
                                 onRefreshCalendars = viewModel::refreshCalendars,
+                                onBack = { viewModel.nav.back() },
+                            )
+                        } else {
+                            EdgeSettingsUnavailable(
+                                onBack = { viewModel.nav.back() },
+                            )
+                        }
+                    }
+                    HomeScreen.SystemSettings -> {
+                        val data = (settingsState as? SettingsState.Ready)?.data
+                        if (data != null) {
+                            SystemActionsSettingsScreen(
+                                initial = data,
+                                serviceEnabled = viewModel.systemServiceEnabled
+                                    .collectAsState().value,
+                                serviceConnected = viewModel.systemServiceConnected
+                                    .collectAsState().value,
+                                onOpenServiceSettings =
+                                    viewModel::openAccessibilitySettings,
+                                onSave = viewModel::saveSettings,
                                 onBack = { viewModel.nav.back() },
                             )
                         } else {
@@ -428,7 +490,10 @@ private fun QuietScreen(
     onContextTap: (ContextRow) -> Unit,
     onContextEdit: (ContextRow) -> Unit,
     onEventTap: (TodayEvent) -> Unit,
-    onUnavailable: () -> Unit,
+    toolRows: List<ToolRow>,
+    onToolTap: (ToolItem) -> Unit,
+    onRevealSettled: () -> Unit,
+    touchExplorationActive: () -> Boolean,
 ) {
     val description = stringResource(R.string.quiet_preview_badge)
     val paneTitle = stringResource(R.string.quiet_pane_title)
@@ -443,29 +508,44 @@ private fun QuietScreen(
     // Whole-surface pointer tracking: a second finger often lands outside
     // the bar's or the free area's own event stream, so arming multi-touch
     // detection on each detector alone misses it (design 4.2, 5). The
-    // parent sees every pointer's down/up and latches "multi" until the
-    // last finger leaves.
+    // parent sees every pointer's down/move/up and remembers which ones
+    // actually moved — only a contact that travels past touch slop counts
+    // as a second input, so a palm or spare finger resting at the screen
+    // edge never kills a one-handed gesture.
     val activePointerIds = remember { mutableSetOf<PointerId>() }
-    var sawMultiPointer by remember { mutableStateOf(false) }
+    val pointerDownAt = remember { mutableMapOf<PointerId, Offset>() }
+    val movedPointerIds = remember { mutableStateSetOf<PointerId>() }
 
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
+                val slopPx = viewConfiguration.touchSlop
                 while (true) {
                     awaitPointerEventScope {
                         val event = awaitPointerEvent()
                         for (change in event.changes) {
                             when {
-                                change.pressed && !change.previousPressed ->
+                                change.pressed && !change.previousPressed -> {
                                     activePointerIds += change.id
-                                !change.pressed && change.previousPressed ->
+                                    pointerDownAt[change.id] = change.position
+                                }
+                                !change.pressed && change.previousPressed -> {
                                     activePointerIds -= change.id
+                                    pointerDownAt.remove(change.id)
+                                    movedPointerIds.remove(change.id)
+                                }
+                                change.pressed -> {
+                                    val origin = pointerDownAt
+                                        .getOrPut(change.id) { change.position }
+                                    if (
+                                        (change.position - origin)
+                                            .getDistance() > slopPx
+                                    ) {
+                                        movedPointerIds.add(change.id)
+                                    }
+                                }
                             }
-                        }
-                        when {
-                            activePointerIds.isEmpty() -> sawMultiPointer = false
-                            activePointerIds.size > 1 -> sawMultiPointer = true
                         }
                         // Any finger resting anywhere on the surface pauses
                         // the GLANCE auto-dismiss (design 8.3 触っている間).
@@ -560,6 +640,9 @@ private fun QuietScreen(
                         }
                         visualPanel = null
                         previewToolsExpanded = false
+                        // The surface is fully settled — an armed screenshot
+                        // fires now, exactly once (design 7).
+                        onRevealSettled()
                     }
                 }
             }
@@ -598,6 +681,7 @@ private fun QuietScreen(
                     visualPanel = null
                     dragging = false
                     previewToolsExpanded = false
+                    onRevealSettled()
                 }
                 EdgeDragEvent.Tapped -> {
                     if (side == EdgeSide.Right) onOpenDoPanel(false) else onOpenTodayPanel()
@@ -621,9 +705,18 @@ private fun QuietScreen(
                         isSwipeStartAllowed = { offset ->
                             offset.y < heightPx - systemGestureBottomPx
                         },
-                        doubleTapEnabled =
-                            settings.systemActions.screenOffEnabled,
-                        wasMultiPointer = { sawMultiPointer },
+                        // Screen-off double tap is suspended while touch
+                        // exploration is active — the home gesture must
+                        // never steal the assistive double tap (design 12).
+                        // QuietSystemService itself requests no flags and
+                        // does not set this, so the gesture stays reachable.
+                        doubleTapEnabled = {
+                            settings.systemActions.screenOffEnabled &&
+                                !touchExplorationActive()
+                        },
+                        multiPointerActive = { id ->
+                            movedPointerIds.any { it != id }
+                        },
                         onEvent = onFreeAreaEvent,
                     ),
             )
@@ -640,7 +733,9 @@ private fun QuietScreen(
                 toolsThreshold = settings.tools.deepPullFraction,
                 hapticsEnabled = settings.vibration == VibrationMode.System,
                 openLabel = stringResource(R.string.edge_bar_open_today),
-                wasMultiPointer = { sawMultiPointer },
+                multiPointerActive = { id ->
+                    movedPointerIds.any { it != id }
+                },
                 onEvent = ::handleBarEvent,
                 onHaptic = {
                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
@@ -659,7 +754,9 @@ private fun QuietScreen(
                 toolsThreshold = settings.tools.deepPullFraction,
                 hapticsEnabled = settings.vibration == VibrationMode.System,
                 openLabel = stringResource(R.string.edge_bar_open_do),
-                wasMultiPointer = { sawMultiPointer },
+                multiPointerActive = { id ->
+                    movedPointerIds.any { it != id }
+                },
                 onEvent = ::handleBarEvent,
                 onHaptic = {
                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
@@ -692,6 +789,7 @@ private fun QuietScreen(
                     DoPanel(
                         rows = actionRows,
                         contextRows = contextRows,
+                        toolRows = toolRows,
                         toolsExpanded = toolsExpanded,
                         panelWidthPx = panelWidthPx,
                         onExpandTools = onExpandTools,
@@ -702,7 +800,7 @@ private fun QuietScreen(
                         onDerivedOp = onDerivedOp,
                         onContextTap = onContextTap,
                         onContextEdit = onContextEdit,
-                        onUnavailable = onUnavailable,
+                        onToolTap = onToolTap,
                     )
                 } else {
                     TodayPanel(

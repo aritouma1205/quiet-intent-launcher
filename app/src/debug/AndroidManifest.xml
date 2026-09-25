@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- I6-C02 instrumentation only: the real-Provider calendar test
+         inserts and deletes a fixture event through the debug build.
+         The release manifest never declares WRITE_CALENDAR. -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+
     <!-- Instrumented tests host Compose content inside androidx.activity's
          ComponentActivity (declared by the library with no softInputMode).
          Left unspecified, API 36 emulators pick adjustPan: the IME pans the

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.aritouma1205.quietintentlauncher.AppContainer
+import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
 import io.github.aritouma1205.quietintentlauncher.calendar.CalendarAccess
 import io.github.aritouma1205.quietintentlauncher.calendar.EventRules
@@ -29,16 +30,22 @@ import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
+import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
+import io.github.aritouma1205.quietintentlauncher.settings.ToolSetting
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
 import io.github.aritouma1205.quietintentlauncher.settings.WeatherLocation
+import io.github.aritouma1205.quietintentlauncher.system.SystemAction
 import io.github.aritouma1205.quietintentlauncher.today.TodayUi
 import io.github.aritouma1205.quietintentlauncher.today.WeatherBlock
+import io.github.aritouma1205.quietintentlauncher.torch.TorchResult
+import io.github.aritouma1205.quietintentlauncher.torch.TorchState
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherFreshness
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherRules
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherService
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -82,6 +89,27 @@ enum class HomeMessage {
 
     /** No calendar app can display the tapped event (design 8.1). */
     NoEventHandler,
+
+    /** The optional system service is not enabled/connected (design 13). */
+    SystemServiceOff,
+
+    /** A system action was requested but the OS refused it (design 13). */
+    SystemActionFailed,
+
+    /** No camera flash exists on this device (design 7). */
+    ToolNoFlash,
+
+    /** The camera is busy in another app; the torch cannot switch. */
+    ToolLightBusy,
+
+    /** CAMERA was denied; the light tool cannot run (design 7, 13). */
+    ToolLightDenied,
+
+    /** Torch operation failed for another reason. */
+    ToolLightFailed,
+
+    /** No timer-list handler and no fallback clock app configured. */
+    ToolNoTimerHandler,
 }
 
 /** Resolved external hand-off capability for the search screen. */
@@ -112,6 +140,43 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     /** DO panel rows: visible actions + availability resolved from live OS state. */
     private val _actionRows = MutableStateFlow<List<ActionRow>>(emptyList())
     val actionRows: StateFlow<List<ActionRow>> = _actionRows.asStateFlow()
+
+    /**
+     * TOOLS rows (design 7): the configured order, visible entries only,
+     * with status resolved live — the torch state comes from the OS
+     * callback, launch targets from the catalogs, the screenshot state from
+     * the service connection.
+     */
+    private val _toolRows = MutableStateFlow<List<ToolRow>>(emptyList())
+    val toolRows: StateFlow<List<ToolRow>> = _toolRows.asStateFlow()
+
+    /** Optional service state for the system settings screen (design 13). */
+    val systemServiceEnabled: StateFlow<Boolean> = container.systemActions.enabled
+    val systemServiceConnected: StateFlow<Boolean> = container.systemActions.connected
+
+    /** CAMERA runtime-permission requests; the UI owns the result contract. */
+    private val _cameraPermissionRequests =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val cameraPermissionRequests: SharedFlow<Unit> =
+        _cameraPermissionRequests.asSharedFlow()
+
+    /** OS accessibility-settings requests; the Activity performs the launch. */
+    private val _accessibilitySettingsRequests =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val accessibilitySettingsRequests: SharedFlow<Unit> =
+        _accessibilitySettingsRequests.asSharedFlow()
+
+    /** Tool the DoSettings screen should focus (set by panel navigation). */
+    private val _toolEditFocus = MutableStateFlow<String?>(null)
+    val toolEditFocus: StateFlow<String?> = _toolEditFocus.asStateFlow()
+
+    /**
+     * Armed screenshot (design 7): set when the user taps the tool, consumed
+     * exactly once by [onRevealSettled] after the close animation finished.
+     * An AtomicBoolean so a rapid second tap and a late settle can never
+     * produce two OS requests.
+     */
+    private val pendingScreenshot = AtomicBoolean(false)
 
     /**
      * Context Slot rows of the DO panel (design 10). Evaluated when the
@@ -306,6 +371,9 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 // 8.3).
                 if (screen != HomeScreen.Quiet) {
                     overlays.clear()
+                    // A screenshot request never survives leaving Quiet:
+                    // the request was scoped to capturing this surface.
+                    pendingScreenshot.set(false)
                 }
                 if (screen != HomeScreen.Search) {
                     resetSearch()
@@ -318,6 +386,19 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                     container.recentStore.prune()
                 }
             }
+        }
+        viewModelScope.launch {
+            // The OS torch callback repaints the light row — including the
+            // "another app turned it off" case (design 7: display the real
+            // state, never a hoped-for one).
+            container.torch.state.collect { refreshToolRows() }
+        }
+        viewModelScope.launch {
+            // Service connect/disconnect repaints the screenshot row.
+            container.systemActions.connected.collect { refreshToolRows() }
+        }
+        viewModelScope.launch {
+            container.systemActions.enabled.collect { refreshToolRows() }
         }
         viewModelScope.launch {
             // A weather cache update repaints the clock faces (design 8.2).
@@ -348,6 +429,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             // the observer. GLANCE repaints on open but never waits for
             // the network (design 8.2/8.3).
             overlay.collect { current ->
+                // A new overlay appearing before the previous close finished
+                // cancels an armed screenshot — it must only fire into a
+                // fully-settled Quiet surface.
+                if (current != null) pendingScreenshot.set(false)
                 when (current) {
                     HomeOverlay.Today -> {
                         refreshToday()
@@ -457,11 +542,219 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 val actionRows = data.actions
                     .filter { it.visible }
                     .map { action -> ActionRow(action, resolveStatus(action)) }
+                _toolRows.value = resolveToolRows(data)
                 actionRows to if (evaluateSlots) evaluateContextRows(data) else null
             }
             _actionRows.value = rows
             context?.let { _contextRows.value = it }
         }
+    }
+
+    /**
+     * Re-resolves the TOOLS rows: torch state is read from the OS-driven
+     * [TorchController.state], launch targets from the live catalogs, the
+     * screenshot readiness from the service connection (design 7, 13).
+     */
+    fun refreshToolRows() {
+        viewModelScope.launch {
+            val data = (settingsState.value as? SettingsState.Ready)?.data
+                ?: SettingsData()
+            _toolRows.value = withContext(Dispatchers.IO) { resolveToolRows(data) }
+        }
+    }
+
+    private suspend fun resolveToolRows(data: SettingsData): List<ToolRow> =
+        data.tools.items.mapNotNull { item ->
+            val tool = ToolItem.byId(item.id) ?: return@mapNotNull null
+            if (!item.visible) return@mapNotNull null
+            ToolRow(tool, resolveToolStatus(tool, item, data))
+        }
+
+    private suspend fun resolveToolStatus(
+        tool: ToolItem,
+        item: ToolSetting,
+        data: SettingsData,
+    ): ToolStatus = when (tool) {
+        // The light row mirrors the OS-reported torch state; a missing
+        // permission shows the state anyway — only switching needs CAMERA.
+        ToolItem.Light -> when (container.torch.state.value) {
+            TorchState.NoFlash -> ToolStatus.Blocked(ToolUnavailable.NoFlash)
+            TorchState.Unavailable -> ToolStatus.Blocked(ToolUnavailable.Busy)
+            TorchState.On -> ToolStatus.LightOn
+            TorchState.Off -> ToolStatus.LightOff
+        }
+        ToolItem.Screenshot -> when {
+            !data.systemActions.screenshotEnabled ->
+                ToolStatus.Blocked(ToolUnavailable.SwitchOff)
+            !container.systemActions.isConnected() ->
+                ToolStatus.Blocked(ToolUnavailable.ServiceInactive)
+            else -> ToolStatus.Ready(container.stringFor(R.string.tool_screenshot_note))
+        }
+        ToolItem.Timer -> {
+            val target = item.target
+            when {
+                target != null -> resolveToolTarget(target)
+                container.toolLauncher.canShowTimers() ->
+                    ToolStatus.Ready(container.stringFor(R.string.tool_timer_list))
+                else -> ToolStatus.Blocked(ToolUnavailable.NoTimerHandler)
+            }
+        }
+        ToolItem.Calculator, ToolItem.Qr -> {
+            val target = item.target
+            if (target == null) {
+                ToolStatus.Blocked(ToolUnavailable.Unset)
+            } else {
+                resolveToolTarget(target)
+            }
+        }
+    }
+
+    private suspend fun resolveToolTarget(target: StoredTarget): ToolStatus =
+        when (val status = resolveTargetStatus(target)) {
+            is ActionStatus.Available -> ToolStatus.Ready(status.targetLabel)
+            is ActionStatus.Unavailable ->
+                ToolStatus.Blocked(ToolUnavailable.TargetGone)
+            ActionStatus.Unset -> ToolStatus.Blocked(ToolUnavailable.Unset)
+        }
+
+    /** Tap on a TOOLS row (design 7). Unset/blocked rows offer the edit path. */
+    fun onToolTapped(tool: ToolItem) {
+        val item = currentSettings().tools.items.firstOrNull { it.id == tool.id }
+        when (tool) {
+            ToolItem.Light -> toggleTorch()
+            ToolItem.Screenshot -> requestScreenshot()
+            ToolItem.Calculator, ToolItem.Qr -> {
+                val target =
+                    item?.target?.toLaunchTarget(container.appCatalog.currentUser)
+                if (target == null) {
+                    // Unset or vanished config: open the tool editor as the
+                    // configured 代替導線 (design 7).
+                    openToolEditor(tool)
+                } else {
+                    applyLaunchResult(container.targetLauncher.launch(target))
+                }
+            }
+            ToolItem.Timer -> {
+                val target =
+                    item?.target?.toLaunchTarget(container.appCatalog.currentUser)
+                if (target != null) {
+                    applyLaunchResult(container.targetLauncher.launch(target))
+                } else if (container.toolLauncher.canShowTimers()) {
+                    // Only the timer LIST is opened — the launcher never
+                    // creates or starts a timer (design 7).
+                    if (container.toolLauncher.showTimers()) {
+                        overlays.clear()
+                        nav.resetToQuiet()
+                    } else {
+                        _messages.tryEmit(HomeMessage.ToolNoTimerHandler)
+                    }
+                } else {
+                    _messages.tryEmit(HomeMessage.ToolNoTimerHandler)
+                    openToolEditor(tool)
+                }
+            }
+        }
+    }
+
+    /** Opens 「行動・道具」 focused on one tool's row (design 7 導線). */
+    fun openToolEditor(tool: ToolItem) {
+        _toolEditFocus.value = tool.id
+        // The two edit focuses are mutually exclusive: a stale action
+        // focus must never win over a tool entry (or the reverse).
+        _actionEditFocus.value = null
+        overlays.clear()
+        nav.navigateTo(HomeScreen.DoSettings)
+    }
+
+    /**
+     * Light tool (design 7, 13): the first use asks for CAMERA through the
+     * UI-owned permission request; the visible state is always the
+     * OS-reported one — a successful request updates nothing until the
+     * torch callback reports it.
+     */
+    private fun toggleTorch() {
+        val torch = container.torch
+        if (!torch.hasPermission()) {
+            _cameraPermissionRequests.tryEmit(Unit)
+            return
+        }
+        val turnOn = torch.state.value != TorchState.On
+        when (torch.setTorch(turnOn)) {
+            TorchResult.Toggled -> Unit
+            TorchResult.PermissionMissing ->
+                _cameraPermissionRequests.tryEmit(Unit)
+            TorchResult.NoFlash -> _messages.tryEmit(HomeMessage.ToolNoFlash)
+            TorchResult.Busy -> _messages.tryEmit(HomeMessage.ToolLightBusy)
+            TorchResult.Failed -> _messages.tryEmit(HomeMessage.ToolLightFailed)
+        }
+    }
+
+    /** CAMERA permission result forwarded by the UI's launcher. */
+    fun onCameraPermissionResult(granted: Boolean) {
+        if (granted) {
+            toggleTorch()
+        } else {
+            _messages.tryEmit(HomeMessage.ToolLightDenied)
+        }
+    }
+
+    /**
+     * TOOLS screenshot (design 7): requires the per-feature switch AND a
+     * live service. The panel closes first; the OS request fires exactly
+     * once when the UI reports the close animation settled
+     * ([onRevealSettled]).
+     */
+    fun requestScreenshot() {
+        val data = currentSettings()
+        if (!data.systemActions.screenshotEnabled) {
+            // The alternative route: land the user on the system settings
+            // screen where the switch and the service state live.
+            openSystemActionsSettings()
+            return
+        }
+        if (!systemServiceReady()) {
+            _messages.tryEmit(HomeMessage.SystemServiceOff)
+            return
+        }
+        if (!pendingScreenshot.compareAndSet(false, true)) {
+            // Rapid second tap while one request is still armed: refuse so
+            // one gesture never produces two OS screenshots (design 7).
+            _messages.tryEmit(HomeMessage.LaunchBusy)
+            return
+        }
+        overlays.clear()
+    }
+
+    /**
+     * Called by the UI when the reveal surface has fully closed. Fires an
+     * armed screenshot exactly once — only while still on Quiet and
+     * foregrounded; otherwise the request is dropped rather than shooting
+     * another app's screen (design 7).
+     */
+    fun onRevealSettled() {
+        if (!pendingScreenshot.getAndSet(false)) return
+        if (!_foregrounded.value || nav.screen.value != HomeScreen.Quiet) return
+        if (!container.systemActions.isConnected() ||
+            !container.systemActions.perform(SystemAction.TakeScreenshot)
+        ) {
+            _messages.tryEmit(HomeMessage.SystemActionFailed)
+        }
+    }
+
+    /** システム操作 settings screen (design 11.2). */
+    fun openSystemActionsSettings() {
+        overlays.clear()
+        nav.navigateTo(HomeScreen.SystemSettings)
+    }
+
+    /**
+     * OS accessibility settings for the optional service (design 13). The
+     * external flow keeps this settings screen under the OS screen so the
+     * user lands back here after granting.
+     */
+    fun openAccessibilitySettings() {
+        nav.beginExternalFlow()
+        _accessibilitySettingsRequests.tryEmit(Unit)
     }
 
     /**
@@ -501,7 +794,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     private suspend fun resolveStatus(action: DoAction): ActionStatus =
-        when (val target = action.target) {
+        resolveTargetStatus(action.target)
+
+    private suspend fun resolveTargetStatus(target: StoredTarget?): ActionStatus =
+        when (target) {
             null -> ActionStatus.Unset
             is StoredTarget.App -> container.appCatalog
                 .resolveApp(target.component)
@@ -545,8 +841,19 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     /** Opens the action editor, optionally focused on one action. */
     fun openActionEditor(actionId: String?) {
         _actionEditFocus.value = actionId
+        _toolEditFocus.value = null
         overlays.clear()
         nav.navigateTo(HomeScreen.DoSettings)
+    }
+
+    /**
+     * The 「行動・道具」 screen applied (or found no) pending editor focus.
+     * Focus requests are one-shot: both are cleared here so a later plain
+     * visit never re-opens a stale picker.
+     */
+    fun consumeEditFocus() {
+        _actionEditFocus.value = null
+        _toolEditFocus.value = null
     }
 
     suspend fun shortcutsFor(packageName: String) =
@@ -600,7 +907,11 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 }
             }
 
-            ToolItem.entries.forEachIndexed { index, tool ->
+            // Tools are indexed in the configured order (design 7); hidden
+            // tools stay searchable — the flag declutters the panel, it is
+            // not a privacy switch (same rule as hidden actions).
+            val toolOrder = data.tools.items.mapNotNull { ToolItem.byId(it.id) }
+            toolOrder.forEachIndexed { index, tool ->
                 pairs += SearchItem(
                     id = "tool:${tool.id}",
                     kind = SearchItemKind.ToolSetting,
@@ -613,7 +924,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                     id = "setting:${destination.name}",
                     kind = SearchItemKind.ToolSetting,
                     primary = container.stringFor(destination.labelRes),
-                    groupOrder = ToolItem.entries.size + index,
+                    groupOrder = toolOrder.size + index,
                 ) to SearchRow.Setting(destination)
             }
 
@@ -729,6 +1040,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             SettingsDestination.ContextSlots -> openContextSlotEditor(null)
             SettingsDestination.Search -> nav.navigateTo(HomeScreen.SearchSettings)
             SettingsDestination.Info -> nav.navigateTo(HomeScreen.InfoSettings)
+            SettingsDestination.System -> nav.navigateTo(HomeScreen.SystemSettings)
         }
     }
 
@@ -1011,10 +1323,18 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * Test seam: instrumentation observes the broadcast-driven refresh —
+     * TIME_SET/TIMEZONE_CHANGED are protected broadcasts only the system
+     * (or shell) can send, so the real-path test watches this probe.
+     */
+    internal var timeChangedProbe: () -> Unit = {}
+
     /** Time/date/timezone broadcasts (design 8.1): repaint + re-select. */
     fun onTimeChanged() {
         refreshToday()
         refreshEvents()
+        timeChangedProbe()
     }
 
     fun expandTools() = overlays.expandTools()
@@ -1071,10 +1391,12 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             while (remaining > 0) {
                 delay(GLANCE_TICK_MS)
                 if (overlay.value != HomeOverlay.Glance) return@launch
-                // A held finger pauses the countdown; so does a screen
-                // reader / switch access switched on mid-display
-                // (design 8.3: never leave while the user is reading).
-                if (!_glanceHold.value && !container.isAccessibilityActive()) {
+                // A held finger pauses the countdown; so does an external
+                // assistive service (screen reader / switch access)
+                // switched on mid-display (design 8.3: never leave while
+                // the user is reading). Our own operation-only service
+                // reads nothing, so it does not pause the timer.
+                if (!_glanceHold.value && !container.isAssistiveServiceActive()) {
                     remaining -= GLANCE_TICK_MS
                 }
             }
@@ -1082,11 +1404,23 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * Down-swipe → notification shade (design 5, 13). Disabled: the first
+     * swipe explains the opt-in once. Enabled but the service is off:
+     * explain that only this operation cannot run — the launcher itself
+     * keeps working.
+     */
+    // The notification hint is a once-ever toast; the persisted flag lands
+    // asynchronously, so an in-memory guard covers the gap between the
+    // first swipe and the store write propagating back (design 5).
+    private var notificationHintSent = false
+
     private fun requestNotifications() {
         val data = (settingsState.value as? SettingsState.Ready)?.data ?: return
         if (!data.systemActions.notificationsEnabled) {
             // Disabled: guide once, then stay silent (design 5).
-            if (!data.notificationHintShown) {
+            if (!data.notificationHintShown && !notificationHintSent) {
+                notificationHintSent = true
                 _messages.tryEmit(HomeMessage.NotificationHint)
                 viewModelScope.launch {
                     container.settingsStore.update { it.copy(notificationHintShown = true) }
@@ -1094,17 +1428,40 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             }
             return
         }
-        // The backing accessibility service arrives with the system-action
-        // stage; do not pretend the action ran.
-        _messages.tryEmit(HomeMessage.FeatureLater)
-    }
-
-    private fun requestScreenOff() {
-        val data = (settingsState.value as? SettingsState.Ready)?.data ?: return
-        if (data.systemActions.screenOffEnabled) {
-            _messages.tryEmit(HomeMessage.FeatureLater)
+        if (!systemServiceReady()) {
+            _messages.tryEmit(HomeMessage.SystemServiceOff)
+            return
+        }
+        if (!container.systemActions.perform(SystemAction.Notifications)) {
+            _messages.tryEmit(HomeMessage.SystemActionFailed)
         }
     }
+
+    /**
+     * Double-tap → OS screen-off (design 5, 13). This is the OS lock path —
+     * the launcher never draws its own lock screen; PIN/biometric unlock
+     * stays with Android.
+     */
+    private fun requestScreenOff() {
+        val data = (settingsState.value as? SettingsState.Ready)?.data ?: return
+        if (!data.systemActions.screenOffEnabled) return
+        if (!systemServiceReady()) {
+            _messages.tryEmit(HomeMessage.SystemServiceOff)
+            return
+        }
+        if (!container.systemActions.perform(SystemAction.LockScreen)) {
+            _messages.tryEmit(HomeMessage.SystemActionFailed)
+        }
+    }
+
+    /**
+     * Enabled in the OS accessibility settings AND a live service
+     * connection — re-read on every call so a revoked service never runs
+     * (design 13: 実行直前にも確認).
+     */
+    private fun systemServiceReady(): Boolean =
+        container.systemActions.isEnabledInOs() &&
+            container.systemActions.isConnected()
 
     /** Back order: TOOLS fold -> panel/GLANCE close -> nav stack. */
     fun handleBack(): Boolean = overlays.back() || nav.back()
@@ -1138,6 +1495,13 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     fun onForegrounded() {
         _foregrounded.value = true
         nav.onForegrounded()
+        // Foreground-only subscriptions (design 15): the torch callback and
+        // the enabled-services observer only run while the UI is up. The
+        // enabled bit is re-read now — a revoke while away is seen here.
+        container.torch.setObserving(true)
+        container.systemActions.setObserving(true)
+        container.systemActions.isEnabledInOs()
+        refreshToolRows()
         // Designed refresh points (design 8): repaint the clock faces,
         // re-read events (permission may have been revoked), and let the
         // weather service decide whether 30 min passed since the last
@@ -1149,6 +1513,11 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     fun onBackgrounded() {
         _foregrounded.value = false
+        // A screenshot armed before backgrounding must never fire into
+        // another app's screen (design 7).
+        pendingScreenshot.set(false)
+        container.torch.setObserving(false)
+        container.systemActions.setObserving(false)
         overlays.clear()
         nav.onBackgrounded()
     }
@@ -1167,6 +1536,15 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     fun vibrationEnabled(): Boolean =
         currentSettings().vibration == VibrationMode.System
+
+    /**
+     * Touch exploration active right now (design 12). Read at
+     * gesture-settle time so a reader toggled mid-session takes effect
+     * immediately — the free-area double tap must never steal TalkBack's.
+     * QuietSystemService alone does not set this: it requests no
+     * accessibility flags, so screen-off stays reachable through it.
+     */
+    fun isTouchExplorationActive(): Boolean = container.isTouchExplorationActive()
 
     companion object {
         private const val GLANCE_TICK_MS = 50L

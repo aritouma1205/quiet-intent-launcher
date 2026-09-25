@@ -10,8 +10,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -48,7 +50,7 @@ fun EdgeBar(
     toolsThreshold: Float,
     hapticsEnabled: Boolean,
     openLabel: String,
-    wasMultiPointer: () -> Boolean,
+    multiPointerActive: (PointerId) -> Boolean,
     onEvent: (EdgeSide, EdgeDragEvent) -> Unit,
     onHaptic: () -> Unit,
 ) {
@@ -98,7 +100,7 @@ fun EdgeBar(
                     toolsThreshold = toolsThreshold,
                     toolsHysteresis = ToolsSettings.HYSTERESIS_FRACTION,
                     hapticsEnabled = hapticsEnabled,
-                    wasMultiPointer = wasMultiPointer,
+                    multiPointerActive = multiPointerActive,
                     onEvent = { event -> onEvent(side, event) },
                     onHaptic = onHaptic,
                 )
@@ -119,7 +121,7 @@ private suspend fun PointerInputScope.detectEdgeDrag(
     toolsThreshold: Float,
     toolsHysteresis: Float,
     hapticsEnabled: Boolean,
-    wasMultiPointer: () -> Boolean,
+    multiPointerActive: (PointerId) -> Boolean,
     onEvent: (EdgeDragEvent) -> Unit,
     onHaptic: () -> Unit,
 ) {
@@ -142,13 +144,32 @@ private suspend fun PointerInputScope.detectEdgeDrag(
         down.consume()
         var totalDx = 0f
         var totalDy = 0f
+        // Secondary contacts on this bar are tracked from where they
+        // landed: one only counts as a second input once it travels past
+        // touch slop. A palm resting at the edge keeps the drag alive.
+        val otherDownAt = mutableMapOf<PointerId, Offset>()
         while (true) {
             val event = awaitPointerEvent()
             // A second finger is often outside this bar's bounds and never
-            // reaches this event stream; the shared latch covers it.
-            if (
-                event.changes.count { it.pressed } > 1 || wasMultiPointer()
-            ) {
+            // reaches this event stream; the shared latch covers it. Either
+            // way it only counts once it moves — a resting contact is not
+            // a second input.
+            var secondActive = multiPointerActive(down.id)
+            for (other in event.changes) {
+                if (other.id == down.id) continue
+                if (!other.pressed) {
+                    otherDownAt.remove(other.id)
+                    continue
+                }
+                val origin = otherDownAt.getOrPut(other.id) { other.position }
+                if (
+                    (other.position - origin).getDistance() >
+                        viewConfiguration.touchSlop
+                ) {
+                    secondActive = true
+                }
+            }
+            if (secondActive) {
                 machine.onPointerCountChanged(2)?.let(::dispatch)
                 break
             }

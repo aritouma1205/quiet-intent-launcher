@@ -1,9 +1,8 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
-import androidx.annotation.StringRes
-import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.context.ContextRule
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
+import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
 
 /** Why a configured target cannot launch right now (design 6). */
 enum class UnavailableReason {
@@ -47,11 +46,52 @@ data class ContextRow(
     val matchedRule: ContextRule?,
 )
 
-/** Tool rows of the TOOLS area (design 7). Execution arrives in stage 6. */
-enum class ToolItem(val id: String, @param:StringRes val labelRes: Int) {
-    Light("light", R.string.tool_light),
-    Calculator("calculator", R.string.tool_calculator),
-    Qr("qr", R.string.tool_qr),
-    Timer("timer", R.string.tool_timer),
-    Screenshot("screenshot", R.string.tool_screenshot),
+/** Why a tool row cannot run right now (design 7). */
+enum class ToolUnavailable {
+    /** No launch target configured (calculator / QR / timer fallback). */
+    Unset,
+
+    /** The configured target app/shortcut is gone. */
+    TargetGone,
+
+    /** No handler for the system timer list and no fallback target set. */
+    NoTimerHandler,
+
+    /** The device has no usable camera flash. */
+    NoFlash,
+
+    /** The CAMERA permission has not been granted yet. */
+    PermissionMissing,
+
+    /** Another app holds the camera/torch right now. */
+    Busy,
+
+    /** The backing accessibility service is disabled or disconnected. */
+    ServiceInactive,
+
+    /** The per-feature switch is off (screenshot before opt-in). */
+    SwitchOff,
 }
+
+/**
+ * One TOOLS row (design 7): the tool plus its resolved state. The status
+ * line is rendered by the panel; execution goes through the ViewModel.
+ */
+sealed interface ToolStatus {
+    /** Ready to run; [detail] is an optional secondary label. */
+    data class Ready(val detail: String? = null) : ToolStatus
+
+    /** The torch is on; tapping turns it off. */
+    data object LightOn : ToolStatus
+
+    /** The torch is off; tapping turns it on. */
+    data object LightOff : ToolStatus
+
+    /** Cannot run; the row explains why and may offer a settings path. */
+    data class Blocked(val reason: ToolUnavailable) : ToolStatus
+}
+
+data class ToolRow(
+    val tool: ToolItem,
+    val status: ToolStatus,
+)

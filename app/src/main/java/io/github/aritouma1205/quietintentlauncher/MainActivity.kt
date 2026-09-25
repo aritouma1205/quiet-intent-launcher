@@ -26,7 +26,9 @@ class MainActivity : ComponentActivity() {
     private val container: AppContainer
         get() = (application as QuietLauncherApp).container
 
-    private val viewModel: HomeViewModel by viewModels {
+    // internal so instrumentation can observe the broadcast-driven
+    // time-change path through the real activity (design 8.1, A08).
+    internal val viewModel: HomeViewModel by viewModels {
         HomeViewModel.factory(container)
     }
 
@@ -39,8 +41,17 @@ class MainActivity : ComponentActivity() {
     /**
      * Time/date/timezone changes repaint the clock faces and re-select the
      * calendar rows (design 8.1: 時刻・日付・タイムゾーンの変更に追従).
+     * Both members are internal so instrumentation can assert the exact
+     * filter registered and drive the receiver — TIME_SET is a protected
+     * broadcast that even the shell cannot send on API 30+.
      */
-    private val timeChangeReceiver = object : BroadcastReceiver() {
+    internal val timeChangeFilter = IntentFilter().apply {
+        addAction(Intent.ACTION_TIME_CHANGED)
+        addAction(Intent.ACTION_DATE_CHANGED)
+        addAction(Intent.ACTION_TIMEZONE_CHANGED)
+    }
+
+    internal val timeChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             viewModel.onTimeChanged()
         }
@@ -58,6 +69,7 @@ class MainActivity : ComponentActivity() {
                 onChangeWallpaper = ::openWallpaperPicker,
                 onOpenAppInfo = ::openAppInfo,
                 onOpenEvent = ::openCalendarEvent,
+                onOpenAccessibilitySettings = ::openAccessibilitySettings,
             )
         }
     }
@@ -76,14 +88,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         // Time-change subscriptions live only while started — nothing runs
         // while backgrounded (design 15).
-        registerReceiver(
-            timeChangeReceiver,
-            IntentFilter().apply {
-                addAction(Intent.ACTION_TIME_CHANGED)
-                addAction(Intent.ACTION_DATE_CHANGED)
-                addAction(Intent.ACTION_TIMEZONE_CHANGED)
-            },
-        )
+        registerReceiver(timeChangeReceiver, timeChangeFilter)
         viewModel.onForegrounded()
         viewModel.refreshHomeRole()
         // Consistency check for app installs/removals while away (design 15).
@@ -128,6 +133,19 @@ class MainActivity : ComponentActivity() {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             Toast.makeText(this, R.string.event_no_handler, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * OS accessibility settings — the only place the optional service can
+     * be granted (design 13). The ViewModel already marked this an external
+     * flow, so returning lands back on the system settings screen.
+     */
+    private fun openAccessibilitySettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        } catch (e: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
         }
     }
 
