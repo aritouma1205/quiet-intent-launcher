@@ -46,12 +46,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -200,9 +202,32 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private var refreshEventsJob: Job? = null
     private var eventsObserverUnregister: (() -> Unit)? = null
 
+    /**
+     * Whether the launcher UI is in the foreground. The minute ticker
+     * only runs while this is true — a clock that is not on screen must
+     * not keep periodic work alive in the background (design 15).
+     */
+    private val _foregrounded = MutableStateFlow(true)
+
+    /**
+     * True while the minute ticker should tick: a clock face is actually
+     * on screen and the UI is foregrounded. Exposed internally so tests
+     * can assert the condition without waiting a real minute.
+     */
+    internal val clockTickerActive: StateFlow<Boolean>
+
     private var introDecided = false
 
     init {
+        clockTickerActive = combine(
+            _foregrounded,
+            overlay,
+            screen,
+            settingsState,
+        ) { foregrounded, currentOverlay, currentScreen, state ->
+            clockVisible(foregrounded, currentOverlay, currentScreen, state)
+        }.distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
         viewModelScope.launch {
             container.appCatalog.apps.collect {
                 refreshActionRows()
@@ -302,20 +327,19 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         }
         viewModelScope.launch {
             // Minute ticker — runs only while a clock face is actually
-            // visible: TODAY / GLANCE open, or the optional Quiet clock
-            // enabled (design 15: no launcher-owned periodic work while
-            // everything is off). While TODAY is open the event selection
-            // is re-evaluated at each minute boundary (design 8.1).
-            combine(overlay, screen, settingsState, ::clockVisible)
-                .distinctUntilChanged()
-                .collectLatest { visible ->
-                    if (!visible) return@collectLatest
-                    while (currentCoroutineContext().isActive) {
-                        refreshToday()
-                        if (overlay.value == HomeOverlay.Today) refreshEvents()
-                        delay(msUntilNextMinute())
-                    }
+            // visible and the UI is foregrounded (design 15: no
+            // launcher-owned periodic work while everything is off or
+            // the surface is backgrounded). While TODAY is open the
+            // event selection is re-evaluated at each minute boundary
+            // (design 8.1).
+            clockTickerActive.collectLatest { active ->
+                if (!active) return@collectLatest
+                while (currentCoroutineContext().isActive) {
+                    refreshToday()
+                    if (overlay.value == HomeOverlay.Today) refreshEvents()
+                    delay(msUntilNextMinute())
                 }
+            }
         }
         viewModelScope.launch {
             // Opening TODAY refreshes everything and watches the provider
@@ -354,23 +378,27 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     /**
      * A clock is on screen while TODAY/GLANCE is open or the optional
-     * Quiet clock is enabled on the Quiet surface (design 12, 15).
+     * Quiet clock is enabled on the Quiet surface — and only while the
+     * UI is foregrounded (design 12, 15).
      */
     private fun clockVisible(
+        foregrounded: Boolean,
         currentOverlay: HomeOverlay?,
         currentScreen: HomeScreen,
         state: SettingsState,
     ): Boolean =
-        currentOverlay == HomeOverlay.Today ||
-            currentOverlay == HomeOverlay.Glance ||
-            (
-                // The Quiet clock composes only while no overlay is up —
-                // a Reveal panel covering it must not keep the ticker
-                // alive (design 15).
-                currentOverlay == null &&
-                    currentScreen == HomeScreen.Quiet &&
-                    (state as? SettingsState.Ready)?.data?.clock?.enabled == true
-                )
+        foregrounded && (
+            currentOverlay == HomeOverlay.Today ||
+                currentOverlay == HomeOverlay.Glance ||
+                (
+                    // The Quiet clock composes only while no overlay is
+                    // up — a Reveal panel covering it must not keep the
+                    // ticker alive (design 15).
+                    currentOverlay == null &&
+                        currentScreen == HomeScreen.Quiet &&
+                        (state as? SettingsState.Ready)?.data?.clock?.enabled == true
+                    )
+            )
 
     private fun msUntilNextMinute(): Long {
         val remainder = container.wallClock() % MINUTE_MS
@@ -947,18 +975,20 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /**
-     * 「情報」 settings save (design 8, 11.2). Disabling weather deletes
-     * the weather cache; the region is dropped from the draft by the
-     * screen itself so the persisted pair stays consistent.
+     * 「情報」 settings save (design 8, 11.2). Disabling weather must also
+     * erase the cache file (design 8.2); a failed erase is reported as a
+     * failed save so the screen keeps the draft and shows the error
+     * instead of closing over a stale snapshot that would resurface if
+     * the same region is re-selected. The retry re-runs both the update
+     * and the erase, which converges the partially saved state.
      */
     fun saveInfoSettings(data: SettingsData, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             val ok = container.settingsStore.update { data }
-            if (ok && !data.info.weather.enabled) {
+            val cleared = !ok || data.info.weather.enabled ||
                 container.weatherService.clearCache()
-            }
             if (ok) refreshEvents()
-            onResult(ok)
+            onResult(ok && cleared)
         }
     }
 
@@ -1087,6 +1117,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     // ---- Lifecycle ---------------------------------------------------------
 
     fun onForegrounded() {
+        _foregrounded.value = true
         nav.onForegrounded()
         // Designed refresh points (design 8): repaint the clock faces,
         // re-read events (permission may have been revoked), and let the
@@ -1098,6 +1129,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun onBackgrounded() {
+        _foregrounded.value = false
         overlays.clear()
         nav.onBackgrounded()
     }

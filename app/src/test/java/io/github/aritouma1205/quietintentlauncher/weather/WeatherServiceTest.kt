@@ -250,6 +250,26 @@ class WeatherServiceTest {
     }
 
     @Test
+    fun aFailedFetchKeepsTheExistingCacheEntry() = runBlocking {
+        startService(enabledIn(regionA))
+        service.ui.first { it.region != null }
+        val existing = snapshot(regionA, ageAgoMs = 40 * 60_000L)
+        cacheStore.save(existing, regionA)
+        cacheStore.snapshot.first { it != null }
+
+        api.behavior = { throw WeatherException.TooLarge() }
+        service.requestAutoRefresh()
+        withTimeout(5_000) {
+            service.ui.first { it.lastFailureAtElapsedMs != null }
+        }
+
+        // The failed response never overwrites the cached reading —
+        // the stale-but-valid value stays shown (design 8.2).
+        assertEquals(existing, cacheStore.snapshot.value)
+        assertEquals(existing, service.ui.value.snapshot)
+    }
+
+    @Test
     fun anOverallTimeoutMarksFailure() = runBlocking {
         startService(enabledIn(regionA))
         service.ui.first { it.region != null }

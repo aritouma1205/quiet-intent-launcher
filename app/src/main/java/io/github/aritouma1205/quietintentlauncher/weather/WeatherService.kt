@@ -254,8 +254,13 @@ class WeatherService(
         _regionResults.value = RegionSearchState.Idle
     }
 
-    /** Deletes the cached reading (weather disabled in settings). */
-    suspend fun clearCache(): Boolean = cacheStore.clear()
+    /**
+     * Deletes the cached reading (weather disabled in settings).
+     * [clearCacheHook] is a test seam for the erase-failure path.
+     */
+    internal var clearCacheHook: (suspend () -> Boolean)? = null
+
+    suspend fun clearCache(): Boolean = clearCacheHook?.invoke() ?: cacheStore.clear()
 
     companion object {
         const val OVERALL_TIMEOUT_MS = 10_000L

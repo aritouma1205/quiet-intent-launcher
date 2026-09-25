@@ -32,6 +32,14 @@ class CalendarAccess(private val context: Context) {
      */
     internal var permissionCheck: (() -> Boolean)? = null
 
+    /**
+     * Test seam: instrumentation supplies instances so selection rules
+     * run against deterministic rows — the emulator's Calendar Provider
+     * has no writable fixture.
+     */
+    internal var instanceSource:
+        ((Long, ZoneId, Set<Long>) -> List<RawInstance>)? = null
+
     fun hasPermission(): Boolean = permissionCheck?.invoke() ?: (
         ContextCompat.checkSelfPermission(
             context,
@@ -89,6 +97,7 @@ class CalendarAccess(private val context: Context) {
         calendarIds: Set<Long>,
     ): List<RawInstance> {
         if (calendarIds.isEmpty()) return emptyList()
+        instanceSource?.let { return it(nowMs, zoneId, calendarIds) }
         val todayStartMs = Instant.ofEpochMilli(nowMs)
             .atZone(zoneId)
             .toLocalDate()

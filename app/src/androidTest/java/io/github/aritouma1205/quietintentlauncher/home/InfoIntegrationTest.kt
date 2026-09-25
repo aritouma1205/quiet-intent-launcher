@@ -24,6 +24,7 @@ import io.github.aritouma1205.quietintentlauncher.weather.WeatherApi
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherReading
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherSnapshot
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -102,7 +103,9 @@ class InfoIntegrationTest {
         // Restore the seams the tests swap out.
         app.container.isAccessibilityActive = defaultAccessibilityCheck()
         app.container.calendarAccess.permissionCheck = null
+        app.container.calendarAccess.instanceSource = null
         app.container.weatherService.api = HttpWeatherApi()
+        app.container.weatherService.clearCacheHook = null
         runBlocking {
             // Release a fetch still suspended on the fake's gate and wait
             // for it to settle — otherwise the tracked in-flight job makes
@@ -366,19 +369,45 @@ class InfoIntegrationTest {
     @Test
     fun revokedMidSessionDropsTheGrantAndEvents() {
         // Mid-session revocation (design 8.1): the next refresh re-checks
-        // the permission and drops every in-memory row. The seam flips the
-        // OS answer without killing the process under test.
+        // the permission and drops every in-memory row. The seams flip
+        // the OS answers without killing the process under test — and
+        // the instance source first proves a non-empty selection is
+        // actually displayed before the grant disappears.
         var granted = true
         app.container.calendarAccess.permissionCheck = { granted }
+        app.container.calendarAccess.instanceSource = { nowMs, _, _ ->
+            listOf(
+                io.github.aritouma1205.quietintentlauncher.calendar
+                    .RawInstance(
+                        eventId = 42L,
+                        calendarId = 7L,
+                        title = "打ち合わせ",
+                        beginMs = nowMs - 3_600_000L,
+                        endMs = nowMs + 3_600_000L,
+                        allDay = false,
+                        deleted = false,
+                        canceled = false,
+                        declined = false,
+                    ),
+            )
+        }
         runBlocking {
             app.container.settingsStore.update {
-                it.copy(info = it.info.copy(eventsEnabled = true))
+                it.copy(
+                    info = it.info.copy(
+                        eventsEnabled = true,
+                        selectedCalendarIds = listOf(7L),
+                    ),
+                )
             }
         }
         viewModel.openTodayPanel()
         rule.waitForIdle()
         runBlocking {
             withTimeout(5_000) { viewModel.calendarGranted.first { it } }
+            withTimeout(5_000) {
+                viewModel.today.first { it.events.isNotEmpty() }
+            }
         }
 
         granted = false
@@ -390,7 +419,80 @@ class InfoIntegrationTest {
         assertTrue(viewModel.today.value.events.isEmpty())
     }
 
+    // ---- Info save failure --------------------------------------------------
+
+    @Test
+    fun aFailedCacheEraseFailsTheInfoSave() {
+        // Disabling weather must erase the cache file (design 8.2): when
+        // the erase fails the save is reported failed so the settings
+        // screen keeps the draft and shows the error instead of closing
+        // over a stale snapshot.
+        app.container.weatherService.clearCacheHook = { false }
+        val data = runBlocking {
+            (app.container.settingsStore.state.first {
+                it is SettingsState.Ready
+            } as SettingsState.Ready).data
+        }
+
+        var result: Boolean? = null
+        viewModel.saveInfoSettings(
+            data.copy(
+                info = data.info.copy(
+                    weather = WeatherSettings(enabled = false, location = null),
+                ),
+            ),
+        ) { result = it }
+        runBlocking {
+            withTimeout(5_000) { while (result == null) delay(10) }
+        }
+        assertEquals(false, result)
+
+        // A retry with a working erase converges the partially saved
+        // state: the same persisted draft now completes.
+        app.container.weatherService.clearCacheHook = null
+        var retryResult: Boolean? = null
+        viewModel.saveInfoSettings(
+            data.copy(
+                info = data.info.copy(
+                    weather = WeatherSettings(enabled = false, location = null),
+                ),
+            ),
+        ) { retryResult = it }
+        runBlocking {
+            withTimeout(5_000) { while (retryResult == null) delay(10) }
+        }
+        assertEquals(true, retryResult)
+    }
+
     // ---- Clock refresh ------------------------------------------------------
+
+    @Test
+    fun backgroundingStopsTheClockTicker() {
+        // With the optional Quiet clock enabled the ticker runs — but a
+        // backgrounded surface must not keep per-minute work alive
+        // (design 15). The ticker condition drops on background and
+        // re-engages on the foreground return.
+        runBlocking {
+            app.container.settingsStore.update {
+                it.copy(clock = it.clock.copy(enabled = true))
+            }
+        }
+        runBlocking {
+            withTimeout(5_000) { viewModel.clockTickerActive.first { it } }
+        }
+
+        viewModel.onBackgrounded()
+        rule.waitForIdle()
+        runBlocking {
+            withTimeout(5_000) { viewModel.clockTickerActive.first { !it } }
+        }
+
+        viewModel.onForegrounded()
+        rule.waitForIdle()
+        runBlocking {
+            withTimeout(5_000) { viewModel.clockTickerActive.first { it } }
+        }
+    }
 
     @Test
     fun timeChangeRefreshesTheSnapshot() {
