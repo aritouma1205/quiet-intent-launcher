@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import io.github.aritouma1205.quietintentlauncher.home.HomeViewModel
 import io.github.aritouma1205.quietintentlauncher.home.QuietLauncherRoot
 
@@ -88,7 +89,12 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         // Time-change subscriptions live only while started — nothing runs
         // while backgrounded (design 15).
-        registerReceiver(timeChangeReceiver, timeChangeFilter)
+        ContextCompat.registerReceiver(
+            this,
+            timeChangeReceiver,
+            timeChangeFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         viewModel.onForegrounded()
         viewModel.refreshHomeRole()
         // Consistency check for app installs/removals while away (design 15).

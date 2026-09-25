@@ -362,6 +362,8 @@ fun QuietLauncherRoot(
                                 initial = data,
                                 focusSlotIndex = viewModel.slotEditFocus
                                     .collectAsState().value,
+                                onEditFocusConsumed =
+                                    viewModel::consumeEditFocus,
                                 onSave = viewModel::saveSettings,
                                 onBack = { viewModel.nav.back() },
                             )
