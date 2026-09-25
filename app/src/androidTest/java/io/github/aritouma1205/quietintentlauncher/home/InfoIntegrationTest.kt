@@ -423,16 +423,18 @@ class InfoIntegrationTest {
 
     @Test
     fun aFailedCacheEraseFailsTheInfoSave() {
-        // Disabling weather must erase the cache file (design 8.2): when
-        // the erase fails the save is reported failed so the settings
-        // screen keeps the draft and shows the error instead of closing
-        // over a stale snapshot.
+        // Disabling weather erases the cache BEFORE the settings write
+        // (design 8.2): a failed erase reports failure and the persisted
+        // settings stay untouched — weather keeps its enabled state and
+        // its still-matching cache.
+        enableWeather(tokyo())
         app.container.weatherService.clearCacheHook = { false }
         val data = runBlocking {
             (app.container.settingsStore.state.first {
                 it is SettingsState.Ready
             } as SettingsState.Ready).data
         }
+        assertTrue(data.info.weather.enabled)
 
         var result: Boolean? = null
         viewModel.saveInfoSettings(
@@ -447,8 +449,18 @@ class InfoIntegrationTest {
         }
         assertEquals(false, result)
 
-        // A retry with a working erase converges the partially saved
-        // state: the same persisted draft now completes.
+        // The erase ran before the write, so the persisted settings
+        // still hold the enabled weather and its region.
+        val persisted = runBlocking {
+            (app.container.settingsStore.state.first {
+                it is SettingsState.Ready
+            } as SettingsState.Ready).data
+        }
+        assertTrue(persisted.info.weather.enabled)
+        assertEquals("1850147", persisted.info.weather.location?.providerId)
+
+        // A retry with a working erase completes the save: disabled,
+        // region cleared, cache gone.
         app.container.weatherService.clearCacheHook = null
         var retryResult: Boolean? = null
         viewModel.saveInfoSettings(
@@ -462,6 +474,44 @@ class InfoIntegrationTest {
             withTimeout(5_000) { while (retryResult == null) delay(10) }
         }
         assertEquals(true, retryResult)
+        val saved = runBlocking {
+            (app.container.settingsStore.state.first {
+                it is SettingsState.Ready
+            } as SettingsState.Ready).data
+        }
+        assertTrue(!saved.info.weather.enabled)
+        assertNull(saved.info.weather.location)
+    }
+
+    @Test
+    fun aProviderFailureLeavesTodayEmptyButAlive() {
+        // A stopped/failing Calendar Provider (SQLiteException,
+        // DeadObjectException, …) degrades to an empty list instead of
+        // crashing the refresh coroutine (design 8.1/A11).
+        app.container.calendarAccess.permissionCheck = { true }
+        app.container.calendarAccess.instanceSource = { _, _, _ ->
+            throw android.database.sqlite.SQLiteException("provider gone")
+        }
+        runBlocking {
+            app.container.settingsStore.update {
+                it.copy(
+                    info = it.info.copy(
+                        eventsEnabled = true,
+                        selectedCalendarIds = listOf(7L),
+                    ),
+                )
+            }
+        }
+        viewModel.openTodayPanel()
+        rule.waitForIdle()
+        runBlocking {
+            withTimeout(5_000) { viewModel.calendarGranted.first { it } }
+        }
+        // TODAY still renders; the failed query yields no rows and the
+        // grant flag stays set (the failure was not a revocation).
+        rule.onNodeWithText(res(R.string.panel_today_title)).assertIsDisplayed()
+        assertTrue(viewModel.today.value.events.isEmpty())
+        assertTrue(viewModel.calendarGranted.value)
     }
 
     // ---- Clock refresh ------------------------------------------------------

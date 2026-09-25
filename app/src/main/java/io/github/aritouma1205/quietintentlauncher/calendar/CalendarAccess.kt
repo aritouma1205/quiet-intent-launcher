@@ -195,7 +195,8 @@ class CalendarAccess(private val context: Context) {
                 context.contentResolver.unregisterContentObserver(observer)
             }
             unregister
-        } catch (e: SecurityException) {
+        } catch (e: RuntimeException) {
+            // Revoked permission or a stopped provider: no observer.
             {}
         }
     }

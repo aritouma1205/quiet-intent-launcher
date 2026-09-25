@@ -39,6 +39,7 @@ import io.github.aritouma1205.quietintentlauncher.weather.WeatherRules
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherService
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -922,9 +923,14 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                         nowMs,
                         zone,
                     )
-                } catch (e: SecurityException) {
-                    // Permission revoked mid-session: drop memory data.
-                    _calendarGranted.value = false
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: RuntimeException) {
+                    // Provider failure degrades to an empty list, never a
+                    // crash (design 8.1/15): a revoked permission also
+                    // drops the grant flag, while a stopped provider
+                    // (SQLite/DeadObject/…) just shows no events.
+                    if (e is SecurityException) _calendarGranted.value = false
                     emptyList()
                 }
             }
@@ -942,8 +948,12 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 withContext(Dispatchers.IO) {
                     try {
                         container.calendarAccess.listCalendars()
-                    } catch (e: SecurityException) {
-                        _calendarGranted.value = false
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: RuntimeException) {
+                        // Same degradation as refreshEvents: a stopped or
+                        // failing provider yields an empty picker.
+                        if (e is SecurityException) _calendarGranted.value = false
                         emptyList()
                     }
                 }
@@ -975,20 +985,29 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /**
-     * 「情報」 settings save (design 8, 11.2). Disabling weather must also
-     * erase the cache file (design 8.2); a failed erase is reported as a
-     * failed save so the screen keeps the draft and shows the error
-     * instead of closing over a stale snapshot that would resurface if
-     * the same region is re-selected. The retry re-runs both the update
-     * and the erase, which converges the partially saved state.
+     * 「情報」 settings save (design 8, 11.2). Disabling weather erases
+     * the cache file BEFORE the settings write (design 8.2): a failed
+     * erase reports failure and leaves the persisted settings untouched,
+     * so no state ever says "disabled" while a stale snapshot still sits
+     * on disk. The screen keeps the draft on failure and a retry
+     * re-runs the erase.
      */
     fun saveInfoSettings(data: SettingsData, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
+            // Erase BEFORE writing (same ordering as the history-clear
+            // save): when the erase fails the persisted settings stay
+            // untouched — weather keeps its previous enabled state and
+            // the still-matching cache remains valid for it. No state
+            // ever persists as "disabled with a stale cache behind it".
+            if (!data.info.weather.enabled &&
+                !container.weatherService.clearCache()
+            ) {
+                onResult(false)
+                return@launch
+            }
             val ok = container.settingsStore.update { data }
-            val cleared = !ok || data.info.weather.enabled ||
-                container.weatherService.clearCache()
             if (ok) refreshEvents()
-            onResult(ok && cleared)
+            onResult(ok)
         }
     }
 
