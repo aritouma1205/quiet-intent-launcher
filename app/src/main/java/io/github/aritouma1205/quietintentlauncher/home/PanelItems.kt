@@ -2,6 +2,7 @@ package io.github.aritouma1205.quietintentlauncher.home
 
 import androidx.annotation.StringRes
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.context.ContextRule
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 
 /** Why a configured target cannot launch right now (design 6). */
@@ -32,6 +33,18 @@ sealed interface ActionStatus {
 data class ActionRow(
     val action: DoAction,
     val status: ActionStatus,
+)
+
+/**
+ * One Context Slot row of the DO panel (design 10): the resolved action
+ * plus the rule that selected it. [matchedRule] is null when the slot's
+ * default action is shown — the display reason explains either.
+ */
+data class ContextRow(
+    val slotIndex: Int,
+    val slotLabel: String,
+    val action: DoAction,
+    val matchedRule: ContextRule?,
 )
 
 /** Tool rows of the TOOLS area (design 7). Execution arrives in stage 6. */

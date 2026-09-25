@@ -106,12 +106,58 @@
     <string name="intro_actions_body">6つの行動に起動先を割り当てられます。あとで設定する場合は、このまま「はじめる」へ進んでください。</string>
     <string name="intro_pick_app">アプリを選ぶ</string>
 
-    <!-- Search -->
+    <!-- Search (design 9) -->
     <string name="search_hint">検索</string>
-    <string name="search_not_implemented">検索機能は今後の段階で追加されます</string>
+    <string name="search_recent_section">最近</string>
+    <string name="search_more">さらに表示</string>
+    <string name="search_empty_results">一致する項目はありません</string>
+    <string name="search_web">Webで検索</string>
+    <string name="search_chatgpt">ChatGPTに送る</string>
+    <string name="search_share">共有先を選ぶ</string>
+    <string name="search_kind_op">%1$s の操作</string>
+    <string name="search_kind_tool">道具</string>
+    <string name="search_kind_setting">設定</string>
+    <string name="search_no_external_handler">実行できるアプリがありません</string>
     <string name="all_apps_entry">すべてのアプリ</string>
     <string name="settings_entry">設定</string>
     <string name="back">戻る</string>
+
+    <!-- Context Slots (design 10) -->
+    <string name="context_now_heading">いま</string>
+    <string name="context_slot_edit">条件を編集</string>
+    <string name="context_slot_reason">表示理由</string>
+    <string name="context_reason_title">表示理由</string>
+    <string name="context_reason_default">既定の行動</string>
+    <string name="context_reason_allday">終日</string>
+    <string name="context_reason_everyday">毎日</string>
+    <string name="context_reason_rule">%1$s %2$s</string>
+    <string name="context_settings_title">Context Slots</string>
+    <string name="context_slot_title">スロット %1$d</string>
+    <string name="context_slot_label">ラベル（任意）</string>
+    <string name="context_rules_label">規則（上から評価）</string>
+    <string name="context_rule_add">規則を追加</string>
+    <string name="context_rules_full">規則は最大8件です</string>
+    <string name="context_rule_days">曜日（未選択は毎日）</string>
+    <string name="context_rule_allday">終日</string>
+    <string name="context_rule_start">開始</string>
+    <string name="context_rule_end">終了</string>
+    <string name="context_rule_time_hint">22:00</string>
+    <string name="context_rule_action">行動</string>
+    <string name="context_default_action">既定の行動</string>
+    <string name="context_action_none">なし</string>
+    <string name="context_pick_action">行動を選ぶ</string>
+    <string name="context_error_toomany">スロットは最大2枠です</string>
+    <string name="context_error_time">時刻帯は HH:mm 形式で、開始と終了が異なる時刻を指定してください</string>
+    <string name="context_error_action">規則には行動を選んでください</string>
+    <string name="context_error_label">ラベルは32文字以内です</string>
+    <string name="day_mon">月</string>
+    <string name="day_tue">火</string>
+    <string name="day_wed">水</string>
+    <string name="day_thu">木</string>
+    <string name="day_fri">金</string>
+    <string name="day_sat">土</string>
+    <string name="day_sun">日</string>
+    <string name="action_delete_body_refs">「%1$s」を削除します。Context Slotsからの参照も同時に外れます。保存するまで確定されません。</string>
 
     <!-- All apps -->
     <string name="all_apps_title">すべてのアプリ</string>
@@ -154,6 +200,21 @@
     <string name="settings_section_actions">行動・道具</string>
     <string name="settings_actions_entry">行動と起動先の設定</string>
     <string name="settings_actions_note">DOの行動の名前・アイコン・順序・表示・起動先・別名・派生操作を変更します。</string>
+    <string name="settings_section_context">Context Slots</string>
+    <string name="settings_context_entry">Context Slotsの条件</string>
+    <string name="settings_context_note">曜日・時刻・既定の行動で、DOパネルの行動リストの下に出る2枠の表示を切り替えます。</string>
+    <string name="settings_section_search">検索</string>
+    <string name="settings_search_entry">検索と履歴の設定</string>
+    <string name="settings_search_note">最近の履歴の記録・消去とWeb検索先を変更します。</string>
+    <string name="search_settings_title">検索</string>
+    <string name="search_settings_recent">最近の履歴を記録する</string>
+    <string name="search_settings_recent_note">このランチャーから正常に起動したアプリ／行動を最大20件・30日間保持します。検索語は保存しません。</string>
+    <string name="search_settings_clear">履歴をすべて消去</string>
+    <string name="search_settings_clear_marks">保存時に履歴を消去します</string>
+    <string name="search_settings_clear_title">履歴を消去しますか？</string>
+    <string name="search_settings_clear_body">保存されている起動履歴をすべて削除します。保存で確定します。</string>
+    <string name="search_settings_stop_body">記録を停止すると、保存済みの履歴も削除されます。保存で確定します。</string>
+    <string name="search_settings_engine">Web検索先</string>
     <string name="percent_format">%1$d%%</string>
     <string name="dp_format">%1$ddp</string>
     <string name="save">保存</string>

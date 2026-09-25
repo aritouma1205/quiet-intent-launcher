@@ -38,6 +38,8 @@ fun SettingsScreen(
     onChangeWallpaper: () -> Unit,
     onEdgeSettings: () -> Unit,
     onDoSettings: () -> Unit,
+    onContextSettings: () -> Unit,
+    onSearchSettings: () -> Unit,
     onReplayIntro: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onBack: () -> Unit,
@@ -127,6 +129,32 @@ fun SettingsScreen(
                         stringResource(R.string.edge_settings_unavailable)
                     },
                     onClick = onDoSettings,
+                    enabled = doSettingsEnabled,
+                )
+            }
+
+            SettingsSection(stringResource(R.string.settings_section_context)) {
+                SettingsButton(
+                    label = stringResource(R.string.settings_context_entry),
+                    note = if (doSettingsEnabled) {
+                        stringResource(R.string.settings_context_note)
+                    } else {
+                        stringResource(R.string.edge_settings_unavailable)
+                    },
+                    onClick = onContextSettings,
+                    enabled = doSettingsEnabled,
+                )
+            }
+
+            SettingsSection(stringResource(R.string.settings_section_search)) {
+                SettingsButton(
+                    label = stringResource(R.string.settings_search_entry),
+                    note = if (doSettingsEnabled) {
+                        stringResource(R.string.settings_search_note)
+                    } else {
+                        stringResource(R.string.edge_settings_unavailable)
+                    },
+                    onClick = onSearchSettings,
                     enabled = doSettingsEnabled,
                 )
             }

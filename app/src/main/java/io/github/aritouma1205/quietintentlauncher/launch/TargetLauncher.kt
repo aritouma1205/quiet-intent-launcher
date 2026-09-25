@@ -6,9 +6,9 @@ import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.content.pm.PackageManager.ResolveInfoFlags
-import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import androidx.core.net.toUri
 import io.github.aritouma1205.quietintentlauncher.apps.ShortcutCatalog
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -32,9 +32,9 @@ class TargetLauncher(
     )
 
     /**
-     * Successful launches feed the future Recent list (design 9: 「最近」).
-     * The persistent Recent store (max 20 entries, 30 days) is a later stage;
-     * this is the event plumbing only.
+     * Successful launches feed the Recent list (design 9: 「最近」). The
+     * persistent Recent store (recent/RecentStore: max 20 entries, 30 days)
+     * consumes these events.
      */
     val recentLaunchEvents: SharedFlow<LaunchRecord> =
         _recentLaunchEvents.asSharedFlow()
@@ -121,7 +121,7 @@ class TargetLauncher(
     }
 
     private fun httpsIntent(url: String): Intent =
-        Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        Intent(Intent.ACTION_VIEW, url.toUri())
             .addCategory(Intent.CATEGORY_BROWSABLE)
 
     private fun resolveCount(intent: Intent): Int = try {
@@ -140,7 +140,7 @@ class TargetLauncher(
 
     private fun succeeded(target: LaunchTarget): LaunchResult {
         _recentLaunchEvents.tryEmit(
-            LaunchRecord(target.key, System.currentTimeMillis()),
+            LaunchRecord(target.toStoredTarget(), System.currentTimeMillis()),
         )
         return LaunchResult.Success
     }

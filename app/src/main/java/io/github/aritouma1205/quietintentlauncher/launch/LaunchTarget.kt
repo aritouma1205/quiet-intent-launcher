@@ -52,6 +52,30 @@ fun StoredTarget.toLaunchTarget(user: UserHandle): LaunchTarget? = when (this) {
     is StoredTarget.HttpsLink -> LaunchTarget.HttpsLink(url)
 }
 
+/**
+ * Converts a runtime [LaunchTarget] into its persisted [StoredTarget] form
+ * for the Recent list (design 9, 14.1). The UserHandle is deliberately not
+ * persisted — stored targets always imply the personal profile.
+ */
+fun LaunchTarget.toStoredTarget(): StoredTarget = when (this) {
+    is LaunchTarget.AppActivity ->
+        StoredTarget.App(component.flattenToShortString())
+    is LaunchTarget.AppShortcut ->
+        StoredTarget.Shortcut(packageName, shortcutId)
+    is LaunchTarget.HttpsLink -> StoredTarget.HttpsLink(url)
+}
+
+/**
+ * Stable identity of a [StoredTarget] for de-duplication in the Recent list
+ * (design 9: the same target never appears twice).
+ */
+val StoredTarget.stableKey: String
+    get() = when (this) {
+        is StoredTarget.App -> "app:$component"
+        is StoredTarget.Shortcut -> "shortcut:$packageName/$shortcutId"
+        is StoredTarget.HttpsLink -> "https:$url"
+    }
+
 /** Result of a launch request through [TargetLauncher]. */
 sealed interface LaunchResult {
     /** The OS accepted the launch. */
@@ -77,10 +101,11 @@ sealed interface LaunchResult {
 }
 
 /**
- * One successful launch, emitted for the future Recent list (design 9).
- * Persistence of the Recent store is a later stage; this is plumbing only.
+ * One successful launch, emitted for the Recent list (design 9): the
+ * structured target plus the wall-clock time, so the Recent store can
+ * persist it without re-parsing keys.
  */
 data class LaunchRecord(
-    val targetKey: String,
+    val target: StoredTarget,
     val timestampMillis: Long,
 )

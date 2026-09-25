@@ -1,6 +1,8 @@
 package io.github.aritouma1205.quietintentlauncher.settings
 
 import androidx.datastore.core.CorruptionException
+import io.github.aritouma1205.quietintentlauncher.context.ContextRule
+import io.github.aritouma1205.quietintentlauncher.context.ContextSlot
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -134,6 +136,74 @@ class SettingsSerializerTest {
             )
             val data = read(serializer.serialize(stored))
             assertEquals(stored.actions, data.actions)
+        }
+
+    @Test
+    fun `v3 file gains the two empty context slots and search defaults`() =
+        runBlocking {
+            val data = read("""{"schemaVersion":3,"actions":[]}""")
+            assertEquals(SettingsData.CURRENT_SCHEMA_VERSION, data.schemaVersion)
+            assertEquals(2, data.contextSlots.size)
+            assertTrue(
+                data.contextSlots.all {
+                    it.rules.isEmpty() && it.defaultActionId == null
+                },
+            )
+            assertTrue(data.search.recentRecording)
+            assertEquals(WebSearchEngine.Google, data.search.webEngine)
+        }
+
+    @Test
+    fun `v4 round trip keeps context slots and search settings`() =
+        runBlocking {
+            val stored = SettingsData(
+                introCompleted = true,
+                actions = listOf(DoAction(id = "a1", name = "聴く")),
+                contextSlots = listOf(
+                    ContextSlot(
+                        id = "s1",
+                        label = "朝の音楽",
+                        rules = listOf(
+                            ContextRule(
+                                id = "r1",
+                                daysOfWeek = setOf(1, 2, 3, 4, 5),
+                                startMinuteOfDay = 420,
+                                endMinuteOfDay = 540,
+                                actionId = "a1",
+                            ),
+                        ),
+                        defaultActionId = "a1",
+                    ),
+                    ContextSlot(id = "s2", label = "帰宅ルート"),
+                ),
+                search = SearchSettings(
+                    recentRecording = false,
+                    webEngine = WebSearchEngine.DuckDuckGo,
+                ),
+            )
+            val data = read(serializer.serialize(stored))
+            assertEquals(stored, data)
+            assertFalse(data.search.recentRecording)
+            assertEquals(WebSearchEngine.DuckDuckGo, data.search.webEngine)
+        }
+
+    @Test
+    fun `stored context slots are normalized to two`() = runBlocking {
+        // A file carrying three slots is truncated; one slot is padded.
+        val three = """{"schemaVersion":4,"contextSlots":[{},{},{}]}"""
+        assertEquals(2, read(three).contextSlots.size)
+        val one = """{"schemaVersion":4,"contextSlots":[{"label":"x"}]}"""
+        val migrated = read(one)
+        assertEquals(2, migrated.contextSlots.size)
+        assertEquals("x", migrated.contextSlots[0].label)
+    }
+
+    @Test
+    fun `v2 file decodes context slots and search defaults too`() =
+        runBlocking {
+            val data = read("""{"schemaVersion":2,"introCompleted":true}""")
+            assertEquals(2, data.contextSlots.size)
+            assertEquals(SearchSettings(), data.search)
         }
 
     @Test

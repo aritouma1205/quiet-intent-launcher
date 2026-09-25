@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.context.ContextRule
 import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.today.TodayInfo
@@ -178,6 +180,7 @@ private fun PanelHeader(
 @Composable
 fun DoPanel(
     rows: List<ActionRow>,
+    contextRows: List<ContextRow>,
     toolsExpanded: Boolean,
     panelWidthPx: Float,
     onExpandTools: () -> Unit,
@@ -186,11 +189,15 @@ fun DoPanel(
     onActionTap: (DoAction) -> Unit,
     onActionEdit: (DoAction) -> Unit,
     onDerivedOp: (DoAction, DerivedOp) -> Unit,
+    onContextTap: (ContextRow) -> Unit,
+    onContextEdit: (ContextRow) -> Unit,
     onUnavailable: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
     var toolsHeadingY by remember { mutableFloatStateOf(0f) }
     var menuAction by remember { mutableStateOf<DoAction?>(null) }
+    var menuSlot by remember { mutableStateOf<ContextRow?>(null) }
+    var reasonRow by remember { mutableStateOf<ContextRow?>(null) }
 
     LaunchedEffect(toolsExpanded) {
         if (toolsExpanded) {
@@ -221,6 +228,25 @@ fun DoPanel(
                     onLongPress = { menuAction = row.action },
                     onChangeTarget = { onActionEdit(row.action) },
                 )
+            }
+
+            // Context Slots sit below the normal action list and above the
+            // TOOLS button (design 10). The rows are frozen while the panel
+            // is open — the VM re-evaluates on open.
+            if (contextRows.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.context_now_heading),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                )
+                contextRows.forEach { row ->
+                    ContextRowItem(
+                        row = row,
+                        onTap = { onContextTap(row) },
+                        onLongPress = { menuSlot = row },
+                    )
+                }
             }
 
             OutlinedButton(
@@ -303,6 +329,148 @@ fun DoPanel(
             },
         )
     }
+
+    // Context slot long-press (design 10): 条件を編集 / 表示理由.
+    menuSlot?.let { row ->
+        AlertDialog(
+            onDismissRequest = { menuSlot = null },
+            title = {
+                Text(
+                    row.slotLabel.ifBlank { row.action.name },
+                )
+            },
+            text = {
+                Column {
+                    TextButton(
+                        onClick = {
+                            menuSlot = null
+                            onContextEdit(row)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.context_slot_edit))
+                    }
+                    TextButton(
+                        onClick = {
+                            reasonRow = row
+                            menuSlot = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.context_slot_reason))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { menuSlot = null }) {
+                    Text(stringResource(R.string.close))
+                }
+            },
+        )
+    }
+
+    // 「表示理由」: which rule (or the default) produced this row.
+    reasonRow?.let { row ->
+        AlertDialog(
+            onDismissRequest = { reasonRow = null },
+            title = { Text(stringResource(R.string.context_reason_title)) },
+            text = { Text(contextReason(row.matchedRule)) },
+            confirmButton = {
+                TextButton(onClick = { reasonRow = null }) {
+                    Text(stringResource(R.string.close))
+                }
+            },
+        )
+    }
+}
+
+/**
+ * One Context Slot row (design 10): icon + the resolved action's name, with
+ * the slot label — or, unlabeled, a short reason — as the status line.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ContextRowItem(
+    row: ContextRow,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
+            .combinedClickable(
+                onClickLabel = row.action.name,
+                onClick = onTap,
+                onLongClickLabel = stringResource(R.string.do_action_menu),
+                onLongClick = onLongPress,
+            )
+            .padding(vertical = 10.dp),
+    ) {
+        Icon(
+            imageVector = row.action.icon.imageVector(),
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier.size(20.dp),
+        )
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(
+                text = row.action.name,
+                fontSize = 20.sp,
+            )
+            StatusLine(
+                text = row.slotLabel.ifBlank { contextReason(row.matchedRule) },
+            )
+        }
+    }
+}
+
+/**
+ * Human-readable reason for a context row: the matched rule as
+ * 「曜日・時刻帯」 or 「既定の行動」 when the slot fell back to its default.
+ */
+@Composable
+private fun contextReason(rule: ContextRule?): String {
+    if (rule == null) return stringResource(R.string.context_reason_default)
+    val dayPart = if (rule.daysOfWeek.isEmpty()) {
+        stringResource(R.string.context_reason_everyday)
+    } else {
+        rule.daysOfWeek.sorted()
+            .map { stringResource(dayLabelRes(it)) }
+            .joinToString("・")
+    }
+    val timed = rule.startMinuteOfDay != null && rule.endMinuteOfDay != null
+    return if (timed) {
+        stringResource(
+            R.string.context_reason_rule,
+            dayPart,
+            "${formatMinute(rule.startMinuteOfDay)}〜" +
+                formatMinute(rule.endMinuteOfDay),
+        )
+    } else if (rule.daysOfWeek.isEmpty()) {
+        stringResource(R.string.context_reason_allday)
+    } else {
+        stringResource(
+            R.string.context_reason_rule,
+            dayPart,
+            stringResource(R.string.context_reason_allday),
+        )
+    }
+}
+
+private fun formatMinute(minuteOfDay: Int): String =
+    "${minuteOfDay / 60}:${"%02d".format(minuteOfDay % 60)}"
+
+private fun dayLabelRes(day: Int): Int = when (day) {
+    1 -> R.string.day_mon
+    2 -> R.string.day_tue
+    3 -> R.string.day_wed
+    4 -> R.string.day_thu
+    5 -> R.string.day_fri
+    6 -> R.string.day_sat
+    7 -> R.string.day_sun
+    else -> R.string.day_mon
 }
 
 /**
