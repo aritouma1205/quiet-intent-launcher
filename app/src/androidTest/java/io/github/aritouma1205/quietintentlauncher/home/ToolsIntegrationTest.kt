@@ -1,5 +1,6 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
+import android.content.ComponentName
 import android.hardware.camera2.CameraAccessException
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.geometry.Offset
@@ -38,6 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -62,6 +64,8 @@ class ToolsIntegrationTest {
     private lateinit var container: io.github.aritouma1205.quietintentlauncher.AppContainer
     private lateinit var originalTouchCheck: () -> Boolean
     private lateinit var originalAssistiveCheck: () -> Boolean
+    private lateinit var originalEnabledServiceIds:
+        (android.view.accessibility.AccessibilityManager) -> List<String>
 
     private fun res(id: Int): String = rule.activity.getString(id)
 
@@ -72,6 +76,7 @@ class ToolsIntegrationTest {
         container = app.container
         originalTouchCheck = container.isTouchExplorationActive
         originalAssistiveCheck = container.isAssistiveServiceActive
+        originalEnabledServiceIds = container.assistiveTracker.enabledServiceIds
         runBlocking {
             container.settingsStore.state.first { it is SettingsState.Ready }
             container.settingsStore.update {
@@ -120,6 +125,8 @@ class ToolsIntegrationTest {
         container.toolLauncher.timersLauncher = null
         container.isTouchExplorationActive = originalTouchCheck
         container.isAssistiveServiceActive = originalAssistiveCheck
+        container.assistiveTracker.enabledServiceIds = originalEnabledServiceIds
+        container.assistiveTracker.refresh()
         viewModel.onBackgrounded()
         viewModel.closeOverlay()
     }
@@ -857,8 +864,10 @@ class ToolsIntegrationTest {
             rule.waitUntil(timeoutMillis = 10_000) {
                 container.systemActions.isEnabledInOs()
             }
-            // The real filtered predicate: our service is excluded, so
-            // the answer must be identical to the baseline.
+            // Force the observer-fed cache to recompute NOW so the check
+            // provably runs against a settings list containing our
+            // service — it must still answer the baseline (self excluded).
+            container.assistiveTracker.refresh()
             assertEquals(baseline, originalAssistiveCheck())
 
             container.isAssistiveServiceActive = originalAssistiveCheck
@@ -890,6 +899,107 @@ class ToolsIntegrationTest {
             } else {
                 assertNull(viewModel.overlay.value)
             }
+        } finally {
+            fixture.restore()
+        }
+    }
+
+    // ---- Assistive tracker hardening (design 8.3, review r2) -----------------
+
+    @Test
+    fun assistiveTrackerFiltersOutTheOwnService() {
+        // A list containing ONLY our own operation-only service must not
+        // count as an assistive reader (design 8.3).
+        val ownId = ComponentName(
+            InstrumentationRegistry.getInstrumentation()
+                .targetContext.packageName,
+            "io.github.aritouma1205.quietintentlauncher.system.QuietSystemService",
+        ).flattenToString()
+        container.assistiveTracker.enabledServiceIds = { listOf(ownId) }
+        container.assistiveTracker.refresh()
+        assertFalse(container.assistiveTracker.active())
+    }
+
+    @Test
+    fun assistiveTrackerSeesAnExternalService() {
+        val otherId = "com.example.reader/.ScreenReaderService"
+        container.assistiveTracker.enabledServiceIds = {
+            listOf(
+                ComponentName(
+                    InstrumentationRegistry.getInstrumentation()
+                        .targetContext.packageName,
+                    "io.github.aritouma1205.quietintentlauncher.system.QuietSystemService",
+                ).flattenToString(),
+                otherId,
+            )
+        }
+        container.assistiveTracker.refresh()
+        assertTrue(container.assistiveTracker.active())
+    }
+
+    @Test
+    fun assistiveListFailureResolvesConservatively() {
+        // A broken service list must never crash the caller: the answer
+        // falls to the conservative side (a reader is present) so GLANCE
+        // stays on screen for a user who may be mid-read (design 8.3).
+        container.assistiveTracker.enabledServiceIds = {
+            throw RuntimeException("dead binder")
+        }
+        container.assistiveTracker.refresh()
+        assertTrue(container.assistiveTracker.active())
+        assertTrue(container.isAssistiveServiceActive())
+
+        // The GLANCE end-to-end effect: the conservative answer pauses
+        // the configured auto-dismiss instead of crashing or dropping it.
+        runBlocking {
+            container.settingsStore.update {
+                it.copy(info = it.info.copy(glanceDismissSeconds = 2))
+            }
+        }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            (
+                (viewModel.settingsState.value as? SettingsState.Ready)
+                    ?.data?.info?.glanceDismissSeconds
+            ) == 2
+        }
+        rule.onRoot().performTouchInput {
+            down(Offset(width * 0.4f, height * 0.5f))
+            up()
+        }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.overlay.value == HomeOverlay.Glance
+        }
+        Thread.sleep(3_200)
+        rule.waitForIdle()
+        assertEquals(HomeOverlay.Glance, viewModel.overlay.value)
+    }
+
+    @Test
+    fun enablingTheServiceRecomputesTheTrackerCache() {
+        // The ContentObserver on the real OS settings keys drives cache
+        // updates: enabling our service in Settings.Secure must trigger a
+        // recompute without the test calling refresh().
+        val calls = AtomicInteger(0)
+        val ownId = ComponentName(
+            InstrumentationRegistry.getInstrumentation()
+                .targetContext.packageName,
+            "io.github.aritouma1205.quietintentlauncher.system.QuietSystemService",
+        ).flattenToString()
+        container.assistiveTracker.enabledServiceIds = {
+            calls.incrementAndGet()
+            listOf(ownId)
+        }
+        val fixture = OsQuietServiceFixture(
+            InstrumentationRegistry.getInstrumentation()
+                .targetContext.packageName,
+        )
+        try {
+            fixture.enable()
+            // The observer fires on the settings write: the source runs
+            // again and the cache reflects the filtered (self-excluded)
+            // list — still false, but provably recomputed.
+            rule.waitUntil(timeoutMillis = 10_000) { calls.get() > 0 }
+            assertFalse(container.assistiveTracker.active())
         } finally {
             fixture.restore()
         }

@@ -1,14 +1,11 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.ComponentName
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
 import android.os.SystemClock
 import android.provider.CalendarContract
-import android.view.accessibility.AccessibilityManager
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
@@ -28,7 +25,6 @@ import io.github.aritouma1205.quietintentlauncher.settings.InfoSettings
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.WeatherLocation
 import io.github.aritouma1205.quietintentlauncher.settings.WeatherSettings
-import io.github.aritouma1205.quietintentlauncher.system.QuietSystemService
 import io.github.aritouma1205.quietintentlauncher.weather.HttpWeatherApi
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherApi
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherReading
@@ -142,26 +138,11 @@ class InfoIntegrationTest {
     }
 
     /**
-     * Rebuilds the container's real assistive-service predicate: any
-     * enabled accessibility service OTHER than our own operation-only
-     * QuietSystemService (design 8.3).
+     * The container's real assistive-service predicate: the observer-fed
+     * tracker cache, filtered by our own component (design 8.3).
      */
-    private fun defaultAssistiveCheck(): () -> Boolean {
-        val context = instrumentation.targetContext
-        val own = ComponentName(
-            context.packageName,
-            QuietSystemService::class.java.name,
-        )
-        return {
-            val am = context.getSystemService(AccessibilityManager::class.java)
-            am != null && am
-                .getEnabledAccessibilityServiceList(
-                    AccessibilityServiceInfo.FEEDBACK_ALL_MASK,
-                )
-                .mapNotNull { ComponentName.unflattenFromString(it.id) }
-                .any { it != own }
-        }
-    }
+    private fun defaultAssistiveCheck(): () -> Boolean =
+        { app.container.assistiveTracker.active() }
 
     private fun tapFreeArea() {
         rule.onRoot().performTouchInput {

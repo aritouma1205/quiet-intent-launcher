@@ -1,6 +1,5 @@
 package io.github.aritouma1205.quietintentlauncher
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
@@ -19,6 +18,7 @@ import io.github.aritouma1205.quietintentlauncher.search.ExternalSearch
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializer
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsStore
+import io.github.aritouma1205.quietintentlauncher.system.AssistiveServiceTracker
 import io.github.aritouma1205.quietintentlauncher.system.QuietSystemService
 import io.github.aritouma1205.quietintentlauncher.system.SystemActions
 import io.github.aritouma1205.quietintentlauncher.system.ToolLauncher
@@ -139,14 +139,27 @@ class AppContainer(context: Context) {
     )
 
     /**
+     * Observer-driven cache for the external-assistive-service check —
+     * the GLANCE tick must not run a binder RPC every 50ms.
+     */
+    internal val assistiveTracker = AssistiveServiceTracker(
+        context,
+        quietSystemServiceComponent,
+    )
+
+    /**
      * Touch exploration is on — a TalkBack-style reader is interpreting
      * taps (design 12). While it is, the free-area double tap is suspended
      * so the home gesture never steals the assistive double tap.
      * QuietSystemService requests no accessibility flags, so enabling the
-     * launcher's own service alone does NOT turn this on.
+     * launcher's own service alone does NOT turn this on. A failed read
+     * resolves to the conservative side (exploration on) so the gesture
+     * can never steal an assistive double tap through a broken query.
      */
     internal var isTouchExplorationActive: () -> Boolean = {
-        accessibilityManager?.isTouchExplorationEnabled == true
+        runCatching {
+            accessibilityManager?.isTouchExplorationEnabled == true
+        }.getOrElse { true }
     }
 
     /**
@@ -155,15 +168,13 @@ class AppContainer(context: Context) {
      * so GLANCE must not time out. Our own service reads nothing and
      * requests nothing — enabling it alone must not pause the timer,
      * which is why the enabled-service list is filtered by component.
+     * Reads the observer-maintained cache, not the framework, so the
+     * GLANCE tick costs a volatile load instead of a binder RPC; a query
+     * failure inside the tracker resolves to true (conservative: keep
+     * GLANCE on screen).
      */
     internal var isAssistiveServiceActive: () -> Boolean = {
-        val am = accessibilityManager
-        am != null && am
-            .getEnabledAccessibilityServiceList(
-                AccessibilityServiceInfo.FEEDBACK_ALL_MASK,
-            )
-            .mapNotNull { ComponentName.unflattenFromString(it.id) }
-            .any { it != quietSystemServiceComponent }
+        assistiveTracker.active()
     }
 
     fun start() {
