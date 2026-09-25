@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -47,8 +48,10 @@ class FreeAreaGate {
  *   diagonal input stays pending until a direction emerges. A horizontal
  *   first leg keeps accumulating, so bending upward late does not become a
  *   swipe unless the totals still qualify.
- * - Horizontal-dominant travel, a second pointer or a cancel locks the
- *   gesture out entirely — nothing is assigned to horizontal swipes.
+ * - Horizontal-dominant travel, a second pointer that actually moves, or
+ *   a cancel locks the gesture out entirely — nothing is assigned to
+ *   horizontal swipes. A resting second contact is not a lockout: a palm
+ *   held at the screen edge must not kill one-handed input (design 4.2).
  * - Tap / long-press / double-tap die as soon as displacement passes touch
  *   slop in any direction ("移動開始後は発火しない"); a release after
  *   moved-out input is not a tap.
@@ -148,7 +151,7 @@ fun Modifier.freeAreaGestures(
     touchSlopPx: Float,
     isSwipeStartAllowed: (Offset) -> Boolean,
     doubleTapEnabled: () -> Boolean,
-    wasMultiPointer: () -> Boolean = { false },
+    multiPointerActive: (PointerId) -> Boolean = { false },
     onHoldChange: (Boolean) -> Unit = {},
     onEvent: (FreeAreaEvent) -> Unit,
 ): Modifier = pointerInput(touchSlopPx) {
@@ -213,11 +216,18 @@ fun Modifier.freeAreaGestures(
         var totalDx = 0f
         var totalDy = 0f
 
+        // Secondary contacts on this surface are tracked from where they
+        // landed: one only counts as a second input once it travels past
+        // touch slop. A finger merely resting on the glass — a palm held
+        // at the edge — must not kill the gesture (design 4.2).
+        val otherDownAt = mutableMapOf<PointerId, Offset>()
+
         val longPressJob = inputScope.launch {
             delay(longPressTimeoutMs)
-            // A second finger resting elsewhere (e.g. on a bar) produces no
-            // events on this surface, so the latch must be checked here too.
-            if (tracker.isTapEligible && !wasMultiPointer()) {
+            // A second finger operating elsewhere (e.g. dragging on a bar)
+            // produces no events on this surface, so the shared latch must
+            // be checked here too; a resting finger does not set it.
+            if (tracker.isTapEligible && !multiPointerActive(down.id)) {
                 gate.longPressActive = true
                 tracker.onActionFired()
                 flushPendingTap()
@@ -228,14 +238,25 @@ fun Modifier.freeAreaGestures(
         try {
             while (true) {
                 val event = awaitPointerEvent()
-                // A second finger may sit outside this surface's stream
-                // (e.g. on a bar); the shared latch covers it too.
-                if (
-                    event.changes.count { it.pressed } > 1 ||
-                    wasMultiPointer()
-                ) {
-                    tracker.onPointerCountChanged(2)
+                // A second contact suppresses the gesture once it behaves
+                // as input — moved past slop — on this surface or, via the
+                // shared latch, anywhere on the screen.
+                var secondActive = multiPointerActive(down.id)
+                for (other in event.changes) {
+                    if (other.id == down.id) continue
+                    if (!other.pressed) {
+                        otherDownAt.remove(other.id)
+                        continue
+                    }
+                    val origin =
+                        otherDownAt.getOrPut(other.id) { other.position }
+                    if (
+                        (other.position - origin).getDistance() > touchSlopPx
+                    ) {
+                        secondActive = true
+                    }
                 }
+                if (secondActive) tracker.onPointerCountChanged(2)
                 val change = event.changes.firstOrNull { it.id == down.id }
                 when {
                     change == null -> {
