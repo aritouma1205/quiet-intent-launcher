@@ -219,7 +219,8 @@ fun QuietLauncherRoot(
                         toolRows = viewModel.toolRows.collectAsState().value,
                         onToolTap = viewModel::onToolTapped,
                         onRevealSettled = viewModel::onRevealSettled,
-                        a11yActive = viewModel::isAccessibilityActive,
+                        touchExplorationActive =
+                            viewModel::isTouchExplorationActive,
                     )
                     HomeScreen.Intro -> IntroScreen(
                         isDefaultHome = isDefaultHome,
@@ -337,6 +338,8 @@ fun QuietLauncherRoot(
                                     .collectAsState().value,
                                 focusToolId = viewModel.toolEditFocus
                                     .collectAsState().value,
+                                onEditFocusConsumed =
+                                    viewModel::consumeEditFocus,
                                 apps = viewModel.apps.collectAsState().value,
                                 iconLoader = iconLoader,
                                 isHomeRoleHeld = isDefaultHome,
@@ -488,7 +491,7 @@ private fun QuietScreen(
     toolRows: List<ToolRow>,
     onToolTap: (ToolItem) -> Unit,
     onRevealSettled: () -> Unit,
-    a11yActive: () -> Boolean,
+    touchExplorationActive: () -> Boolean,
 ) {
     val description = stringResource(R.string.quiet_preview_badge)
     val paneTitle = stringResource(R.string.quiet_pane_title)
@@ -685,12 +688,14 @@ private fun QuietScreen(
                         isSwipeStartAllowed = { offset ->
                             offset.y < heightPx - systemGestureBottomPx
                         },
-                        // Screen-off double tap is suspended while a screen
-                        // reader is active — the home gesture must never
-                        // steal the assistive double tap (design 12).
+                        // Screen-off double tap is suspended while touch
+                        // exploration is active — the home gesture must
+                        // never steal the assistive double tap (design 12).
+                        // QuietSystemService itself requests no flags and
+                        // does not set this, so the gesture stays reachable.
                         doubleTapEnabled = {
                             settings.systemActions.screenOffEnabled &&
-                                !a11yActive()
+                                !touchExplorationActive()
                         },
                         wasMultiPointer = { sawMultiPointer },
                         onEvent = onFreeAreaEvent,

@@ -67,16 +67,17 @@ class SettingsSerializer(
         json.encodeToString(SettingsData.serializer(), data)
 
     private fun migrate(data: SettingsData, hasActions: Boolean): SettingsData {
-        // Sequential migrations per schemaVersion. v1 -> v2 adds the edge-bar,
-        // TOOLS and system-action fields, all with defaults, so decoding an old
-        // file already fills them; sanitize keeps stored values inside the
-        // designed ranges.
+        // One-shot normalization, not sequential steps: an old file decodes
+        // directly into the current data class, so every field added after
+        // its schema version arrives with the designed default. The field
+        // history below explains which version introduced each field.
+        // Sanitizers then clamp stored values into the designed ranges.
+        // v1 -> v2 adds the edge-bar, TOOLS and system-action fields.
         // v2 -> v3 adds the DO action list; files written before v3 carry no
         // actions field and are seeded with the six unset defaults (design 6).
-        // v3 -> v4 adds Context Slots and search settings; absent fields decode
-        // to the designed defaults, and stored slots are normalized to two.
-        // v4 -> v5 adds the clock and 「情報」 settings; absent fields decode
-        // to the designed defaults, and stored ranges are sanitized.
+        // v3 -> v4 adds Context Slots and search settings; stored slots are
+        // normalized to two.
+        // v4 -> v5 adds the clock and 「情報」 settings.
         // v5 -> v6 adds the tool order/visibility/targets and the screenshot
         // switch; the tool list is normalized to the five known tools.
         return data.copy(

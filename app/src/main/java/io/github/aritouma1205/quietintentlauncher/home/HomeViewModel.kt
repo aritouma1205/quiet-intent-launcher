@@ -659,6 +659,9 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     /** Opens 「行動・道具」 focused on one tool's row (design 7 導線). */
     fun openToolEditor(tool: ToolItem) {
         _toolEditFocus.value = tool.id
+        // The two edit focuses are mutually exclusive: a stale action
+        // focus must never win over a tool entry (or the reverse).
+        _actionEditFocus.value = null
         overlays.clear()
         nav.navigateTo(HomeScreen.DoSettings)
     }
@@ -838,8 +841,19 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     /** Opens the action editor, optionally focused on one action. */
     fun openActionEditor(actionId: String?) {
         _actionEditFocus.value = actionId
+        _toolEditFocus.value = null
         overlays.clear()
         nav.navigateTo(HomeScreen.DoSettings)
+    }
+
+    /**
+     * The 「行動・道具」 screen applied (or found no) pending editor focus.
+     * Focus requests are one-shot: both are cleared here so a later plain
+     * visit never re-opens a stale picker.
+     */
+    fun consumeEditFocus() {
+        _actionEditFocus.value = null
+        _toolEditFocus.value = null
     }
 
     suspend fun shortcutsFor(packageName: String) =
@@ -1309,10 +1323,18 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * Test seam: instrumentation observes the broadcast-driven refresh —
+     * TIME_SET/TIMEZONE_CHANGED are protected broadcasts only the system
+     * (or shell) can send, so the real-path test watches this probe.
+     */
+    internal var timeChangedProbe: () -> Unit = {}
+
     /** Time/date/timezone broadcasts (design 8.1): repaint + re-select. */
     fun onTimeChanged() {
         refreshToday()
         refreshEvents()
+        timeChangedProbe()
     }
 
     fun expandTools() = overlays.expandTools()
@@ -1369,10 +1391,12 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             while (remaining > 0) {
                 delay(GLANCE_TICK_MS)
                 if (overlay.value != HomeOverlay.Glance) return@launch
-                // A held finger pauses the countdown; so does a screen
-                // reader / switch access switched on mid-display
-                // (design 8.3: never leave while the user is reading).
-                if (!_glanceHold.value && !container.isAccessibilityActive()) {
+                // A held finger pauses the countdown; so does an external
+                // assistive service (screen reader / switch access)
+                // switched on mid-display (design 8.3: never leave while
+                // the user is reading). Our own operation-only service
+                // reads nothing, so it does not pause the timer.
+                if (!_glanceHold.value && !container.isAssistiveServiceActive()) {
                     remaining -= GLANCE_TICK_MS
                 }
             }
@@ -1514,11 +1538,13 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         currentSettings().vibration == VibrationMode.System
 
     /**
-     * Any accessibility service active right now (design 8.3, 12). Read at
-     * gesture-settle time so a service toggled mid-session takes effect
+     * Touch exploration active right now (design 12). Read at
+     * gesture-settle time so a reader toggled mid-session takes effect
      * immediately — the free-area double tap must never steal TalkBack's.
+     * QuietSystemService alone does not set this: it requests no
+     * accessibility flags, so screen-off stays reachable through it.
      */
-    fun isAccessibilityActive(): Boolean = container.isAccessibilityActive()
+    fun isTouchExplorationActive(): Boolean = container.isTouchExplorationActive()
 
     companion object {
         private const val GLANCE_TICK_MS = 50L

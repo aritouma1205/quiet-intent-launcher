@@ -40,6 +40,13 @@ class CalendarAccess(private val context: Context) {
     internal var instanceSource:
         ((Long, ZoneId, Set<Long>) -> List<RawInstance>)? = null
 
+    /**
+     * Test seam: instrumentation overrides the VIEW-intent handler check
+     * so the no-handler branch is deterministic even when the emulator
+     * happens to have (or lack) a calendar app.
+     */
+    internal var eventHandlerCheck: ((Intent) -> Boolean)? = null
+
     fun hasPermission(): Boolean = permissionCheck?.invoke() ?: (
         ContextCompat.checkSelfPermission(
             context,
@@ -174,7 +181,8 @@ class CalendarAccess(private val context: Context) {
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     fun canOpenEvent(intent: Intent): Boolean =
-        intent.resolveActivity(context.packageManager) != null
+        eventHandlerCheck?.invoke(intent)
+            ?: (intent.resolveActivity(context.packageManager) != null)
 
     /**
      * Watches event changes while TODAY is open (design 8.1). Returns the

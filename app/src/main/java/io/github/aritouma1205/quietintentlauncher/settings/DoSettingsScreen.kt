@@ -68,6 +68,7 @@ fun DoSettingsScreen(
     initial: SettingsData,
     focusActionId: String?,
     focusToolId: String? = null,
+    onEditFocusConsumed: () -> Unit = {},
     apps: List<AppEntry>?,
     iconLoader: (AppEntry) -> Drawable?,
     isHomeRoleHeld: Boolean,
@@ -93,7 +94,10 @@ fun DoSettingsScreen(
 
     // Expanded target picker: "actionId" for the action target,
     // "actionId|opId" for a derived op target, "tool:toolId" for a tool.
-    var pickerSlot by rememberSaveable { mutableStateOf<String?>(null) }
+    // Deliberately NOT rememberSaveable: a picker is transient UI, and a
+    // restored slot would resurrect a stale picker on the next plain visit
+    // (editor focus requests are one-shot, consumed on entry).
+    var pickerSlot by remember { mutableStateOf<String?>(null) }
 
     // The open link editor reports an invalid non-blank input here; saving
     // while one is pending would silently keep the previous target.
@@ -142,21 +146,23 @@ fun DoSettingsScreen(
     LaunchedEffect(Unit) {
         val focus = focusActionId
         val toolFocus = focusToolId
-        when {
-            focus != null -> {
-                pickerSlot = focus
-                val y = snapshotFlow { itemOffsets[focus] }
-                    .filterNotNull().first()
-                scrollState.animateScrollTo(y)
-            }
-            toolFocus != null -> {
-                // A tool entry scrolls to the TOOLS heading and opens that
-                // tool's target picker when the tool accepts one.
-                pickerSlot = "tool:$toolFocus"
-                val y = snapshotFlow { itemOffsets[TOOLS_OFFSET_KEY] }
-                    .filterNotNull().first()
-                scrollState.animateScrollTo(y)
-            }
+        val slot = when {
+            focus != null -> focus
+            // A tool entry scrolls to the TOOLS heading and opens that
+            // tool's target picker when the tool accepts one.
+            toolFocus != null -> "tool:$toolFocus"
+            else -> null
+        }
+        if (slot != null) pickerSlot = slot
+        // Focus requests are one-shot: whichever picker claimed the entry
+        // — or none — the request is cleared so a later plain visit never
+        // re-opens a stale picker (design 7 代替導線).
+        onEditFocusConsumed()
+        if (slot != null) {
+            val offsetKey = if (focus != null) focus else TOOLS_OFFSET_KEY
+            val y = snapshotFlow { itemOffsets[offsetKey] }
+                .filterNotNull().first()
+            scrollState.animateScrollTo(y)
         }
     }
 

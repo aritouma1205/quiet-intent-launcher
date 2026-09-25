@@ -5,12 +5,18 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.isOff
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -54,7 +60,8 @@ class ToolsIntegrationTest {
 
     private lateinit var viewModel: HomeViewModel
     private lateinit var container: io.github.aritouma1205.quietintentlauncher.AppContainer
-    private lateinit var originalA11yCheck: () -> Boolean
+    private lateinit var originalTouchCheck: () -> Boolean
+    private lateinit var originalAssistiveCheck: () -> Boolean
 
     private fun res(id: Int): String = rule.activity.getString(id)
 
@@ -63,7 +70,8 @@ class ToolsIntegrationTest {
         val app = InstrumentationRegistry.getInstrumentation()
             .targetContext.applicationContext as QuietLauncherApp
         container = app.container
-        originalA11yCheck = container.isAccessibilityActive
+        originalTouchCheck = container.isTouchExplorationActive
+        originalAssistiveCheck = container.isAssistiveServiceActive
         runBlocking {
             container.settingsStore.state.first { it is SettingsState.Ready }
             container.settingsStore.update {
@@ -110,7 +118,8 @@ class ToolsIntegrationTest {
         container.systemActions.actionRunner = null
         container.toolLauncher.timersAvailableCheck = null
         container.toolLauncher.timersLauncher = null
-        container.isAccessibilityActive = originalA11yCheck
+        container.isTouchExplorationActive = originalTouchCheck
+        container.isAssistiveServiceActive = originalAssistiveCheck
         viewModel.onBackgrounded()
         viewModel.closeOverlay()
     }
@@ -184,9 +193,14 @@ class ToolsIntegrationTest {
     fun unsetCalculatorTapOpensTheToolEditor() {
         openTools()
         rule.onNodeWithText(res(R.string.tool_calculator)).performClick()
-        rule.waitForIdle()
-        assertEquals(HomeScreen.DoSettings, viewModel.screen.value)
-        assertEquals("calculator", viewModel.toolEditFocus.value)
+        // The entry consumes the one-shot focus and opens the tool's
+        // target picker (app-only kinds).
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings &&
+                viewModel.toolEditFocus.value == null &&
+                rule.onAllNodesWithText(res(R.string.target_kind_app))
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
@@ -244,8 +258,14 @@ class ToolsIntegrationTest {
             rule.waitUntil(timeoutMillis = 5_000) {
                 received.contains(HomeMessage.ToolNoTimerHandler)
             }
-            assertEquals(HomeScreen.DoSettings, viewModel.screen.value)
-            assertEquals("timer", viewModel.toolEditFocus.value)
+            // The alternative route lands on the tool's editor; the
+            // one-shot focus is consumed as the picker opens.
+            rule.waitUntil(timeoutMillis = 5_000) {
+                viewModel.screen.value == HomeScreen.DoSettings &&
+                    viewModel.toolEditFocus.value == null &&
+                    rule.onAllNodesWithText(res(R.string.target_kind_app))
+                        .fetchSemanticsNodes().isNotEmpty()
+            }
         } finally {
             job.cancel()
         }
@@ -709,10 +729,10 @@ class ToolsIntegrationTest {
 
     @Test
     fun screenReaderActiveDisablesTheDoubleTapHold() {
-        // With a screen reader on, the first tap must fire immediately —
+        // With touch exploration on, the first tap must fire immediately —
         // the home gesture never intercepts the assistive double tap
         // (design 12). Two taps then toggle GLANCE on and back off.
-        container.isAccessibilityActive = { true }
+        container.isTouchExplorationActive = { true }
         runBlocking {
             container.settingsStore.update {
                 it.copy(
@@ -745,5 +765,317 @@ class ToolsIntegrationTest {
         rule.waitUntil(timeoutMillis = 5_000) {
             viewModel.overlay.value == null
         }
+    }
+
+    // ---- Own-service predicate split (design 12, 13) -------------------------
+
+    @Test
+    fun doubleTapWithOwnServiceEnabledFiresScreenOff() {
+        // QuietSystemService enabled in the real OS settings must NOT
+        // suppress the free-area double tap — our service requests no
+        // touch-exploration flags, so the hold stays armed and the pair
+        // reaches the lock-screen global action exactly once. Only the
+        // runner is stubbed so the emulator is never actually locked.
+        val fixture = OsQuietServiceFixture(
+            InstrumentationRegistry.getInstrumentation()
+                .targetContext.packageName,
+        )
+        val recorded = CopyOnWriteArrayList<SystemAction>()
+        try {
+            fixture.enable()
+            // The OS-level enabled bit is the real Settings.Secure path —
+            // the service must be visible there before anything else runs.
+            // A live bind is impossible under instrumentation: the Compose
+            // input dispatcher keeps a UiAutomation connected, and a
+            // UiAutomation without DONT_SUPPRESS_ACCESSIBILITY_SERVICES
+            // suppresses user service binds (verified on-device: enabled
+            // but never Bound). Only that connection leg is stubbed.
+            rule.waitUntil(timeoutMillis = 10_000) {
+                container.systemActions.isEnabledInOs()
+            }
+            // The BLOCKER condition verified against the real OS state:
+            // our enabled service requests no touch exploration, so the
+            // real predicate must still allow the double tap.
+            assertTrue(!container.isTouchExplorationActive())
+            container.systemActions.connectedOverride = { true }
+            container.systemActions.actionRunner = { action ->
+                recorded += action
+                true
+            }
+            runBlocking {
+                container.settingsStore.update {
+                    it.copy(
+                        systemActions = it.systemActions.copy(
+                            screenOffEnabled = true,
+                        ),
+                    )
+                }
+            }
+            rule.waitUntil(timeoutMillis = 5_000) {
+                (
+                    (viewModel.settingsState.value as? SettingsState.Ready)
+                        ?.data?.systemActions?.screenOffEnabled
+                ) == true
+            }
+            // Two real taps inside the double-tap window: the pair must
+            // settle as DoubleTap, not two single taps on GLANCE.
+            rule.onRoot().performTouchInput {
+                val point = Offset(width * 0.4f, height * 0.5f)
+                down(point)
+                up()
+                down(point)
+                up()
+            }
+            rule.waitUntil(timeoutMillis = 5_000) {
+                recorded.toList() == listOf(SystemAction.LockScreen)
+            }
+            assertEquals(1, recorded.size)
+            assertNull(viewModel.overlay.value)
+        } finally {
+            fixture.restore()
+        }
+    }
+
+    @Test
+    fun ownServiceAloneDoesNotPauseGlanceAutoDismiss() {
+        // The design-8.3 pause is for EXTERNAL assistive services only:
+        // enabling only our own operation-only service must not change
+        // the assistive predicate, and the configured countdown still
+        // dismisses GLANCE.
+        val fixture = OsQuietServiceFixture(
+            InstrumentationRegistry.getInstrumentation()
+                .targetContext.packageName,
+        )
+        try {
+            // Touch UiAutomation first so its service registration — if
+            // any — is part of the baseline already.
+            shellExec("settings get secure accessibility_enabled")
+            val baseline = originalAssistiveCheck()
+            fixture.enable()
+            // Enabled-but-unbound under UiAutomation (see fixture doc):
+            // assert the real OS-enabled state instead of a live bind.
+            rule.waitUntil(timeoutMillis = 10_000) {
+                container.systemActions.isEnabledInOs()
+            }
+            // The real filtered predicate: our service is excluded, so
+            // the answer must be identical to the baseline.
+            assertEquals(baseline, originalAssistiveCheck())
+
+            container.isAssistiveServiceActive = originalAssistiveCheck
+            runBlocking {
+                container.settingsStore.update {
+                    it.copy(info = it.info.copy(glanceDismissSeconds = 2))
+                }
+            }
+            rule.waitUntil(timeoutMillis = 5_000) {
+                (
+                    (viewModel.settingsState.value as? SettingsState.Ready)
+                        ?.data?.info?.glanceDismissSeconds
+                ) == 2
+            }
+            rule.onRoot().performTouchInput {
+                down(Offset(width * 0.4f, height * 0.5f))
+                up()
+            }
+            rule.waitUntil(timeoutMillis = 5_000) {
+                viewModel.overlay.value == HomeOverlay.Glance
+            }
+            Thread.sleep(3_200)
+            rule.waitForIdle()
+            if (baseline) {
+                // An external assistive service (UiAutomation) is
+                // genuinely present: the pause is legitimate — GLANCE
+                // must stay.
+                assertEquals(HomeOverlay.Glance, viewModel.overlay.value)
+            } else {
+                assertNull(viewModel.overlay.value)
+            }
+        } finally {
+            fixture.restore()
+        }
+    }
+
+    // ---- One-shot edit focus -------------------------------------------------
+
+    @Test
+    fun toolFocusIsConsumedAfterTheEditorOpens() {
+        openTools()
+        rule.onNodeWithText(res(R.string.tool_calculator)).performClick()
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings
+        }
+        // The entry claims the tool picker and consumes the request in
+        // the same pass — both focus fields clear immediately.
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.toolEditFocus.value == null &&
+                viewModel.actionEditFocus.value == null
+        }
+        rule.onAllNodesWithText(res(R.string.target_kind_app))
+            .assertCountEquals(1)
+
+        // A later plain entry must not reopen a stale picker.
+        rule.runOnUiThread { viewModel.nav.back() }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.Quiet
+        }
+        // The screen flow flips instantly; waitForIdle lets a real Quiet
+        // frame compose so the settings composition (and its remembered
+        // picker slot) is actually destroyed before the next visit.
+        rule.waitForIdle()
+        rule.runOnUiThread { viewModel.openActionEditor(null) }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings
+        }
+        rule.waitForIdle()
+        rule.onAllNodesWithText(res(R.string.target_kind_app))
+            .assertCountEquals(0)
+    }
+
+    @Test
+    fun toolEntryAfterActionFocusOpensTheToolPicker() {
+        // A stale action focus must never win over a later tool entry.
+        val actionId = viewModel.currentSettings().actions.first().id
+        rule.runOnUiThread { viewModel.openActionEditor(actionId) }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings &&
+                viewModel.actionEditFocus.value == null
+        }
+        // The action picker offers every target kind.
+        rule.onAllNodesWithText(res(R.string.target_kind_link))
+            .assertCountEquals(1)
+
+        rule.runOnUiThread { viewModel.nav.back() }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.Quiet
+        }
+        rule.waitForIdle()
+        openTools()
+        rule.onNodeWithText(res(R.string.tool_calculator)).performClick()
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings &&
+                viewModel.toolEditFocus.value == null
+        }
+        // The tool picker — not a stale action picker: app-only kinds.
+        rule.onAllNodesWithText(res(R.string.target_kind_app))
+            .assertCountEquals(1)
+        rule.onAllNodesWithText(res(R.string.target_kind_link))
+            .assertCountEquals(0)
+        rule.onAllNodesWithText(res(R.string.target_kind_shortcut))
+            .assertCountEquals(0)
+    }
+
+    @Test
+    fun actionEntryAfterToolFocusOpensTheActionPicker() {
+        // The reverse direction: a stale tool focus must never override a
+        // later action-editor entry.
+        openTools()
+        rule.onNodeWithText(res(R.string.tool_calculator)).performClick()
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings &&
+                viewModel.toolEditFocus.value == null
+        }
+        rule.runOnUiThread { viewModel.nav.back() }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.Quiet
+        }
+        rule.waitForIdle()
+        val actionId = viewModel.currentSettings().actions.first().id
+        rule.runOnUiThread { viewModel.openActionEditor(actionId) }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings &&
+                viewModel.actionEditFocus.value == null
+        }
+        // The action picker carries all three target kinds.
+        rule.onAllNodesWithText(res(R.string.target_kind_link))
+            .assertCountEquals(1)
+        rule.onAllNodesWithText(res(R.string.target_kind_shortcut))
+            .assertCountEquals(1)
+    }
+
+    // ---- Armed screenshot / settings save regressions ------------------------
+
+    @Test
+    fun anArmedScreenshotDiesWhenANewOverlayAppears() {
+        val recorded = CopyOnWriteArrayList<SystemAction>()
+        armScreenshotService(recorded)
+        runBlocking {
+            container.settingsStore.update {
+                it.copy(
+                    systemActions = it.systemActions.copy(
+                        screenshotEnabled = true,
+                    ),
+                )
+            }
+        }
+        rule.runOnUiThread { viewModel.requestScreenshot() }
+        // A new overlay appearing before the reveal settles cancels the
+        // armed request (design 7): the late settle must not shoot.
+        rule.runOnUiThread { viewModel.openTodayPanel() }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.overlay.value == HomeOverlay.Today
+        }
+        rule.runOnUiThread { viewModel.onRevealSettled() }
+        rule.waitForIdle()
+        assertTrue(recorded.isEmpty())
+    }
+
+    @Test
+    fun toolVisibilityChangePersistsThroughTheSettingsUi() {
+        // UI -> draft -> save -> persisted settings (design 7, 11.2).
+        rule.runOnUiThread { viewModel.openActionEditor(null) }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings
+        }
+        // Tool editors render after the action editors, so the last
+        // toggleable node is the last tool's 表示 switch (screenshot).
+        rule.onAllNodes(isToggleable()).onLast()
+            .performScrollTo()
+            .performClick()
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.Quiet
+        }
+        val persisted = runBlocking {
+            (
+                container.settingsStore.state.first {
+                    it is SettingsState.Ready
+                } as SettingsState.Ready
+            ).data
+        }
+        assertEquals(
+            false,
+            persisted.tools.items.first { it.id == "screenshot" }.visible,
+        )
+    }
+
+    @Test
+    fun systemSettingsChangePersistsThroughTheUi() {
+        rule.runOnUiThread {
+            viewModel.nav.navigateTo(HomeScreen.SystemSettings)
+        }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.SystemSettings
+        }
+        // Notifications / screen off / screenshot: the last switch is the
+        // screenshot switch.
+        rule.onAllNodes(isToggleable()).onLast()
+            .performScrollTo()
+            .performClick()
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.Quiet
+        }
+        val persisted = runBlocking {
+            (
+                container.settingsStore.state.first {
+                    it is SettingsState.Ready
+                } as SettingsState.Ready
+            ).data
+        }
+        assertTrue(persisted.systemActions.screenshotEnabled)
     }
 }

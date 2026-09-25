@@ -1,6 +1,8 @@
 package io.github.aritouma1205.quietintentlauncher
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityManager
@@ -17,6 +19,7 @@ import io.github.aritouma1205.quietintentlauncher.search.ExternalSearch
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializer
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsStore
+import io.github.aritouma1205.quietintentlauncher.system.QuietSystemService
 import io.github.aritouma1205.quietintentlauncher.system.SystemActions
 import io.github.aritouma1205.quietintentlauncher.system.ToolLauncher
 import io.github.aritouma1205.quietintentlauncher.today.TodayDataProvider
@@ -127,10 +130,40 @@ class AppContainer(context: Context) {
     /** String lookup for search-index building off the UI layer. */
     val stringFor: (Int) -> String = { context.getString(it) }
 
-    /** Any accessibility service on (design 8.3: GLANCE must not time out). */
-    internal var isAccessibilityActive: () -> Boolean = {
-        val am = context.getSystemService(AccessibilityManager::class.java)
-        am != null && am.isEnabled
+    private val accessibilityManager =
+        context.getSystemService(AccessibilityManager::class.java)
+
+    private val quietSystemServiceComponent = ComponentName(
+        context.packageName,
+        QuietSystemService::class.java.name,
+    )
+
+    /**
+     * Touch exploration is on — a TalkBack-style reader is interpreting
+     * taps (design 12). While it is, the free-area double tap is suspended
+     * so the home gesture never steals the assistive double tap.
+     * QuietSystemService requests no accessibility flags, so enabling the
+     * launcher's own service alone does NOT turn this on.
+     */
+    internal var isTouchExplorationActive: () -> Boolean = {
+        accessibilityManager?.isTouchExplorationEnabled == true
+    }
+
+    /**
+     * An assistive service OTHER than QuietSystemService is enabled
+     * (design 8.3): such services may be reading or operating the screen,
+     * so GLANCE must not time out. Our own service reads nothing and
+     * requests nothing — enabling it alone must not pause the timer,
+     * which is why the enabled-service list is filtered by component.
+     */
+    internal var isAssistiveServiceActive: () -> Boolean = {
+        val am = accessibilityManager
+        am != null && am
+            .getEnabledAccessibilityServiceList(
+                AccessibilityServiceInfo.FEEDBACK_ALL_MASK,
+            )
+            .mapNotNull { ComponentName.unflattenFromString(it.id) }
+            .any { it != quietSystemServiceComponent }
     }
 
     fun start() {

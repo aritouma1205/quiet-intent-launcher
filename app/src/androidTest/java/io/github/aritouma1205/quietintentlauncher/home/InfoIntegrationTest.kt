@@ -1,7 +1,14 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.ComponentName
+import android.content.ContentUris
+import android.content.ContentValues
+import android.content.Intent
 import android.os.SystemClock
+import android.provider.CalendarContract
+import android.view.accessibility.AccessibilityManager
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
@@ -10,6 +17,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -19,13 +28,19 @@ import io.github.aritouma1205.quietintentlauncher.settings.InfoSettings
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.WeatherLocation
 import io.github.aritouma1205.quietintentlauncher.settings.WeatherSettings
+import io.github.aritouma1205.quietintentlauncher.system.QuietSystemService
 import io.github.aritouma1205.quietintentlauncher.weather.HttpWeatherApi
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherApi
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherReading
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherSnapshot
+import java.time.ZoneId
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -61,10 +76,10 @@ class InfoIntegrationTest {
 
     @Before
     fun setUp() {
-        // Once any test touches UiAutomation its connection flips the
-        // accessibility_enabled flag for the rest of the run, which would
-        // suppress every later GLANCE timer — pin the seam instead.
-        app.container.isAccessibilityActive = { false }
+        // Once any test touches UiAutomation its connection registers an
+        // assistive service for the rest of the run, which would pause
+        // every later GLANCE timer — pin the seam instead.
+        app.container.isAssistiveServiceActive = { false }
         runBlocking {
             app.container.settingsStore.state.first { it is SettingsState.Ready }
             app.container.settingsStore.update {
@@ -102,9 +117,10 @@ class InfoIntegrationTest {
         viewModel.setGlanceHold(false)
         rule.waitForIdle()
         // Restore the seams the tests swap out.
-        app.container.isAccessibilityActive = defaultAccessibilityCheck()
+        app.container.isAssistiveServiceActive = defaultAssistiveCheck()
         app.container.calendarAccess.permissionCheck = null
         app.container.calendarAccess.instanceSource = null
+        app.container.calendarAccess.eventHandlerCheck = null
         app.container.weatherService.api = HttpWeatherApi()
         app.container.weatherService.clearCacheHook = null
         runBlocking {
@@ -125,13 +141,25 @@ class InfoIntegrationTest {
         }
     }
 
-    private fun defaultAccessibilityCheck(): () -> Boolean {
+    /**
+     * Rebuilds the container's real assistive-service predicate: any
+     * enabled accessibility service OTHER than our own operation-only
+     * QuietSystemService (design 8.3).
+     */
+    private fun defaultAssistiveCheck(): () -> Boolean {
         val context = instrumentation.targetContext
+        val own = ComponentName(
+            context.packageName,
+            QuietSystemService::class.java.name,
+        )
         return {
-            val am = context.getSystemService(
-                android.view.accessibility.AccessibilityManager::class.java,
-            )
-            am != null && am.isEnabled
+            val am = context.getSystemService(AccessibilityManager::class.java)
+            am != null && am
+                .getEnabledAccessibilityServiceList(
+                    AccessibilityServiceInfo.FEEDBACK_ALL_MASK,
+                )
+                .mapNotNull { ComponentName.unflattenFromString(it.id) }
+                .any { it != own }
         }
     }
 
@@ -192,8 +220,8 @@ class InfoIntegrationTest {
     @Test
     fun accessibilitySuppressesAutoDismiss() {
         // TalkBack / switch access on ⇒ GLANCE must not time out
-        // (design 8.3). The container seam stubs the OS check.
-        app.container.isAccessibilityActive = { true }
+        // (design 8.3). The container seam stubs an external reader.
+        app.container.isAssistiveServiceActive = { true }
         tapFreeArea()
         assertEquals(HomeOverlay.Glance, viewModel.overlay.value)
 
@@ -513,6 +541,198 @@ class InfoIntegrationTest {
         rule.onNodeWithText(res(R.string.panel_today_title)).assertIsDisplayed()
         assertTrue(viewModel.today.value.events.isEmpty())
         assertTrue(viewModel.calendarGranted.value)
+    }
+
+    // ---- Real Calendar Provider (I6-C02) -------------------------------------
+
+    @Test
+    fun realProviderEventAppearsInTodayAndOpensViewIntent() {
+        // I6-C02: the REAL provider path — insert a fixture calendar and
+        // one event, let Instances expand it, render it in TODAY, then
+        // verify both the VIEW intent contents and the no-handler branch.
+        val resolver = instrumentation.targetContext.contentResolver
+        instrumentation.uiAutomation.grantRuntimePermission(
+            app.packageName,
+            Manifest.permission.READ_CALENDAR,
+        )
+        instrumentation.uiAutomation.grantRuntimePermission(
+            app.packageName,
+            Manifest.permission.WRITE_CALENDAR,
+        )
+        val account = "qil_i6c02"
+        val calUri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
+            .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, account)
+            .appendQueryParameter(
+                CalendarContract.Calendars.ACCOUNT_TYPE,
+                CalendarContract.ACCOUNT_TYPE_LOCAL,
+            )
+            .build()
+        val calId = resolver.insert(
+            calUri,
+            ContentValues().apply {
+                put(CalendarContract.Calendars.ACCOUNT_NAME, account)
+                put(
+                    CalendarContract.Calendars.ACCOUNT_TYPE,
+                    CalendarContract.ACCOUNT_TYPE_LOCAL,
+                )
+                put(CalendarContract.Calendars.NAME, "qil_i6c02")
+                put(
+                    CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                    "QIL I6C02",
+                )
+                put(CalendarContract.Calendars.CALENDAR_COLOR, 0xFF336699.toInt())
+                put(
+                    CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,
+                    CalendarContract.Calendars.CAL_ACCESS_OWNER,
+                )
+                put(CalendarContract.Calendars.OWNER_ACCOUNT, account)
+                put(CalendarContract.Calendars.VISIBLE, 1)
+            },
+        )?.let { ContentUris.parseId(it) } ?: error("fixture calendar insert failed")
+        val now = System.currentTimeMillis()
+        val begin = now + 3_600_000L
+        val end = begin + 1_800_000L
+        val eventTitle = "I6-C02 予定"
+        var intentJob: Job? = null
+        try {
+            val eventUri = resolver.insert(
+                CalendarContract.Events.CONTENT_URI.buildUpon()
+                    .appendQueryParameter(
+                        CalendarContract.CALLER_IS_SYNCADAPTER,
+                        "true",
+                    )
+                    .appendQueryParameter(
+                        CalendarContract.Calendars.ACCOUNT_NAME,
+                        account,
+                    )
+                    .appendQueryParameter(
+                        CalendarContract.Calendars.ACCOUNT_TYPE,
+                        CalendarContract.ACCOUNT_TYPE_LOCAL,
+                    )
+                    .build(),
+                ContentValues().apply {
+                    put(CalendarContract.Events.CALENDAR_ID, calId)
+                    put(CalendarContract.Events.TITLE, eventTitle)
+                    put(CalendarContract.Events.DTSTART, begin)
+                    put(CalendarContract.Events.DTEND, end)
+                    put(CalendarContract.Events.EVENT_TIMEZONE, "UTC")
+                },
+            ) ?: error("fixture event insert failed")
+            val eventId = ContentUris.parseId(eventUri)
+
+            // (a) Real Instances expansion — the instanceSource seam is
+            // intentionally left null for this test.
+            val rows = app.container.calendarAccess.queryInstances(
+                now,
+                ZoneId.systemDefault(),
+                setOf(calId),
+            )
+            assertTrue(rows.any { it.eventId == eventId })
+
+            // (b) TODAY displays the event.
+            runBlocking {
+                app.container.settingsStore.update {
+                    it.copy(
+                        info = it.info.copy(
+                            eventsEnabled = true,
+                            selectedCalendarIds = listOf(calId),
+                        ),
+                    )
+                }
+            }
+            val intents = CopyOnWriteArrayList<Intent>()
+            intentJob = CoroutineScope(Dispatchers.Main).launch {
+                viewModel.eventIntents.collect { intents += it }
+            }
+            val received = CopyOnWriteArrayList<HomeMessage>()
+            val msgJob = CoroutineScope(Dispatchers.Main).launch {
+                viewModel.messages.collect { received += it }
+            }
+            try {
+                viewModel.openTodayPanel()
+                rule.waitForIdle()
+                runBlocking {
+                    withTimeout(5_000) {
+                        viewModel.today.first { t ->
+                            t.events.any { it.eventId == eventId }
+                        }
+                    }
+                }
+                rule.onAllNodesWithText(eventTitle).assertCountEquals(1)
+
+                // (c) No-handler branch: the row stays and the UI explains.
+                app.container.calendarAccess.eventHandlerCheck = { false }
+                rule.onNodeWithText(eventTitle)
+                    .performScrollTo()
+                    .performClick()
+                rule.waitUntil(timeoutMillis = 5_000) {
+                    received.contains(HomeMessage.NoEventHandler)
+                }
+                rule.onNodeWithText(eventTitle).assertIsDisplayed()
+                assertTrue(intents.isEmpty())
+
+                // (d) Handler branch: the VIEW intent carries the event
+                // URI and the begin/end extras (design 8.1).
+                app.container.calendarAccess.eventHandlerCheck = { true }
+                rule.onNodeWithText(eventTitle)
+                    .performScrollTo()
+                    .performClick()
+                rule.waitUntil(timeoutMillis = 5_000) { intents.size == 1 }
+                val intent = intents.single()
+                assertEquals(Intent.ACTION_VIEW, intent.action)
+                assertEquals(
+                    ContentUris.withAppendedId(
+                        CalendarContract.Events.CONTENT_URI,
+                        eventId,
+                    ),
+                    intent.data,
+                )
+                val shown = viewModel.today.value.events
+                    .first { it.eventId == eventId }
+                assertEquals(
+                    shown.beginMs,
+                    intent.getLongExtra(
+                        CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                        -1L,
+                    ),
+                )
+                assertEquals(
+                    shown.endMs,
+                    intent.getLongExtra(
+                        CalendarContract.EXTRA_EVENT_END_TIME,
+                        -1L,
+                    ),
+                )
+            } finally {
+                msgJob.cancel()
+            }
+        } finally {
+            intentJob?.cancel()
+            app.container.calendarAccess.eventHandlerCheck = null
+            // Drop the fixture calendar; the delete cascades its events.
+            resolver.delete(
+                ContentUris.withAppendedId(
+                    CalendarContract.Calendars.CONTENT_URI,
+                    calId,
+                ).buildUpon()
+                    .appendQueryParameter(
+                        CalendarContract.CALLER_IS_SYNCADAPTER,
+                        "true",
+                    )
+                    .appendQueryParameter(
+                        CalendarContract.Calendars.ACCOUNT_NAME,
+                        account,
+                    )
+                    .appendQueryParameter(
+                        CalendarContract.Calendars.ACCOUNT_TYPE,
+                        CalendarContract.ACCOUNT_TYPE_LOCAL,
+                    )
+                    .build(),
+                null,
+                null,
+            )
+        }
     }
 
     // ---- Clock refresh ------------------------------------------------------
