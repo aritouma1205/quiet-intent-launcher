@@ -207,6 +207,85 @@ class SettingsSerializerTest {
         }
 
     @Test
+    fun `v4 file gains clock and info defaults`() = runBlocking {
+        val data = read("""{"schemaVersion":4,"search":{"recentRecording":false}}""")
+        assertEquals(SettingsData.CURRENT_SCHEMA_VERSION, data.schemaVersion)
+        assertFalse(data.clock.enabled)
+        assertEquals(QuietClockPosition.TopStart, data.clock.position)
+        assertEquals(GlancePosition.Top, data.info.glancePosition)
+        assertEquals(3, data.info.glanceDismissSeconds)
+        assertFalse(data.info.weather.enabled)
+        assertNull(data.info.weather.location)
+        assertFalse(data.info.eventsEnabled)
+        assertTrue(data.info.selectedCalendarIds.isEmpty())
+        // Existing fields survive the v4 -> v5 hop.
+        assertFalse(data.search.recentRecording)
+    }
+
+    @Test
+    fun `v5 round trip keeps clock and info settings`() = runBlocking {
+        val stored = SettingsData(
+            clock = ClockSettings(
+                enabled = true,
+                position = QuietClockPosition.TopEnd,
+            ),
+            info = InfoSettings(
+                glancePosition = GlancePosition.Bottom,
+                glanceDismissSeconds = 10,
+                weather = WeatherSettings(
+                    enabled = true,
+                    location = WeatherLocation(
+                        providerId = "1850147",
+                        name = "東京",
+                        latitude = 35.6895,
+                        longitude = 139.6917,
+                    ),
+                ),
+                eventsEnabled = true,
+                selectedCalendarIds = listOf(3L, 7L),
+            ),
+        )
+        val data = read(serializer.serialize(stored))
+        assertEquals(stored, data)
+    }
+
+    @Test
+    fun `glance dismiss seconds are clamped into the designed range`() =
+        runBlocking {
+            fun seconds(raw: Int) = read(
+                """{"schemaVersion":5,"info":{"glanceDismissSeconds":$raw}}""",
+            ).info.glanceDismissSeconds
+            assertEquals(0, seconds(0)) // 0 = never auto-dismiss
+            assertEquals(2, seconds(1))
+            assertEquals(10, seconds(99))
+            assertEquals(5, seconds(5))
+        }
+
+    @Test
+    fun `weather enabled without a valid region decodes to disabled`() =
+        runBlocking {
+            val noLocation = read(
+                """{"schemaVersion":5,"info":{"weather":{"enabled":true}}}""",
+            )
+            assertFalse(noLocation.info.weather.enabled)
+            val badLocation = read(
+                """{"schemaVersion":5,"info":{"weather":{"enabled":true,
+                  "location":{"providerId":"x","name":"n",
+                  "latitude":200.0,"longitude":0.0}}}}""",
+            )
+            assertFalse(badLocation.info.weather.enabled)
+            assertNull(badLocation.info.weather.location)
+        }
+
+    @Test
+    fun `duplicated calendar ids are deduplicated`() = runBlocking {
+        val data = read(
+            """{"schemaVersion":5,"info":{"selectedCalendarIds":[1,2,2,1]}}""",
+        )
+        assertEquals(listOf(1L, 2L), data.info.selectedCalendarIds)
+    }
+
+    @Test
     fun `corrupted files still raise CorruptionException`() {
         assertCorrupt("this is not json {{{")
         assertCorrupt("""{"schemaVersion":""")

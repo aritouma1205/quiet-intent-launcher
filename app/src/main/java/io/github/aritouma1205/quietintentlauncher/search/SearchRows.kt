@@ -58,6 +58,7 @@ enum class SettingsDestination(@param:StringRes val labelRes: Int) {
     Actions(R.string.do_settings_title),
     ContextSlots(R.string.context_settings_title),
     Search(R.string.search_settings_title),
+    Info(R.string.info_settings_title),
 }
 
 /**

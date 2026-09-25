@@ -97,11 +97,11 @@ class SearchContextIntegrationTest {
             QuietLauncherRoot(
                 viewModel = viewModel,
                 iconLoader = { null },
-                todayInfo = { container.todayData.current() },
                 onRequestHomeRole = {},
                 onRestoreHome = {},
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
+                onOpenEvent = {},
             )
         }
         rule.waitForIdle()

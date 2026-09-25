@@ -75,6 +75,8 @@ class SettingsSerializer(
         // actions field and are seeded with the six unset defaults (design 6).
         // v3 -> v4 adds Context Slots and search settings; absent fields decode
         // to the designed defaults, and stored slots are normalized to two.
+        // v4 -> v5 adds the clock and 「情報」 settings; absent fields decode
+        // to the designed defaults, and stored ranges are sanitized.
         return data.copy(
             schemaVersion = SettingsData.CURRENT_SCHEMA_VERSION,
             leftBar = data.leftBar.sanitized(),
@@ -86,6 +88,7 @@ class SettingsSerializer(
                 data.actions
             },
             contextSlots = ContextRules.normalized(data.contextSlots),
+            info = data.info.sanitized(),
         )
     }
 }
