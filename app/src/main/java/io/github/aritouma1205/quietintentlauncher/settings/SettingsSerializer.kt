@@ -77,6 +77,8 @@ class SettingsSerializer(
         // to the designed defaults, and stored slots are normalized to two.
         // v4 -> v5 adds the clock and 「情報」 settings; absent fields decode
         // to the designed defaults, and stored ranges are sanitized.
+        // v5 -> v6 adds the tool order/visibility/targets and the screenshot
+        // switch; the tool list is normalized to the five known tools.
         return data.copy(
             schemaVersion = SettingsData.CURRENT_SCHEMA_VERSION,
             leftBar = data.leftBar.sanitized(),

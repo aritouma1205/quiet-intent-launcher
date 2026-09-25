@@ -41,7 +41,7 @@ data class SettingsData(
     val info: InfoSettings = InfoSettings(),
 ) {
     companion object {
-        const val CURRENT_SCHEMA_VERSION: Int = 5
+        const val CURRENT_SCHEMA_VERSION: Int = 6
     }
 }
 
@@ -118,17 +118,24 @@ enum class ToolsOpenMode {
     DeepPull,
 }
 
-/** TOOLS open mode and the deep-pull depth (design 4.3). */
+/** TOOLS open mode, deep-pull depth and the tool list (design 4.3, 7). */
 @Serializable
 data class ToolsSettings(
     val openMode: ToolsOpenMode = ToolsOpenMode.Tap,
     val deepPullFraction: Float = DEFAULT_DEEP_PULL_FRACTION,
+    /**
+     * Tool order and visibility (design 7). Added in schemaVersion 6;
+     * earlier files decode to the designed default order. Always kept
+     * normalized to the five known tools by [ToolRules.normalized].
+     */
+    val items: List<ToolSetting> = ToolItem.entries.map { ToolSetting(it.id) },
 ) {
     fun sanitized(): ToolsSettings = copy(
         deepPullFraction = deepPullFraction.coerceIn(
             MIN_DEEP_PULL_FRACTION,
             MAX_DEEP_PULL_FRACTION,
         ),
+        items = ToolRules.normalized(items),
     )
 
     companion object {
@@ -149,12 +156,14 @@ enum class VibrationMode {
 }
 
 /**
- * Optional system actions (design 13). The switches and the backing
- * accessibility service arrive with the system-action stage; the fields are
- * persisted now so the gesture pipeline already honours them.
+ * Optional system actions (design 13): individual switches for the
+ * notification shade, screen-off and the TOOLS screenshot. Each needs both
+ * its switch and an enabled+connected QuietSystemService to run.
+ * [screenshotEnabled] was added in schemaVersion 6.
  */
 @Serializable
 data class SystemActionSettings(
     val notificationsEnabled: Boolean = false,
     val screenOffEnabled: Boolean = false,
+    val screenshotEnabled: Boolean = false,
 )

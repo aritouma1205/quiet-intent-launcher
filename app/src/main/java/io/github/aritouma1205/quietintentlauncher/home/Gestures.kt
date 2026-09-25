@@ -138,17 +138,20 @@ class FreeAreaTracker(
  * When [doubleTapEnabled] is false a tap fires immediately; when true the
  * first tap is held for the double-tap window so a second tap becomes
  * [FreeAreaEvent.DoubleTap] instead of two single taps (design 5: only wait
- * for the double-tap decision while screen-off is enabled).
+ * for the double-tap decision while screen-off is enabled). It is a
+ * supplier, evaluated at tap-settle time, so TalkBack / Switch Access
+ * turning on mid-session disables the hold immediately — the home double
+ * tap must never intercept a screen reader's double tap (design 12).
  */
 fun Modifier.freeAreaGestures(
     gate: FreeAreaGate,
     touchSlopPx: Float,
     isSwipeStartAllowed: (Offset) -> Boolean,
-    doubleTapEnabled: Boolean,
+    doubleTapEnabled: () -> Boolean,
     wasMultiPointer: () -> Boolean = { false },
     onHoldChange: (Boolean) -> Unit = {},
     onEvent: (FreeAreaEvent) -> Unit,
-): Modifier = pointerInput(touchSlopPx, doubleTapEnabled) {
+): Modifier = pointerInput(touchSlopPx) {
     // Timers (long-press deadline, double-tap window) run as children of
     // this input coroutine; PointerInputScope itself is not a CoroutineScope.
     val inputScope = CoroutineScope(coroutineContext)
@@ -175,7 +178,7 @@ fun Modifier.freeAreaGestures(
     }
 
     fun settleTap() {
-        if (!doubleTapEnabled) {
+        if (!doubleTapEnabled()) {
             onEvent(FreeAreaEvent.Tap)
             return
         }

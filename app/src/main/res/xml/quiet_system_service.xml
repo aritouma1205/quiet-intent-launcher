@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  設計13: 最小限のAccessibilityService設定。
+  - accessibilityEventTypesを宣言しない = イベントは一切配信されない。
+  - canRetrieveWindowContent / canPerformGestures / canTakeScreenshot は
+    要求しない。画面内容・キー入力・通知本文は取得できず、画像データが
+    本アプリへ渡ることもない。
+  - 通知を開く・画面OFF・OSスクリーンショットのグローバル操作だけを、
+    ユーザー操作の直後に限って実行する。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/system_service_description"
+    android:summary="@string/system_service_summary" />

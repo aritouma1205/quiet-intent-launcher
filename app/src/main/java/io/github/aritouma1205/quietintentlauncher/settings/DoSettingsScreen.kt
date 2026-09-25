@@ -67,6 +67,7 @@ import kotlinx.serialization.json.Json
 fun DoSettingsScreen(
     initial: SettingsData,
     focusActionId: String?,
+    focusToolId: String? = null,
     apps: List<AppEntry>?,
     iconLoader: (AppEntry) -> Drawable?,
     isHomeRoleHeld: Boolean,
@@ -91,7 +92,7 @@ fun DoSettingsScreen(
     var exitConfirm by rememberSaveable { mutableStateOf(false) }
 
     // Expanded target picker: "actionId" for the action target,
-    // "actionId|opId" for a derived op target.
+    // "actionId|opId" for a derived op target, "tool:toolId" for a tool.
     var pickerSlot by rememberSaveable { mutableStateOf<String?>(null) }
 
     // The open link editor reports an invalid non-blank input here; saving
@@ -139,10 +140,24 @@ fun DoSettingsScreen(
     val itemOffsets = remember { mutableStateMapOf<String, Int>() }
 
     LaunchedEffect(Unit) {
-        val focus = focusActionId ?: return@LaunchedEffect
-        pickerSlot = focus
-        val y = snapshotFlow { itemOffsets[focus] }.filterNotNull().first()
-        scrollState.animateScrollTo(y)
+        val focus = focusActionId
+        val toolFocus = focusToolId
+        when {
+            focus != null -> {
+                pickerSlot = focus
+                val y = snapshotFlow { itemOffsets[focus] }
+                    .filterNotNull().first()
+                scrollState.animateScrollTo(y)
+            }
+            toolFocus != null -> {
+                // A tool entry scrolls to the TOOLS heading and opens that
+                // tool's target picker when the tool accepts one.
+                pickerSlot = "tool:$toolFocus"
+                val y = snapshotFlow { itemOffsets[TOOLS_OFFSET_KEY] }
+                    .filterNotNull().first()
+                scrollState.animateScrollTo(y)
+            }
+        }
     }
 
     Column(
@@ -230,6 +245,73 @@ fun DoSettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+            }
+
+            // ---- TOOLS (design 7): fixed set — order, visibility and the
+            // per-tool launch target. There is no add/delete; the five
+            // tools always exist, hidden ones only leave the panel.
+            Text(
+                text = stringResource(R.string.tools_edit_heading),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier
+                    .onGloballyPositioned {
+                        itemOffsets[TOOLS_OFFSET_KEY] =
+                            it.positionInParent().y.toInt()
+                    }
+                    .padding(top = 24.dp),
+            )
+            Text(
+                text = stringResource(R.string.tools_edit_note),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            draft.tools.items.forEachIndexed { index, item ->
+                val tool = ToolItem.byId(item.id) ?: return@forEachIndexed
+                key(item.id) {
+                    ToolEditor(
+                        tool = tool,
+                        item = item,
+                        isFirst = index == 0,
+                        isLast = index == draft.tools.items.lastIndex,
+                        pickerSlot = pickerSlot,
+                        onPickerSlot = { pickerSlot = it },
+                        apps = apps,
+                        iconLoader = iconLoader,
+                        isHomeRoleHeld = isHomeRoleHeld,
+                        shortcutsFor = shortcutsFor,
+                        onPendingInvalid = { pendingInvalidLink = it },
+                        onChange = { updated ->
+                            draft = draft.copy(
+                                tools = draft.tools.copy(
+                                    items = draft.tools.items.map {
+                                        if (it.id == item.id) updated else it
+                                    },
+                                ),
+                            )
+                        },
+                        onMoveUp = {
+                            draft = draft.copy(
+                                tools = draft.tools.copy(
+                                    items = ToolRules.moveUp(
+                                        draft.tools.items,
+                                        index,
+                                    ),
+                                ),
+                            )
+                        },
+                        onMoveDown = {
+                            draft = draft.copy(
+                                tools = draft.tools.copy(
+                                    items = ToolRules.moveDown(
+                                        draft.tools.items,
+                                        index,
+                                    ),
+                                ),
+                            )
+                        },
+                    )
+                }
+                HorizontalDivider()
             }
 
             validationError?.let { errorName ->
@@ -696,6 +778,122 @@ private fun DerivedOpEditor(
                     onPick = { onChange(op.copy(target = it)) },
                     onPendingInvalid = onPendingInvalid,
                 )
+            }
+        }
+    }
+}
+
+/** Scroll-anchor key of the TOOLS heading for the focus navigation. */
+private const val TOOLS_OFFSET_KEY = "tools"
+
+/**
+ * One tool card of the draft (design 7): name, 表示 switch, 上へ/下へ
+ * reorder, and — for the targetable tools — the launch-target row. Light
+ * and screenshot are internal operations and carry no target; the QR tool
+ * additionally accepts a public shortcut.
+ */
+@Composable
+private fun ToolEditor(
+    tool: ToolItem,
+    item: ToolSetting,
+    isFirst: Boolean,
+    isLast: Boolean,
+    pickerSlot: String?,
+    onPickerSlot: (String?) -> Unit,
+    apps: List<AppEntry>?,
+    iconLoader: (AppEntry) -> Drawable?,
+    isHomeRoleHeld: Boolean,
+    shortcutsFor: suspend (String) -> List<ShortcutEntry>,
+    onPendingInvalid: (Boolean) -> Unit,
+    onChange: (ToolSetting) -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    val slotId = "tool:${tool.id}"
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+    ) {
+        Text(
+            text = stringResource(tool.labelRes),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.action_visible),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(
+                checked = item.visible,
+                onCheckedChange = { onChange(item.copy(visible = it)) },
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            OutlinedButton(onClick = onMoveUp, enabled = !isFirst) {
+                Text(stringResource(R.string.action_move_up))
+            }
+            OutlinedButton(onClick = onMoveDown, enabled = !isLast) {
+                Text(stringResource(R.string.action_move_down))
+            }
+        }
+        if (tool in ToolItem.TARGETABLE) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.action_target_label),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        text = if (tool == ToolItem.Timer && item.target == null) {
+                            stringResource(R.string.tool_timer_list)
+                        } else {
+                            targetSummary(item.target, apps)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                TextButton(
+                    onClick = {
+                        onPickerSlot(if (pickerSlot == slotId) null else slotId)
+                    },
+                ) {
+                    Text(stringResource(R.string.action_target_change))
+                }
+            }
+            if (pickerSlot == slotId) {
+                key(slotId) {
+                    TargetPicker(
+                        current = item.target,
+                        apps = apps,
+                        iconLoader = iconLoader,
+                        isHomeRoleHeld = isHomeRoleHeld,
+                        shortcutsFor = shortcutsFor,
+                        onPick = { onChange(item.copy(target = it)) },
+                        onPendingInvalid = onPendingInvalid,
+                        allowedModes = if (tool in ToolItem.SHORTCUT_CAPABLE) {
+                            setOf(PickerMode.App, PickerMode.Shortcut)
+                        } else {
+                            setOf(PickerMode.App)
+                        },
+                    )
+                }
             }
         }
     }

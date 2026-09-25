@@ -61,6 +61,7 @@ import io.github.aritouma1205.quietintentlauncher.context.ContextRule
 import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.GlancePosition
+import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
 import io.github.aritouma1205.quietintentlauncher.today.TodayUi
 import io.github.aritouma1205.quietintentlauncher.ui.imageVector
 import android.text.format.DateFormat
@@ -190,6 +191,7 @@ private fun PanelHeader(
 fun DoPanel(
     rows: List<ActionRow>,
     contextRows: List<ContextRow>,
+    toolRows: List<ToolRow>,
     toolsExpanded: Boolean,
     panelWidthPx: Float,
     onExpandTools: () -> Unit,
@@ -200,7 +202,7 @@ fun DoPanel(
     onDerivedOp: (DoAction, DerivedOp) -> Unit,
     onContextTap: (ContextRow) -> Unit,
     onContextEdit: (ContextRow) -> Unit,
-    onUnavailable: () -> Unit,
+    onToolTap: (ToolItem) -> Unit,
 ) {
     val scrollState = rememberScrollState()
     var toolsHeadingY by remember { mutableFloatStateOf(0f) }
@@ -283,19 +285,14 @@ fun DoPanel(
                 ) {
                     Text(stringResource(R.string.tools_back_to_do))
                 }
-                ToolItem.entries.forEach { tool ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onUnavailable)
-                            .padding(vertical = 14.dp),
-                    ) {
-                        Text(
-                            text = stringResource(tool.labelRes),
-                            fontSize = 16.sp,
-                        )
-                    }
+                // Configured order, visible tools only (design 7). Each row
+                // shows its live state; blocked rows explain why and the tap
+                // routes to the right fallback via the ViewModel.
+                toolRows.forEach { row ->
+                    ToolRowItem(
+                        row = row,
+                        onTap = { onToolTap(row.tool) },
+                    )
                 }
             }
         }
@@ -390,6 +387,63 @@ fun DoPanel(
                 }
             },
         )
+    }
+}
+
+/**
+ * One TOOLS row (design 7): name + live status. Blocked rows explain the
+ * reason — 起動先 未設定 / 削除済み / ハンドラなし / ライトなし / カメラ
+ * 使用中 / サービス無効 / スイッチOFF — and the tap routes through the
+ * ViewModel to the matching fallback (editor, settings or a message).
+ */
+@Composable
+private fun ToolRowItem(
+    row: ToolRow,
+    onTap: () -> Unit,
+) {
+    val name = stringResource(row.tool.labelRes)
+    val statusText = when (val status = row.status) {
+        is ToolStatus.Ready -> status.detail
+        ToolStatus.LightOn -> stringResource(R.string.tool_state_on)
+        ToolStatus.LightOff -> stringResource(R.string.tool_state_off)
+        is ToolStatus.Blocked -> stringResource(
+            when (status.reason) {
+                ToolUnavailable.Unset -> R.string.do_target_unset
+                ToolUnavailable.TargetGone -> R.string.tool_target_missing
+                ToolUnavailable.NoTimerHandler -> R.string.tool_no_timer_handler
+                ToolUnavailable.NoFlash -> R.string.tool_no_flash
+                ToolUnavailable.PermissionMissing ->
+                    R.string.tool_light_needs_permission
+                ToolUnavailable.Busy -> R.string.tool_light_busy
+                ToolUnavailable.ServiceInactive -> R.string.tool_service_off
+                ToolUnavailable.SwitchOff -> R.string.tool_switch_off_hint
+            },
+        )
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
+            .clickable(
+                // TalkBack/Switch Access hear the state together with the
+                // name, so 点灯中/未設定 is never visually implicit
+                // (design 12).
+                onClickLabel = if (statusText != null) {
+                    "$name・$statusText"
+                } else {
+                    name
+                },
+                onClick = onTap,
+            )
+            .padding(vertical = 10.dp),
+    ) {
+        Column {
+            Text(text = name, fontSize = 16.sp)
+            if (statusText != null) {
+                StatusLine(text = statusText)
+            }
+        }
     }
 }
 

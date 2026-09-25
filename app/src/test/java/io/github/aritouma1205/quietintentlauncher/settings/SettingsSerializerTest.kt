@@ -286,6 +286,95 @@ class SettingsSerializerTest {
     }
 
     @Test
+    fun `v5 file gains the default tool list and screenshot switch`() =
+        runBlocking {
+            val data = read("""{"schemaVersion":5,"systemActions":{"notificationsEnabled":true}}""")
+            assertEquals(SettingsData.CURRENT_SCHEMA_VERSION, data.schemaVersion)
+            assertEquals(
+                ToolItem.entries.map { it.id },
+                data.tools.items.map { it.id },
+            )
+            assertTrue(data.tools.items.all { it.visible && it.target == null })
+            assertFalse(data.systemActions.screenshotEnabled)
+            // The v2-era switch survives the hop.
+            assertTrue(data.systemActions.notificationsEnabled)
+        }
+
+    @Test
+    fun `v6 round trip keeps tool order visibility and targets`() =
+        runBlocking {
+            val stored = SettingsData(
+                tools = ToolsSettings(
+                    items = listOf(
+                        ToolSetting("timer", visible = false),
+                        ToolSetting(
+                            "calculator",
+                            target = StoredTarget.App("com.calc/.Main"),
+                        ),
+                        ToolSetting("screenshot"),
+                        ToolSetting("light"),
+                        ToolSetting(
+                            "qr",
+                            target = StoredTarget.Shortcut("com.qr", "scan"),
+                        ),
+                    ),
+                ),
+                systemActions = SystemActionSettings(screenshotEnabled = true),
+            )
+            val data = read(serializer.serialize(stored))
+            assertEquals(stored, data)
+            assertEquals(
+                listOf("timer", "calculator", "screenshot", "light", "qr"),
+                data.tools.items.map { it.id },
+            )
+            assertFalse(data.tools.items[0].visible)
+            assertTrue(data.systemActions.screenshotEnabled)
+        }
+
+    @Test
+    fun `stored tool list is normalized to the five known tools`() =
+        runBlocking {
+            // Unknown ids drop out, a duplicate collapses to its first
+            // entry, and a missing tool appends in the designed order.
+            val data = read(
+                """{"schemaVersion":6,"tools":{"items":[
+                  {"id":"qr","visible":false},
+                  {"id":"bogus"},
+                  {"id":"qr","visible":true},
+                  {"id":"light"}
+                ]}}""",
+            )
+            assertEquals(
+                listOf("qr", "light", "calculator", "timer", "screenshot"),
+                data.tools.items.map { it.id },
+            )
+            // The first "qr" wins, including its visibility.
+            assertFalse(data.tools.items.first { it.id == "qr" }.visible)
+        }
+
+    @Test
+    fun `tool targets survive only where the tool can use them`() =
+        runBlocking {
+            val data = read(
+                """{"schemaVersion":6,"tools":{"items":[
+                  {"id":"light","target":{"type":"app","component":"a/.B"}},
+                  {"id":"screenshot","target":{"type":"app","component":"a/.B"}},
+                  {"id":"calculator","target":{"type":"shortcut","packageName":"p","shortcutId":"s"}},
+                  {"id":"qr","target":{"type":"shortcut","packageName":"p","shortcutId":"s"}}
+                ]}}""",
+            )
+            val byId = data.tools.items.associateBy { it.id }
+            assertNull(byId.getValue("light").target)
+            assertNull(byId.getValue("screenshot").target)
+            // Shortcuts are only meaningful on the QR tool (design 7).
+            assertNull(byId.getValue("calculator").target)
+            assertEquals(
+                StoredTarget.Shortcut("p", "s"),
+                byId.getValue("qr").target,
+            )
+        }
+
+    @Test
     fun `corrupted files still raise CorruptionException`() {
         assertCorrupt("this is not json {{{")
         assertCorrupt("""{"schemaVersion":""")

@@ -3,9 +3,21 @@
 
     <!-- 任意連携のための権限（設計8・13）。INTERNETはOpen-Meteoへの
          手動地域天気のみ。READ_CALENDARはユーザーが予定表示を有効化した
-         時点でだけランタイム要求する。位置情報権限は要求しない。 -->
+         時点でだけランタイム要求する。CAMERAはTOOLSのライトを初めて
+         使う時点でだけランタイム要求する（設計13）。位置情報権限は
+         要求しない。 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- ライトは任意機能。フラッシュ非搭載端末でもインストール・動作は
+         そのままにし、行だけ「ライトなし」と表示する（設計7）。 -->
+    <uses-feature
+        android:name="android.hardware.camera.flash"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
 
     <!-- 個人プロファイル内の起動可能なアプリだけを見るための限定した可視性宣言。
          QUERY_ALL_PACKAGES は要求しない（設計13章）。 -->
@@ -28,6 +40,10 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="content" android:host="com.android.calendar" />
+        </intent>
+        <!-- TOOLSのタイマー一覧を開く受け手の確認（設計7）。 -->
+        <intent>
+            <action android:name="android.intent.action.SHOW_TIMERS" />
         </intent>
     </queries>
 
@@ -57,5 +73,21 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- 任意のシステム操作サービス（設計13）。BIND_ACCESSIBILITY_SERVICE
+             でOSのみがバインドでき、サービス設定はイベント取得・画面内容・
+             ジェスチャー代行を一切要求しない。外部アプリや任意Intentからは
+             呼び出せない。 -->
+        <service
+            android:name=".system.QuietSystemService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/quiet_system_service" />
+        </service>
     </application>
 </manifest>

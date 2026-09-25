@@ -1,11 +1,14 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
@@ -80,6 +83,8 @@ import io.github.aritouma1205.quietintentlauncher.settings.SearchSettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsScreen
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
+import io.github.aritouma1205.quietintentlauncher.settings.SystemActionsSettingsScreen
+import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
 import io.github.aritouma1205.quietintentlauncher.today.TodayUi
@@ -101,6 +106,7 @@ fun QuietLauncherRoot(
     onChangeWallpaper: () -> Unit,
     onOpenAppInfo: (String) -> Unit,
     onOpenEvent: (Intent) -> Unit,
+    onOpenAccessibilitySettings: () -> Unit,
 ) {
     QuietLauncherTheme {
         val screen by viewModel.screen.collectAsState()
@@ -135,6 +141,14 @@ fun QuietLauncherRoot(
                     HomeMessage.NoExternalHandler ->
                         R.string.search_no_external_handler
                     HomeMessage.NoEventHandler -> R.string.event_no_handler
+                    HomeMessage.SystemServiceOff -> R.string.tool_service_off
+                    HomeMessage.SystemActionFailed -> R.string.tool_action_failed
+                    HomeMessage.ToolNoFlash -> R.string.tool_no_flash
+                    HomeMessage.ToolLightBusy -> R.string.tool_light_busy
+                    HomeMessage.ToolLightDenied -> R.string.tool_light_denied
+                    HomeMessage.ToolLightFailed -> R.string.tool_light_failed
+                    HomeMessage.ToolNoTimerHandler ->
+                        R.string.tool_no_timer_handler
                 }
                 Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
             }
@@ -143,6 +157,23 @@ fun QuietLauncherRoot(
         LaunchedEffect(Unit) {
             // Calendar events open in an external calendar app (design 8.1).
             viewModel.eventIntents.collect { intent -> onOpenEvent(intent) }
+        }
+
+        // CAMERA is requested at first torch use (design 13); the result
+        // returns through the ViewModel so a grant completes the toggle the
+        // user asked for.
+        val cameraPermissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted -> viewModel.onCameraPermissionResult(granted) }
+        LaunchedEffect(Unit) {
+            viewModel.cameraPermissionRequests.collect {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+        LaunchedEffect(Unit) {
+            viewModel.accessibilitySettingsRequests.collect {
+                onOpenAccessibilitySettings()
+            }
         }
 
         val showRecovery = settingsState is SettingsState.Degraded && !recoveryDismissed
@@ -185,9 +216,10 @@ fun QuietLauncherRoot(
                         onContextTap = { viewModel.onActionTapped(it.action) },
                         onContextEdit = { viewModel.openContextSlotEditor(it.slotIndex) },
                         onEventTap = viewModel::onEventTapped,
-                        onUnavailable = {
-                            viewModel.emitMessage(HomeMessage.FeatureLater)
-                        },
+                        toolRows = viewModel.toolRows.collectAsState().value,
+                        onToolTap = viewModel::onToolTapped,
+                        onRevealSettled = viewModel::onRevealSettled,
+                        a11yActive = viewModel::isAccessibilityActive,
                     )
                     HomeScreen.Intro -> IntroScreen(
                         isDefaultHome = isDefaultHome,
@@ -272,6 +304,9 @@ fun QuietLauncherRoot(
                         onInfoSettings = {
                             viewModel.nav.navigateTo(HomeScreen.InfoSettings)
                         },
+                        onSystemSettings = {
+                            viewModel.nav.navigateTo(HomeScreen.SystemSettings)
+                        },
                         onReplayIntro = { viewModel.nav.navigateTo(HomeScreen.Intro) },
                         onOpenAppInfo = {
                             viewModel.nav.beginExternalFlow()
@@ -299,6 +334,8 @@ fun QuietLauncherRoot(
                             DoSettingsScreen(
                                 initial = data,
                                 focusActionId = viewModel.actionEditFocus
+                                    .collectAsState().value,
+                                focusToolId = viewModel.toolEditFocus
                                     .collectAsState().value,
                                 apps = viewModel.apps.collectAsState().value,
                                 iconLoader = iconLoader,
@@ -359,6 +396,26 @@ fun QuietLauncherRoot(
                                 onClearRegionSearch = viewModel::clearRegionSearch,
                                 onRetryWeather = viewModel::retryWeather,
                                 onRefreshCalendars = viewModel::refreshCalendars,
+                                onBack = { viewModel.nav.back() },
+                            )
+                        } else {
+                            EdgeSettingsUnavailable(
+                                onBack = { viewModel.nav.back() },
+                            )
+                        }
+                    }
+                    HomeScreen.SystemSettings -> {
+                        val data = (settingsState as? SettingsState.Ready)?.data
+                        if (data != null) {
+                            SystemActionsSettingsScreen(
+                                initial = data,
+                                serviceEnabled = viewModel.systemServiceEnabled
+                                    .collectAsState().value,
+                                serviceConnected = viewModel.systemServiceConnected
+                                    .collectAsState().value,
+                                onOpenServiceSettings =
+                                    viewModel::openAccessibilitySettings,
+                                onSave = viewModel::saveSettings,
                                 onBack = { viewModel.nav.back() },
                             )
                         } else {
@@ -428,7 +485,10 @@ private fun QuietScreen(
     onContextTap: (ContextRow) -> Unit,
     onContextEdit: (ContextRow) -> Unit,
     onEventTap: (TodayEvent) -> Unit,
-    onUnavailable: () -> Unit,
+    toolRows: List<ToolRow>,
+    onToolTap: (ToolItem) -> Unit,
+    onRevealSettled: () -> Unit,
+    a11yActive: () -> Boolean,
 ) {
     val description = stringResource(R.string.quiet_preview_badge)
     val paneTitle = stringResource(R.string.quiet_pane_title)
@@ -560,6 +620,9 @@ private fun QuietScreen(
                         }
                         visualPanel = null
                         previewToolsExpanded = false
+                        // The surface is fully settled — an armed screenshot
+                        // fires now, exactly once (design 7).
+                        onRevealSettled()
                     }
                 }
             }
@@ -598,6 +661,7 @@ private fun QuietScreen(
                     visualPanel = null
                     dragging = false
                     previewToolsExpanded = false
+                    onRevealSettled()
                 }
                 EdgeDragEvent.Tapped -> {
                     if (side == EdgeSide.Right) onOpenDoPanel(false) else onOpenTodayPanel()
@@ -621,8 +685,13 @@ private fun QuietScreen(
                         isSwipeStartAllowed = { offset ->
                             offset.y < heightPx - systemGestureBottomPx
                         },
-                        doubleTapEnabled =
-                            settings.systemActions.screenOffEnabled,
+                        // Screen-off double tap is suspended while a screen
+                        // reader is active — the home gesture must never
+                        // steal the assistive double tap (design 12).
+                        doubleTapEnabled = {
+                            settings.systemActions.screenOffEnabled &&
+                                !a11yActive()
+                        },
                         wasMultiPointer = { sawMultiPointer },
                         onEvent = onFreeAreaEvent,
                     ),
@@ -692,6 +761,7 @@ private fun QuietScreen(
                     DoPanel(
                         rows = actionRows,
                         contextRows = contextRows,
+                        toolRows = toolRows,
                         toolsExpanded = toolsExpanded,
                         panelWidthPx = panelWidthPx,
                         onExpandTools = onExpandTools,
@@ -702,7 +772,7 @@ private fun QuietScreen(
                         onDerivedOp = onDerivedOp,
                         onContextTap = onContextTap,
                         onContextEdit = onContextEdit,
-                        onUnavailable = onUnavailable,
+                        onToolTap = onToolTap,
                     )
                 } else {
                     TodayPanel(

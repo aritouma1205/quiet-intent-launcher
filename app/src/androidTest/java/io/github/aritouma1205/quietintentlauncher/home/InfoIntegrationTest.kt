@@ -85,6 +85,7 @@ class InfoIntegrationTest {
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
                 onOpenEvent = {},
+                onOpenAccessibilitySettings = {},
             )
         }
         rule.waitForIdle()

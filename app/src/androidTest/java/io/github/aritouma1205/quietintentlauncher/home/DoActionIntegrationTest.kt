@@ -85,6 +85,7 @@ class DoActionIntegrationTest {
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
                 onOpenEvent = {},
+                onOpenAccessibilitySettings = {},
             )
         }
         rule.waitForIdle()

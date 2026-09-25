@@ -3,10 +3,10 @@ package io.github.aritouma1205.quietintentlauncher.search
 import androidx.annotation.StringRes
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
-import io.github.aritouma1205.quietintentlauncher.home.ToolItem
 import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
+import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
 
 /**
  * One resolved row of local search results (design 9.1). The pure matcher in
@@ -59,6 +59,7 @@ enum class SettingsDestination(@param:StringRes val labelRes: Int) {
     ContextSlots(R.string.context_settings_title),
     Search(R.string.search_settings_title),
     Info(R.string.info_settings_title),
+    System(R.string.system_settings_title),
 }
 
 /**

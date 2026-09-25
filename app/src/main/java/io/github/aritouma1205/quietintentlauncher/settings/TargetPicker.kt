@@ -40,13 +40,15 @@ import io.github.aritouma1205.quietintentlauncher.apps.ShortcutEntry
 import io.github.aritouma1205.quietintentlauncher.launch.LinkValidation
 import io.github.aritouma1205.quietintentlauncher.ui.DrawableIcon
 
-/** The assignable target kinds (design 6); system actions are a later stage. */
-private enum class PickerMode { App, Link, Shortcut }
+/** The assignable target kinds (design 6, 7). */
+enum class PickerMode { App, Link, Shortcut }
 
 /**
- * Target picker shared by the action editor, derived-op editor and the
- * intro (design 6, 11.1): アプリ / HTTPSリンク / 公開ショートカット.
- * It never navigates to a store page on its own.
+ * Target picker shared by the action editor, derived-op editor, tool
+ * editor and the intro (design 6, 7, 11.1): アプリ / HTTPSリンク /
+ * 公開ショートカット. [allowedModes] narrows the offered kinds — the tool
+ * targets only accept what the tool can run (design 7). It never navigates
+ * to a store page on its own.
  */
 @Composable
 fun TargetPicker(
@@ -57,6 +59,7 @@ fun TargetPicker(
     shortcutsFor: suspend (String) -> List<ShortcutEntry>,
     onPick: (StoredTarget?) -> Unit,
     onPendingInvalid: (Boolean) -> Unit = {},
+    allowedModes: Set<PickerMode> = PickerMode.entries.toSet(),
 ) {
     var mode by rememberSaveable {
         mutableStateOf(
@@ -68,7 +71,11 @@ fun TargetPicker(
             }.name,
         )
     }
-    val activeMode = PickerMode.valueOf(mode)
+    // A stored mode outside the allowed set (e.g. a link on a tool that
+    // only accepts apps) falls back to the first allowed mode.
+    val requestedMode = PickerMode.valueOf(mode)
+    val activeMode =
+        if (requestedMode in allowedModes) requestedMode else allowedModes.first()
 
     // Bumping this recreates the link editor below so 「解除する」 also
     // resets a pending invalid input and its reported validity, letting an
@@ -82,21 +89,27 @@ fun TargetPicker(
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
         ) {
-            FilterChip(
-                selected = activeMode == PickerMode.App,
-                onClick = { mode = PickerMode.App.name },
-                label = { Text(stringResource(R.string.target_kind_app)) },
-            )
-            FilterChip(
-                selected = activeMode == PickerMode.Link,
-                onClick = { mode = PickerMode.Link.name },
-                label = { Text(stringResource(R.string.target_kind_link)) },
-            )
-            FilterChip(
-                selected = activeMode == PickerMode.Shortcut,
-                onClick = { mode = PickerMode.Shortcut.name },
-                label = { Text(stringResource(R.string.target_kind_shortcut)) },
-            )
+            if (PickerMode.App in allowedModes) {
+                FilterChip(
+                    selected = activeMode == PickerMode.App,
+                    onClick = { mode = PickerMode.App.name },
+                    label = { Text(stringResource(R.string.target_kind_app)) },
+                )
+            }
+            if (PickerMode.Link in allowedModes) {
+                FilterChip(
+                    selected = activeMode == PickerMode.Link,
+                    onClick = { mode = PickerMode.Link.name },
+                    label = { Text(stringResource(R.string.target_kind_link)) },
+                )
+            }
+            if (PickerMode.Shortcut in allowedModes) {
+                FilterChip(
+                    selected = activeMode == PickerMode.Shortcut,
+                    onClick = { mode = PickerMode.Shortcut.name },
+                    label = { Text(stringResource(R.string.target_kind_shortcut)) },
+                )
+            }
             if (current != null) {
                 TextButton(
                     onClick = { clearCount++; onPick(null) },

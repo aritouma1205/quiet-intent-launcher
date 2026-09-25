@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                 onChangeWallpaper = ::openWallpaperPicker,
                 onOpenAppInfo = ::openAppInfo,
                 onOpenEvent = ::openCalendarEvent,
+                onOpenAccessibilitySettings = ::openAccessibilitySettings,
             )
         }
     }
@@ -128,6 +129,19 @@ class MainActivity : ComponentActivity() {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             Toast.makeText(this, R.string.event_no_handler, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * OS accessibility settings — the only place the optional service can
+     * be granted (design 13). The ViewModel already marked this an external
+     * flow, so returning lands back on the system settings screen.
+     */
+    private fun openAccessibilitySettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        } catch (e: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
         }
     }
 

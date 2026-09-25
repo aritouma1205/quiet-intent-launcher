@@ -75,6 +75,7 @@ class HomeInputIntegrationTest {
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
                 onOpenEvent = {},
+                onOpenAccessibilitySettings = {},
             )
         }
         rule.waitForIdle()
@@ -351,9 +352,10 @@ class HomeInputIntegrationTest {
             }
             rule.mainClock.advanceTimeBy(600)
             rule.waitForIdle()
-            // DoubleTap reached the screen-off path (FeatureLater), and no
-            // stray single tap toggled GLANCE along the way.
-            assertTrue(received.contains(HomeMessage.FeatureLater))
+            // DoubleTap reached the screen-off path (service off here, so
+            // it reports SystemServiceOff), and no stray single tap toggled
+            // GLANCE along the way.
+            assertTrue(received.contains(HomeMessage.SystemServiceOff))
             assertNull(viewModel.overlay.value)
         } finally {
             collectJob.cancel()

@@ -17,7 +17,10 @@ import io.github.aritouma1205.quietintentlauncher.search.ExternalSearch
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializer
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsStore
+import io.github.aritouma1205.quietintentlauncher.system.SystemActions
+import io.github.aritouma1205.quietintentlauncher.system.ToolLauncher
 import io.github.aritouma1205.quietintentlauncher.today.TodayDataProvider
+import io.github.aritouma1205.quietintentlauncher.torch.TorchController
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheSerializer
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStore
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherService
@@ -100,6 +103,22 @@ class AppContainer(context: Context) {
 
     /** Read-only Calendar Provider bridge (design 8.1); events stay in memory. */
     val calendarAccess = CalendarAccess(context)
+
+    /**
+     * Torch control (design 7, 13): OS-callback state, foreground-only
+     * subscription, CAMERA requested at first use. No resident service.
+     */
+    val torch = TorchController(context)
+
+    /**
+     * Optional system operations (design 13): the facade the service binds
+     * into; every call re-checks enabled+connected state so a revoked
+     * service fails one operation only.
+     */
+    val systemActions = SystemActions(context)
+
+    /** Timer-list hand-off for the TOOLS row (design 7). */
+    val toolLauncher = ToolLauncher(context)
 
     /** Monotonic + wall clocks, injectable for weather-age tests. */
     val elapsedClock: () -> Long = { SystemClock.elapsedRealtime() }
