@@ -279,7 +279,7 @@ private fun SearchResultRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .padding(vertical = 8.dp),
     ) {
         if (icon != null) {
             Row(
