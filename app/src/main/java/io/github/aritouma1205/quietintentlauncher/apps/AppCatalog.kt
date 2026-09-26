@@ -2,6 +2,7 @@ package io.github.aritouma1205.quietintentlauncher.apps
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.graphics.drawable.Drawable
@@ -18,11 +19,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** One launchable activity of the personal profile. */
+/**
+ * One launchable activity of the personal profile. [category] carries the
+ * declaring application's [android.content.pm.ApplicationInfo.category] for
+ * the design-9.3 grid; it is package metadata shared by every launchable
+ * activity of the package.
+ */
 data class AppEntry(
     val component: ComponentName,
     val user: UserHandle,
     val label: String,
+    val category: AppCategory = AppCategory.Other,
 ) {
     val packageName: String get() = component.packageName
     val key: String get() = component.flattenToShortString()
@@ -138,6 +145,10 @@ class AppCatalog(
                     label = info.label?.toString()
                         ?.takeIf { it.isNotBlank() }
                         ?: info.componentName.packageName,
+                    category = AppCategories.fromOsCategory(
+                        info.applicationInfo?.category
+                            ?: ApplicationInfo.CATEGORY_UNDEFINED,
+                    ),
                 )
             }
             sorted(entries)
@@ -172,6 +183,10 @@ class AppCatalog(
                         label = info.label?.toString()
                             ?.takeIf { it.isNotBlank() }
                             ?: info.componentName.packageName,
+                        category = AppCategories.fromOsCategory(
+                            info.applicationInfo?.category
+                                ?: ApplicationInfo.CATEGORY_UNDEFINED,
+                        ),
                     )
                 }
         }
