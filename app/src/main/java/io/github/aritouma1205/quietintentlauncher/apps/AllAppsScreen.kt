@@ -32,6 +32,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -116,11 +119,13 @@ fun AllAppsScreen(
                         Text(
                             text = stringResource(section.titleRes),
                             style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(
-                                start = 16.dp,
-                                top = 16.dp,
-                                bottom = 4.dp,
-                            ),
+                            modifier = Modifier
+                                .semantics { heading() }
+                                .padding(
+                                    start = 16.dp,
+                                    top = 16.dp,
+                                    bottom = 4.dp,
+                                ),
                         )
                     }
                     items(
@@ -132,6 +137,7 @@ fun AllAppsScreen(
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .combinedClickable(
+                                    onClickLabel = entry.label,
                                     onClick = { onLaunch(entry) },
                                     onLongClick = { detailTarget = entry },
                                 )
@@ -151,9 +157,22 @@ fun AllAppsScreen(
                                             shape = RoundedCornerShape(12.dp),
                                         ),
                                 ) {
+                                    // Decorative only — the label Text below
+                                    // is the spoken name, so this glyph is
+                                    // hidden from TalkBack. First code point
+                                    // keeps surrogate-pair labels intact.
                                     Text(
-                                        text = entry.label.first().toString(),
+                                        text = entry.label
+                                            .takeIf { it.isNotEmpty() }
+                                            ?.let {
+                                                it.substring(
+                                                    0,
+                                                    it.offsetByCodePoints(0, 1),
+                                                )
+                                            }
+                                            ?: "?",
                                         style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.clearAndSetSemantics {},
                                     )
                                 }
                                 DrawableIcon(

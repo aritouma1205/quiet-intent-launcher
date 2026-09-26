@@ -65,6 +65,29 @@ class AppCategoriesTest {
     }
 
     @Test
+    fun `all nine categories emit in the fixed display order`() {
+        // Seeded in reverse so a regression to input order fails loudly.
+        val apps = AppCategory.entries.reversed().map { "app-${it.name}" }
+        val sections = AppCategories.sections(apps, emptyList()) { name ->
+            AppCategory.valueOf(name.removePrefix("app-"))
+        }
+        assertEquals(
+            listOf(
+                R.string.app_category_social,
+                R.string.app_category_productivity,
+                R.string.app_category_audio,
+                R.string.app_category_video,
+                R.string.app_category_image,
+                R.string.app_category_maps,
+                R.string.app_category_news,
+                R.string.app_category_game,
+                R.string.app_category_other,
+            ),
+            titles(sections),
+        )
+    }
+
+    @Test
     fun `empty categories are skipped`() {
         val apps = listOf("social-app", "other-app")
         val sections = AppCategories.sections(apps, emptyList()) { name ->

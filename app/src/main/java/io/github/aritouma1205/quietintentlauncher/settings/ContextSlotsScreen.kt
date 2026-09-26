@@ -175,7 +175,9 @@ fun ContextSlotsScreen(
         // requested, so a later plain visit never re-applies a stale
         // scroll (same contract as DoSettingsScreen).
         onEditFocusConsumed()
-        if (focus != null) {
+        // Out-of-range focus would suspend forever on a never-registered
+        // offset; guard so a stale request can never hang the effect.
+        if (focus != null && focus in draft.contextSlots.indices) {
             val y = snapshotFlow { slotOffsets[focus] }.filterNotNull().first()
             scrollState.animateScrollTo(y)
         }

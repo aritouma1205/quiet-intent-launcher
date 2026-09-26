@@ -155,6 +155,9 @@ fun EdgeBar(
                     onHaptic = onHaptic,
                 )
             }
+            // pointerInput/semantics/systemGestureExclusion must stay outside
+            // the graphicsLayer so the hit rect is untransformed — the visual
+            // scale below must not move where touches land.
             .graphicsLayer {
                 transformOrigin = TransformOrigin(
                     if (side == EdgeSide.Right) 1f else 0f,
