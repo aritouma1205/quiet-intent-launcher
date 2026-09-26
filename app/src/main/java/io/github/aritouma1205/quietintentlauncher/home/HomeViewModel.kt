@@ -659,9 +659,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     /** Opens 「行動・道具」 focused on one tool's row (design 7 導線). */
     fun openToolEditor(tool: ToolItem) {
         _toolEditFocus.value = tool.id
-        // The two edit focuses are mutually exclusive: a stale action
+        // The edit focuses are mutually exclusive: a stale action or slot
         // focus must never win over a tool entry (or the reverse).
         _actionEditFocus.value = null
+        _slotEditFocus.value = null
         overlays.clear()
         nav.navigateTo(HomeScreen.DoSettings)
     }
@@ -842,18 +843,20 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     fun openActionEditor(actionId: String?) {
         _actionEditFocus.value = actionId
         _toolEditFocus.value = null
+        _slotEditFocus.value = null
         overlays.clear()
         nav.navigateTo(HomeScreen.DoSettings)
     }
 
     /**
-     * The 「行動・道具」 screen applied (or found no) pending editor focus.
-     * Focus requests are one-shot: both are cleared here so a later plain
-     * visit never re-opens a stale picker.
+     * An editor screen applied (or found no) pending editor focus.
+     * Focus requests are one-shot: all three channels are cleared here so
+     * a later plain visit never re-opens a stale picker or scroll.
      */
     fun consumeEditFocus() {
         _actionEditFocus.value = null
         _toolEditFocus.value = null
+        _slotEditFocus.value = null
     }
 
     suspend fun shortcutsFor(packageName: String) =
@@ -1047,6 +1050,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     /** Context slot editor entry, optionally focused on one slot. */
     fun openContextSlotEditor(slotIndex: Int?) {
         _slotEditFocus.value = slotIndex
+        // Mutually exclusive with the 「行動・道具」 focuses (see
+        // openToolEditor): a stale focus must never win over this entry.
+        _actionEditFocus.value = null
+        _toolEditFocus.value = null
         overlays.clear()
         nav.navigateTo(HomeScreen.ContextSettings)
     }

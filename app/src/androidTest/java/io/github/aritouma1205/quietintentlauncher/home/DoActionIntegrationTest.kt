@@ -20,6 +20,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import io.github.aritouma1205.quietintentlauncher.MainActivity
 import io.github.aritouma1205.quietintentlauncher.QuietLauncherApp
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.context.ContextRules
 import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.DoActionDefaults
@@ -72,6 +73,10 @@ class DoActionIntegrationTest {
                     notificationHintShown = true,
                     tools = it.tools.copy(openMode = ToolsOpenMode.Tap),
                     actions = DoActionDefaults.defaults(),
+                    // Persisted slots survive suite boundaries: a leftover
+                    // rule renders its action as an extra DO row and makes
+                    // name-based matchers ambiguous.
+                    contextSlots = ContextRules.defaultSlots(),
                 )
             }
         }

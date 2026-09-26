@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
@@ -725,6 +726,128 @@ class SearchContextIntegrationTest {
                 .fetchSemanticsNodes().isNotEmpty() &&
                 rule.onAllNodesWithText("Settings")
                     .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    // ---- Context-slot edit focus (one-shot, mutually exclusive) --------
+
+    private fun seedTallSlotContent() {
+        // Empty default slots fit on one screen, so there is nothing to
+        // scroll. Rules on slot 1 push slot 2 below the fold.
+        val actionId = viewModel.currentSettings().actions.first().id
+        setData { data ->
+            data.copy(
+                contextSlots = data.contextSlots.mapIndexed { i, slot ->
+                    if (i == 0) {
+                        slot.copy(
+                            rules = List(3) {
+                                ContextRule(
+                                    daysOfWeek = emptySet(),
+                                    startMinuteOfDay = 540,
+                                    endMinuteOfDay = 1080,
+                                    actionId = actionId,
+                                )
+                            },
+                        )
+                    } else {
+                        slot
+                    }
+                },
+            )
+        }
+    }
+
+    @Test
+    fun slotFocusScrollsToTheSlotAndIsConsumed() {
+        seedTallSlotContent()
+        try {
+            // A focused entry lands on the requested slot — slot 2 sits
+            // below the fold in the plain render — and the request is
+            // consumed so it can never replay on a later visit.
+            rule.runOnUiThread { viewModel.openContextSlotEditor(1) }
+            rule.waitUntil(timeoutMillis = 5_000) {
+                viewModel.screen.value == HomeScreen.ContextSettings &&
+                    viewModel.slotEditFocus.value == null
+            }
+            // The scroll animation is frame-driven; poll until slot 2
+            // lands on top and slot 1's header has scrolled out of view.
+            rule.waitUntil(timeoutMillis = 5_000) {
+                runCatching {
+                    rule.onNodeWithText(res(R.string.context_slot_title, 2))
+                        .assertIsDisplayed()
+                    rule.onNodeWithText(res(R.string.context_slot_title, 1))
+                        .assertIsNotDisplayed()
+                }.isSuccess
+            }
+        } finally {
+            // Seeded rules persist via the store — never leak them into
+            // other suites (DO renders matching slot rows).
+            setData { it.copy(contextSlots = ContextRules.defaultSlots()) }
+        }
+    }
+
+    @Test
+    fun staleSlotFocusIsNotReappliedOnReentry() {
+        seedTallSlotContent()
+        try {
+            rule.runOnUiThread { viewModel.openContextSlotEditor(1) }
+            rule.waitUntil(timeoutMillis = 5_000) {
+                viewModel.screen.value == HomeScreen.ContextSettings &&
+                    viewModel.slotEditFocus.value == null
+            }
+            rule.runOnUiThread { viewModel.nav.back() }
+            rule.waitUntil(timeoutMillis = 5_000) {
+                viewModel.screen.value == HomeScreen.Quiet
+            }
+            // Let a real Quiet frame compose so the settings composition
+            // is destroyed before the plain re-entry (same coalescing
+            // caveat as the DoSettings focus tests).
+            rule.waitForIdle()
+            // The settings-row path is a bare navigateTo — the regression
+            // vector for a leftover focus replaying its scroll.
+            rule.runOnUiThread {
+                viewModel.nav.navigateTo(HomeScreen.ContextSettings)
+            }
+            rule.waitUntil(timeoutMillis = 5_000) {
+                viewModel.screen.value == HomeScreen.ContextSettings &&
+                    viewModel.slotEditFocus.value == null
+            }
+            // No stale scroll: slot 1's header still sits at the top.
+            rule.onNodeWithText(res(R.string.context_slot_title, 1))
+                .assertIsDisplayed()
+        } finally {
+            setData { it.copy(contextSlots = ContextRules.defaultSlots()) }
+        }
+    }
+
+    @Test
+    fun editorFocusChannelsAreMutuallyExclusive() {
+        val actionId = viewModel.currentSettings().actions.first().id
+        // Action entry after a slot request: the slot focus must not
+        // survive into the DoSettings visit.
+        rule.runOnUiThread {
+            viewModel.openContextSlotEditor(0)
+            viewModel.openActionEditor(actionId)
+            assertNull(viewModel.slotEditFocus.value)
+            assertEquals(actionId, viewModel.actionEditFocus.value)
+        }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.DoSettings &&
+                viewModel.actionEditFocus.value == null
+        }
+        // Slot entry after an action request: the action focus must not
+        // linger into a later plain DoSettings visit either. The pushes
+        // stay stacked — focus bookkeeping is what is under test.
+        rule.runOnUiThread {
+            viewModel.openActionEditor(actionId)
+            viewModel.openContextSlotEditor(0)
+            assertNull(viewModel.actionEditFocus.value)
+            assertNull(viewModel.toolEditFocus.value)
+            assertEquals(0, viewModel.slotEditFocus.value)
+        }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.screen.value == HomeScreen.ContextSettings &&
+                viewModel.slotEditFocus.value == null
         }
     }
 }

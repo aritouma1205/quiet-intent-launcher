@@ -14,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.aritouma1205.quietintentlauncher.QuietLauncherApp
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.context.ContextRules
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import java.util.concurrent.CopyOnWriteArrayList
@@ -62,6 +63,9 @@ class HomeInputIntegrationTest {
                         notificationsEnabled = false,
                         screenOffEnabled = false,
                     ),
+                    // Persisted slots survive suite boundaries; a leftover
+                    // rule renders its action as an extra DO row.
+                    contextSlots = ContextRules.defaultSlots(),
                 )
             }
         }

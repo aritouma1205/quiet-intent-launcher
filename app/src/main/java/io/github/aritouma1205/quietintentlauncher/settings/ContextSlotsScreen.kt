@@ -67,6 +67,7 @@ import kotlinx.serialization.json.Json
 fun ContextSlotsScreen(
     initial: SettingsData,
     focusSlotIndex: Int?,
+    onEditFocusConsumed: () -> Unit = {},
     onSave: (SettingsData, (Boolean) -> Unit) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -169,9 +170,15 @@ fun ContextSlotsScreen(
     val slotOffsets = remember { mutableStateMapOf<Int, Int>() }
 
     LaunchedEffect(Unit) {
-        val focus = focusSlotIndex ?: return@LaunchedEffect
-        val y = snapshotFlow { slotOffsets[focus] }.filterNotNull().first()
-        scrollState.animateScrollTo(y)
+        val focus = focusSlotIndex
+        // Focus requests are one-shot: consumed whether or not a slot was
+        // requested, so a later plain visit never re-applies a stale
+        // scroll (same contract as DoSettingsScreen).
+        onEditFocusConsumed()
+        if (focus != null) {
+            val y = snapshotFlow { slotOffsets[focus] }.filterNotNull().first()
+            scrollState.animateScrollTo(y)
+        }
     }
 
     Column(

@@ -73,4 +73,26 @@ class ContextSlotsDraftTest {
         rule.onAllNodes(hasSetTextAction())[1].assert(hasText("25:00"))
         assertNull(saved)
     }
+
+    @Test
+    fun entryFocusIsConsumedOnComposition() {
+        // The screen must report the pending editor focus as applied so
+        // the ViewModel clears it — focused or not (Issue #14 regression:
+        // an unconsumed focus replayed its scroll on the next visit).
+        var consumed = 0
+        rule.setContent {
+            QuietLauncherTheme {
+                ContextSlotsScreen(
+                    initial = SettingsData().copy(
+                        contextSlots = ContextRules.defaultSlots(),
+                    ),
+                    focusSlotIndex = 1,
+                    onEditFocusConsumed = { consumed++ },
+                    onSave = { _, done -> done(true) },
+                    onBack = {},
+                )
+            }
+        }
+        rule.waitUntil(timeoutMillis = 5_000) { consumed == 1 }
+    }
 }
