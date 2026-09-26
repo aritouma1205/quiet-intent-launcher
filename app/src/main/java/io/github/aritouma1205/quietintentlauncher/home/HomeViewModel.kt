@@ -1506,8 +1506,9 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         // the enabled-services observer only run while the UI is up. The
         // enabled bit is re-read now — a revoke while away is seen here.
         container.torch.setObserving(true)
+        // setObserving already re-read the OS enabled bit — re-reading
+        // here would only double the Settings.Secure binder calls.
         container.systemActions.setObserving(true)
-        container.systemActions.isEnabledInOs()
         refreshToolRows()
         // Designed refresh points (design 8): repaint the clock faces,
         // re-read events (permission may have been revoked), and let the
