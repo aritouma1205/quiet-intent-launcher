@@ -28,6 +28,66 @@ enum class FreeAreaEvent {
     SwipeDown,
 }
 
+/** One pointer observation handed to [PointerLatch]. */
+internal data class PointerSample(
+    val id: PointerId,
+    val position: Offset,
+    val pressed: Boolean,
+    val previousPressed: Boolean,
+)
+
+/**
+ * Whole-surface pointer latch (design 4.2, 5): remembers which pointers are
+ * down and which have travelled past touch slop, so every detector can tell
+ * a real second finger from a resting palm.
+ *
+ * The sets are reconciled against each event's pressed pointers before the
+ * event is applied: a release or OS cancel that never reached this stream
+ * — lost while the process was frozen or the window re-attached — must not
+ * leave a stale entry that would keep canceling every later gesture
+ * (Issue #16). Stale ids are dropped on the next event instead.
+ */
+internal class PointerLatch(private val slopPx: Float) {
+    private val downAt = mutableMapOf<PointerId, Offset>()
+    private val moved = mutableSetOf<PointerId>()
+
+    /** Any pointer currently down on this surface. */
+    val anyActive: Boolean get() = downAt.isNotEmpty()
+
+    /** A *different* pointer that moved past slop — the real second input. */
+    fun multiActive(own: PointerId): Boolean = moved.any { it != own }
+
+    fun onEvent(changes: List<PointerSample>) {
+        // Ids absent from this event's pressed set are gone even if their
+        // release/cancel was never delivered; prune them first. Reconcile
+        // only when the event actually carries pressed pointers: hover and
+        // scroll events list no touch pointers at all, so an empty live set
+        // must not evict a held finger (R-1). Real releases still clean up
+        // through the up-transition branch below.
+        val live = HashSet<PointerId>(changes.size)
+        for (c in changes) if (c.pressed) live += c.id
+        if (live.isNotEmpty()) {
+            downAt.keys.retainAll(live)
+            moved.retainAll(live)
+        }
+        for (c in changes) {
+            when {
+                c.pressed && !c.previousPressed -> downAt[c.id] = c.position
+                !c.pressed && c.previousPressed -> {
+                    downAt.remove(c.id)
+                    moved.remove(c.id)
+                }
+                c.pressed -> {
+                    val origin = downAt.getOrPut(c.id) { c.position }
+                    if ((c.position - origin).getDistance() > slopPx) {
+                        moved += c.id
+                    }
+                }
+            }
+        }
+    }
+}
+
 /**
  * Per-gesture suppression shared by the free-area detectors. Once a
  * long-press has fired, a late vertical move of the same input must not turn

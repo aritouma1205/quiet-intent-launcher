@@ -41,15 +41,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -517,44 +514,29 @@ private fun QuietScreen(
     // actually moved — only a contact that travels past touch slop counts
     // as a second input, so a palm or spare finger resting at the screen
     // edge never kills a one-handed gesture.
-    val activePointerIds = remember { mutableSetOf<PointerId>() }
-    val pointerDownAt = remember { mutableMapOf<PointerId, Offset>() }
-    val movedPointerIds = remember { mutableStateSetOf<PointerId>() }
+    val viewConfiguration = LocalViewConfiguration.current
+    val pointerLatch = remember { PointerLatch(viewConfiguration.touchSlop) }
 
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                val slopPx = viewConfiguration.touchSlop
                 while (true) {
                     awaitPointerEventScope {
                         val event = awaitPointerEvent()
-                        for (change in event.changes) {
-                            when {
-                                change.pressed && !change.previousPressed -> {
-                                    activePointerIds += change.id
-                                    pointerDownAt[change.id] = change.position
-                                }
-                                !change.pressed && change.previousPressed -> {
-                                    activePointerIds -= change.id
-                                    pointerDownAt.remove(change.id)
-                                    movedPointerIds.remove(change.id)
-                                }
-                                change.pressed -> {
-                                    val origin = pointerDownAt
-                                        .getOrPut(change.id) { change.position }
-                                    if (
-                                        (change.position - origin)
-                                            .getDistance() > slopPx
-                                    ) {
-                                        movedPointerIds.add(change.id)
-                                    }
-                                }
-                            }
-                        }
+                        pointerLatch.onEvent(
+                            event.changes.map { change ->
+                                PointerSample(
+                                    id = change.id,
+                                    position = change.position,
+                                    pressed = change.pressed,
+                                    previousPressed = change.previousPressed,
+                                )
+                            },
+                        )
                         // Any finger resting anywhere on the surface pauses
                         // the GLANCE auto-dismiss (design 8.3 触っている間).
-                        onGlanceHold(activePointerIds.isNotEmpty())
+                        onGlanceHold(pointerLatch.anyActive)
                     }
                 }
             }
@@ -696,7 +678,6 @@ private fun QuietScreen(
 
         val barsVisible = overlay == null || overlay == HomeOverlay.Glance
         val freeAreaGate = remember { FreeAreaGate() }
-        val viewConfiguration = LocalViewConfiguration.current
 
         // Free area first (bottom layer); bars and overlays sit above it, so
         // touches inside a bar never reach the free area (design 5 order).
@@ -719,9 +700,7 @@ private fun QuietScreen(
                             settings.systemActions.screenOffEnabled &&
                                 !touchExplorationActive()
                         },
-                        multiPointerActive = { id ->
-                            movedPointerIds.any { it != id }
-                        },
+                        multiPointerActive = pointerLatch::multiActive,
                         onEvent = onFreeAreaEvent,
                     ),
             )
@@ -738,9 +717,7 @@ private fun QuietScreen(
                 toolsThreshold = settings.tools.deepPullFraction,
                 hapticsEnabled = settings.vibration == VibrationMode.System,
                 openLabel = stringResource(R.string.edge_bar_open_today),
-                multiPointerActive = { id ->
-                    movedPointerIds.any { it != id }
-                },
+                multiPointerActive = pointerLatch::multiActive,
                 onEvent = ::handleBarEvent,
                 onHaptic = {
                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
@@ -759,9 +736,7 @@ private fun QuietScreen(
                 toolsThreshold = settings.tools.deepPullFraction,
                 hapticsEnabled = settings.vibration == VibrationMode.System,
                 openLabel = stringResource(R.string.edge_bar_open_do),
-                multiPointerActive = { id ->
-                    movedPointerIds.any { it != id }
-                },
+                multiPointerActive = pointerLatch::multiActive,
                 onEvent = ::handleBarEvent,
                 onHaptic = {
                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
