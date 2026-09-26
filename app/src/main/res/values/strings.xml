@@ -25,6 +25,7 @@
     <string name="tools_expand">TOOLS</string>
     <string name="tools_title">TOOLS</string>
     <string name="tools_back_to_do">DOに戻る</string>
+    <string name="tools_count">%1$d件</string>
     <string name="feature_later">この機能は今後の段階で追加されます</string>
     <string name="notification_hint">下スワイプで通知を開くには、設定の「システム操作」で通知を有効にしてください</string>
 
@@ -130,6 +131,7 @@
     <string name="event_tomorrow">明日 %1$s</string>
     <string name="event_allday">終日</string>
     <string name="event_no_handler">この予定を開けるアプリがありません</string>
+    <string name="today_upcoming">これから</string>
 
     <!-- Weather labels (design 8.2: WMO weather codes; unknown → 天気情報) -->
     <string name="weather_clear">快晴</string>

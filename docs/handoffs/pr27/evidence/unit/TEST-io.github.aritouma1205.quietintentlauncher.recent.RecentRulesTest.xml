@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-26T17:22:20.002Z" hostname="DESKTOP-C13D2IN" time="0.016">
+  <properties/>
+  <testcase name="recorded drops the oldest entry when the cap is exceeded" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.005"/>
+  <testcase name="recorded prunes an expired existing entry" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.0"/>
+  <testcase name="normalize caps the list at twenty entries" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.0"/>
+  <testcase name="stable keys differ per target kind" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.008"/>
+  <testcase name="normalize sorts newest first" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.0"/>
+  <testcase name="recorded adds a new target at the front" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.0"/>
+  <testcase name="recorded keeps distinct kinds as separate entries" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.001"/>
+  <testcase name="empty input stays empty" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.0"/>
+  <testcase name="an entry older than thirty days is dropped" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.0"/>
+  <testcase name="recorded moves an existing target to the front without duplicating" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.0"/>
+  <testcase name="an entry exactly thirty days old is kept" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.001"/>
+  <testcase name="normalize removes duplicate targets keeping the newest" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentRulesTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

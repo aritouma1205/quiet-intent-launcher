@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-26T17:22:20.200Z" hostname="DESKTOP-C13D2IN" time="0.53">
+  <properties/>
+  <testcase name="expired entries are dropped on load" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.142"/>
+  <testcase name="absent file starts empty" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.032"/>
+  <testcase name="corrupted file is deleted and the store starts empty" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.053"/>
+  <testcase name="failed write returns false and keeps the in-memory list" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.029"/>
+  <testcase name="clear empties the list" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.034"/>
+  <testcase name="a concurrent clear is never resurrected by the pruning write" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.03"/>
+  <testcase name="recording the same target keeps a single entry" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.029"/>
+  <testcase name="recorded entries are newest first and capped at twenty" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.041"/>
+  <testcase name="unwritable path starts empty without crashing" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.044"/>
+  <testcase name="expired entries are pruned back to storage on load" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.024"/>
+  <testcase name="record writes a new file and reflects in entries" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.04"/>
+  <testcase name="prune removes entries that expired after load" classname="io.github.aritouma1205.quietintentlauncher.recent.RecentStoreTest" time="0.03"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

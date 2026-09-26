@@ -2,7 +2,6 @@ package io.github.aritouma1205.quietintentlauncher.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -25,9 +24,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +39,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -48,7 +49,10 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
@@ -77,6 +81,16 @@ private val PanelScrim = Color.Black.copy(alpha = 0.72f)
 // Hairline outline so the scrim edge reads as a boundary without turning
 // the panel into a card (design 12).
 private val PanelHairline = Color.White.copy(alpha = 0.08f)
+
+/** Section hairline between panel clusters (v1.2): boundary, not card. */
+@Composable
+private fun PanelDivider() {
+    HorizontalDivider(
+        color = PanelHairline,
+        thickness = 1.dp,
+        modifier = Modifier.padding(vertical = 12.dp),
+    )
+}
 
 /**
  * Sliding Reveal panel with an outside scrim (design 3, 4.3).
@@ -122,7 +136,23 @@ fun PanelLayer(
                     )
                 }
                 .background(PanelScrim)
-                .border(1.dp, PanelHairline)
+                // Hairline on the inner edge only (v1.2): a full border
+                // reads as a floating card; a single edge line reads as a
+                // sheet sliding out from the screen edge.
+                .drawBehind {
+                    val stroke = 1.dp.toPx()
+                    val x = if (side == EdgeSide.Right) {
+                        stroke / 2f
+                    } else {
+                        size.width - stroke / 2f
+                    }
+                    drawLine(
+                        color = PanelHairline,
+                        start = Offset(x, 0f),
+                        end = Offset(x, size.height),
+                        strokeWidth = stroke,
+                    )
+                }
                 .semantics { this.paneTitle = paneTitle }
                 .statusBarsPadding()
                 .navigationBarsPadding(),
@@ -254,7 +284,9 @@ fun DoPanel(
                     text = stringResource(R.string.context_now_heading),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                    modifier = Modifier
+                        .padding(top = 24.dp, bottom = 8.dp)
+                        .semantics { heading() },
                 )
                 contextRows.forEach { row ->
                     ContextRowItem(
@@ -265,13 +297,42 @@ fun DoPanel(
                 }
             }
 
-            OutlinedButton(
-                onClick = onExpandTools,
+            // Quiet tools row (v1.2): the panel's loudest element must not
+            // be the auxiliary TOOLS shortcut — hairline + a plain row with
+            // the visible-tool count instead of a full-width button.
+            PanelDivider()
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
+                    .defaultMinSize(minHeight = 48.dp)
+                    .clickable(
+                        onClickLabel = stringResource(R.string.tools_expand),
+                        role = Role.Button,
+                        onClick = onExpandTools,
+                    )
+                    .padding(vertical = 8.dp),
             ) {
-                Text(stringResource(R.string.tools_expand))
+                Text(
+                    text = stringResource(R.string.tools_expand),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = stringResource(R.string.tools_count, toolRows.size),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f),
+                )
+                Text(
+                    text = "›",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        // Decorative affordance glyph — keep the merged row
+                        // label as "TOOLS · N件" only.
+                        .clearAndSetSemantics {},
+                )
             }
 
             if (toolsExpanded) {
@@ -647,56 +708,65 @@ fun TodayPanel(
             panelWidthPx = panelWidthPx,
             onClose = onClose,
         )
+        // Time-distance clusters (v1.2): dense inside a cluster, hairline
+        // separation between them — the uniform 16dp grid made every block
+        // read at equal strength.
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Column {
+            // Now: date+weekday on one line, weather packed right below.
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = state.dateText,
+                    text = "${state.dateText} ${state.weekdayText}",
                     style = MaterialTheme.typography.headlineMedium,
                 )
-                Text(
-                    text = state.weekdayText,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-
-            state.weather?.let { weather ->
-                Column {
-                    Text(
-                        text = stringResource(
-                            R.string.today_weather_line,
-                            weather.temperatureCelsius.roundToInt(),
-                            stringResource(weather.labelRes),
-                        ),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.weather_region_provider,
-                            weather.regionName,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f),
-                    )
-                    if (!weather.fresh) {
+                state.weather?.let { weather ->
+                    Column {
                         Text(
                             text = stringResource(
-                                R.string.weather_updated_at,
-                                timeFormat.format(Date(weather.fetchedAtWallMs)),
+                                R.string.today_weather_line,
+                                weather.temperatureCelsius.roundToInt(),
+                                stringResource(weather.labelRes),
+                            ),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.weather_region_provider,
+                                weather.regionName,
                             ),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.6f),
                         )
+                        if (!weather.fresh) {
+                            Text(
+                                text = stringResource(
+                                    R.string.weather_updated_at,
+                                    timeFormat.format(
+                                        Date(weather.fetchedAtWallMs),
+                                    ),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.6f),
+                            )
+                        }
                     }
                 }
             }
 
             if (state.events.isNotEmpty()) {
+                PanelDivider()
+                Text(
+                    text = stringResource(R.string.today_upcoming),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .padding(bottom = 4.dp)
+                        .semantics { heading() },
+                )
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     state.events.forEach { event ->
                         EventRowItem(
@@ -709,13 +779,17 @@ fun TodayPanel(
             }
 
             state.batteryPercent?.let { percent ->
+                PanelDivider()
                 Text(
                     text = if (state.charging) {
                         stringResource(R.string.today_battery_charging, percent)
                     } else {
                         stringResource(R.string.today_battery, percent)
                     },
-                    style = MaterialTheme.typography.bodyLarge,
+                    // Ambient info is the weakest layer (v1.2): demoted from
+                    // bodyLarge to quiet footer size.
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f),
                 )
             }
         }
