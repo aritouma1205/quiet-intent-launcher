@@ -59,11 +59,17 @@ internal class PointerLatch(private val slopPx: Float) {
 
     fun onEvent(changes: List<PointerSample>) {
         // Ids absent from this event's pressed set are gone even if their
-        // release/cancel was never delivered; prune them first.
+        // release/cancel was never delivered; prune them first. Reconcile
+        // only when the event actually carries pressed pointers: hover and
+        // scroll events list no touch pointers at all, so an empty live set
+        // must not evict a held finger (R-1). Real releases still clean up
+        // through the up-transition branch below.
         val live = HashSet<PointerId>(changes.size)
         for (c in changes) if (c.pressed) live += c.id
-        downAt.keys.retainAll(live)
-        moved.retainAll(live)
+        if (live.isNotEmpty()) {
+            downAt.keys.retainAll(live)
+            moved.retainAll(live)
+        }
         for (c in changes) {
             when {
                 c.pressed && !c.previousPressed -> downAt[c.id] = c.position

@@ -26,6 +26,9 @@ class PointerLatchTest {
     private fun up(id: Long, x: Float = 0f, y: Float = 0f) =
         PointerSample(PointerId(id), Offset(x, y), pressed = false, previousPressed = true)
 
+    private fun hover(id: Long, x: Float = 300f, y: Float = 300f) =
+        PointerSample(PointerId(id), Offset(x, y), pressed = false, previousPressed = false)
+
     @Test
     fun `single finger that moved does not count as a second input`() {
         val l = latch()
@@ -78,6 +81,23 @@ class PointerLatchTest {
         l.onEvent(listOf(down(1, 900f, 400f)))
         assertFalse(l.multiActive(PointerId(1)))
         assertFalse(l.multiActive(PointerId(0)))
+    }
+
+    /**
+     * R-1 (PR #22 review): hover/scroll events carry no touch pointers in
+     * their changes list. Without the live-nonempty guard a single hover
+     * during a touch would evict the held finger — briefly flipping
+     * anyActive to false (an onGlanceHold(false) blip) and dropping the
+     * moved tracking that suppresses phantom second-finger gestures.
+     */
+    @Test
+    fun `a hover event does not evict a held touch`() {
+        val l = latch()
+        l.onEvent(listOf(down(0)))
+        l.onEvent(listOf(move(0, 60f, 0f))) // held finger past slop
+        l.onEvent(listOf(hover(9)))         // pure hover: no pressed touch
+        assertTrue(l.anyActive)
+        assertTrue(l.multiActive(PointerId(1)))
     }
 
     @Test
