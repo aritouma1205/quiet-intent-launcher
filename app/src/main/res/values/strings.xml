@@ -262,6 +262,15 @@
     <string name="all_apps_launch_failed">このアプリを起動できませんでした</string>
     <string name="all_apps_duplicate">このアプリは既に起動しています</string>
     <string name="app_info">アプリ情報</string>
+    <string name="app_category_social">SNS</string>
+    <string name="app_category_productivity">仕事・ツール</string>
+    <string name="app_category_audio">音楽・オーディオ</string>
+    <string name="app_category_video">動画</string>
+    <string name="app_category_image">写真・画像</string>
+    <string name="app_category_maps">地図・ナビ</string>
+    <string name="app_category_news">ニュース</string>
+    <string name="app_category_game">ゲーム</string>
+    <string name="app_category_other">その他</string>
 
     <!-- Settings -->
     <string name="settings_title">設定</string>
