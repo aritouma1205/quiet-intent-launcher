@@ -2,6 +2,7 @@ package io.github.aritouma1205.quietintentlauncher.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -74,6 +75,10 @@ import kotlinx.coroutines.flow.first
 /** Panel background: dark screen at the design's initial 72% (design 12). */
 private val PanelScrim = Color.Black.copy(alpha = 0.72f)
 
+// Hairline outline so the scrim edge reads as a boundary without turning
+// the panel into a card (design 12).
+private val PanelHairline = Color.White.copy(alpha = 0.08f)
+
 /**
  * Sliding Reveal panel with an outside scrim (design 3, 4.3).
  *
@@ -118,6 +123,7 @@ fun PanelLayer(
                     )
                 }
                 .background(PanelScrim)
+                .border(1.dp, PanelHairline)
                 .semantics { this.paneTitle = paneTitle }
                 .statusBarsPadding()
                 .navigationBarsPadding(),
@@ -249,7 +255,7 @@ fun DoPanel(
                     text = stringResource(R.string.context_now_heading),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
                 )
                 contextRows.forEach { row ->
                     ContextRowItem(
@@ -436,10 +442,14 @@ private fun ToolRowItem(
                 },
                 onClick = onTap,
             )
-            .padding(vertical = 10.dp),
+            .padding(vertical = 8.dp),
     ) {
         Column {
-            Text(text = name, fontSize = 16.sp)
+            Text(
+                text = name,
+                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleMedium,
+            )
             if (statusText != null) {
                 StatusLine(text = statusText)
             }
@@ -469,7 +479,7 @@ private fun ContextRowItem(
                 onLongClickLabel = stringResource(R.string.do_action_menu),
                 onLongClick = onLongPress,
             )
-            .padding(vertical = 10.dp),
+            .padding(vertical = 8.dp),
     ) {
         Icon(
             imageVector = row.action.icon.imageVector(),
@@ -481,6 +491,7 @@ private fun ContextRowItem(
             Text(
                 text = row.action.name,
                 fontSize = 20.sp,
+                style = MaterialTheme.typography.titleMedium,
             )
             StatusLine(
                 text = row.slotLabel.ifBlank { contextReason(row.matchedRule) },
@@ -560,7 +571,7 @@ private fun ActionRowItem(
                 onLongClickLabel = stringResource(R.string.do_action_menu),
                 onLongClick = onLongPress,
             )
-            .padding(vertical = 10.dp),
+            .padding(vertical = 8.dp),
     ) {
         Icon(
             imageVector = row.action.icon.imageVector(),
@@ -572,6 +583,7 @@ private fun ActionRowItem(
             Text(
                 text = row.action.name,
                 fontSize = 20.sp,
+                style = MaterialTheme.typography.titleMedium,
             )
             when (val status = row.status) {
                 ActionStatus.Unset -> StatusLine(
@@ -641,7 +653,7 @@ fun TodayPanel(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Column {
                 Text(
@@ -754,7 +766,7 @@ private fun EventRowItem(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 48.dp)
             .clickable(onClick = onClick)
-            .padding(vertical = 6.dp)
+            .padding(vertical = 8.dp)
             .semantics { contentDescription = "$label $title" },
     ) {
         Text(

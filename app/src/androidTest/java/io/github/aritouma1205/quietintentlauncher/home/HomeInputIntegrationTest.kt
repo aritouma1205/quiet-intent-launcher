@@ -209,6 +209,71 @@ class HomeInputIntegrationTest {
         assertEquals(HomeOverlay.Do(toolsExpanded = true), viewModel.overlay.value)
     }
 
+    // ---- Bar visual feedback (design 12) ----------------------------------
+
+    @Test
+    fun pressAndDragDriveBarVisualState() {
+        // The bar must paint the touch as it happens: pressed on down,
+        // progress while dragging, cleared on release.
+        val seen = CopyOnWriteArrayList<EdgeBarVisual>()
+        edgeBarVisualProbe = { seen += it }
+        try {
+            val bar = rule.onNodeWithContentDescription(
+                res(R.string.edge_bar_open_do),
+            )
+            bar.performTouchInput { down(center) }
+            rule.waitForIdle()
+            assertTrue(seen.last().pressed)
+            assertEquals(0f, seen.last().progress)
+            bar.performTouchInput { moveTo(center + Offset(-160f, 0f)) }
+            rule.waitForIdle()
+            assertTrue(seen.last().pressed)
+            assertTrue(seen.last().progress > 0f)
+            bar.performTouchInput { up() }
+            rule.waitForIdle()
+            assertEquals(EdgeBarVisual(), seen.last())
+        } finally {
+            edgeBarVisualProbe = null
+        }
+    }
+
+    @Test
+    fun deepPullThresholdArmsBarVisual() {
+        // Reaching the TOOLS depth marks the visual while the drag is
+        // still held — it does not wait for release.
+        val app = InstrumentationRegistry.getInstrumentation()
+            .targetContext.applicationContext as QuietLauncherApp
+        runBlocking {
+            app.container.settingsStore.update {
+                it.copy(tools = it.tools.copy(openMode = ToolsOpenMode.DeepPull))
+            }
+        }
+        rule.waitForIdle()
+        val seen = CopyOnWriteArrayList<EdgeBarVisual>()
+        edgeBarVisualProbe = { seen += it }
+        try {
+            val bar = rule.onNodeWithContentDescription(
+                res(R.string.edge_bar_open_do),
+            )
+            bar.performTouchInput {
+                down(center)
+                moveTo(center + Offset(-900f, 0f))
+            }
+            rule.waitForIdle()
+            assertTrue(seen.last().pressed)
+            assertTrue(seen.last().toolsExpanded)
+            bar.performTouchInput { up() }
+            rule.waitForIdle()
+            assertEquals(
+                HomeOverlay.Do(toolsExpanded = true),
+                viewModel.overlay.value,
+            )
+            assertEquals(EdgeBarVisual(), seen.last())
+        } finally {
+            edgeBarVisualProbe = null
+        }
+    }
+
     // ---- Free area --------------------------------------------------------
 
     @Test
