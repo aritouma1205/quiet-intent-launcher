@@ -74,6 +74,8 @@
     <string name="target_shortcut_needs_home">公開ショートカットの利用には、このアプリをホームアプリに設定する必要があります</string>
     <string name="target_shortcut_empty">公開されているショートカットはありません</string>
     <string name="target_shortcut_pick_app">ショートカット元のアプリを選んでください</string>
+    <string name="picker_search_hint">アプリを検索</string>
+    <string name="picker_no_results">一致するアプリがありません</string>
     <string name="action_error_name">1〜24文字の名前を入力してください（空白のみは使えません）</string>
     <string name="action_error_alias">別名は各1〜32文字・最大8個です</string>
     <string name="action_error_ops">派生操作は最大6件です</string>

@@ -11,13 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -32,15 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.ui.DeepScrim
-import io.github.aritouma1205.quietintentlauncher.ui.DrawableIcon
 
 /**
  * All launchable apps of the personal profile (design 9.3): a 「最近」
@@ -132,73 +126,18 @@ fun AllAppsScreen(
                         section.apps,
                         key = { "${section.titleRes}:${it.key}" },
                     ) { entry ->
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                        AppGridCell(
+                            entry = entry,
+                            showPackage = entry.label in duplicatedLabels,
+                            iconLoader = iconLoader,
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .combinedClickable(
                                     onClickLabel = entry.label,
                                     onClick = { onLaunch(entry) },
                                     onLongClick = { detailTarget = entry },
-                                )
-                                .padding(horizontal = 4.dp, vertical = 8.dp),
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.size(48.dp),
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme
-                                                .onSurface.copy(alpha = 0.10f),
-                                            shape = RoundedCornerShape(12.dp),
-                                        ),
-                                ) {
-                                    // Decorative only — the label Text below
-                                    // is the spoken name, so this glyph is
-                                    // hidden from TalkBack. First code point
-                                    // keeps surrogate-pair labels intact.
-                                    Text(
-                                        text = entry.label
-                                            .takeIf { it.isNotEmpty() }
-                                            ?.let {
-                                                it.substring(
-                                                    0,
-                                                    it.offsetByCodePoints(0, 1),
-                                                )
-                                            }
-                                            ?: "?",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.clearAndSetSemantics {},
-                                    )
-                                }
-                                DrawableIcon(
-                                    loader = { iconLoader(entry) },
-                                    contentDescription = null,
-                                    modifier = Modifier.size(48.dp),
-                                )
-                            }
-                            Text(
-                                text = entry.label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                            if (entry.label in duplicatedLabels) {
-                                Text(
-                                    text = entry.packageName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center,
-                                )
-                            }
-                        }
+                                ),
+                        )
                     }
                 }
             }

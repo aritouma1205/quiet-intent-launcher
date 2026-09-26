@@ -9,8 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -18,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,13 +37,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.apps.AppCategories
 import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
+import io.github.aritouma1205.quietintentlauncher.apps.AppGridCell
 import io.github.aritouma1205.quietintentlauncher.apps.ShortcutEntry
 import io.github.aritouma1205.quietintentlauncher.launch.LinkValidation
-import io.github.aritouma1205.quietintentlauncher.ui.DrawableIcon
+import io.github.aritouma1205.quietintentlauncher.search.SearchNormalize
 
 /** The assignable target kinds (design 6, 7). */
 enum class PickerMode { App, Link, Shortcut }
@@ -57,6 +66,7 @@ fun TargetPicker(
     iconLoader: (AppEntry) -> Drawable?,
     isHomeRoleHeld: Boolean,
     shortcutsFor: suspend (String) -> List<ShortcutEntry>,
+    recents: List<AppEntry> = emptyList(),
     onPick: (StoredTarget?) -> Unit,
     onPendingInvalid: (Boolean) -> Unit = {},
     allowedModes: Set<PickerMode> = PickerMode.entries.toSet(),
@@ -123,6 +133,7 @@ fun TargetPicker(
         when (activeMode) {
             PickerMode.App -> AppPickList(
                 apps = apps,
+                recents = recents,
                 iconLoader = iconLoader,
                 onPick = { entry ->
                     onPick(StoredTarget.App(entry.component.flattenToShortString()))
@@ -137,6 +148,7 @@ fun TargetPicker(
             }
             PickerMode.Shortcut -> ShortcutPickList(
                 apps = apps,
+                recents = recents,
                 iconLoader = iconLoader,
                 isHomeRoleHeld = isHomeRoleHeld,
                 shortcutsFor = shortcutsFor,
@@ -148,13 +160,22 @@ fun TargetPicker(
     }
 }
 
-/** App list shared by the target picker and the intro assignment dialog. */
+/**
+ * App list shared by the target picker and the intro assignment dialog
+ * (design-apppicker-v1_2): a search field over the same categorized grid
+ * model as All Apps — 「最近」 first, then [AppCategories] sections — using
+ * the shared [AppGridCell]. The grid is height-bounded because every host
+ * renders inside its own scrollable container (settings page, dialog).
+ */
 @Composable
 fun AppPickList(
     apps: List<AppEntry>?,
+    recents: List<AppEntry> = emptyList(),
     iconLoader: (AppEntry) -> Drawable?,
     onPick: (AppEntry) -> Unit,
 ) {
+    var query by rememberSaveable { mutableStateOf("") }
+
     when {
         apps == null -> Box(
             modifier = Modifier
@@ -164,42 +185,86 @@ fun AppPickList(
         ) {
             CircularProgressIndicator()
         }
-        apps.isEmpty() -> Text(
+        apps.isEmpty() && recents.isEmpty() -> Text(
             text = stringResource(R.string.all_apps_empty),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(vertical = 16.dp),
         )
-        else -> Column {
-            apps.forEach { entry ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+        else -> {
+            val normalizedQuery = SearchNormalize.normalize(query)
+            val filtered = remember(apps, recents, normalizedQuery) {
+                fun matches(entry: AppEntry) = normalizedQuery.isEmpty() ||
+                    SearchNormalize.normalize(entry.label)
+                        .contains(normalizedQuery)
+                apps.filter(::matches) to recents.filter(::matches)
+            }
+            val (filteredApps, filteredRecents) = filtered
+            val duplicatedLabels = remember(filteredApps) {
+                filteredApps.groupingBy { it.label }.eachCount()
+                    .filterValues { it > 1 }.keys
+            }
+            val sections = remember(filteredApps, filteredRecents) {
+                AppCategories.sections(filteredApps, filteredRecents) {
+                    it.category
+                }
+            }
+
+            Column(Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text(stringResource(R.string.picker_search_hint)) },
+                    singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .defaultMinSize(minHeight = 48.dp)
-                        .clickable(
-                            onClickLabel = entry.label,
-                            onClick = { onPick(entry) },
-                        )
-                        .padding(vertical = 6.dp),
-                ) {
-                    DrawableIcon(
-                        loader = { iconLoader(entry) },
-                        contentDescription = null,
-                        modifier = Modifier.size(32.dp),
+                        .padding(top = 8.dp, bottom = 4.dp),
+                )
+                if (sections.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.picker_no_results),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(vertical = 16.dp),
                     )
-                    Column(Modifier.padding(start = 12.dp)) {
-                        Text(
-                            text = entry.label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = entry.packageName,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                } else {
+                    // Bounded height: the host scrolls the page, this grid
+                    // scrolls inside its own region.
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 88.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp),
+                    ) {
+                        sections.forEach { section ->
+                            item(
+                                key = "header:${section.titleRes}",
+                                span = { GridItemSpan(maxLineSpan) },
+                            ) {
+                                Text(
+                                    text = stringResource(section.titleRes),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier
+                                        .semantics { heading() }
+                                        .padding(top = 16.dp, bottom = 4.dp),
+                                )
+                            }
+                            items(
+                                section.apps,
+                                key = { "${section.titleRes}:${it.key}" },
+                            ) { entry ->
+                                AppGridCell(
+                                    entry = entry,
+                                    showPackage =
+                                        entry.label in duplicatedLabels,
+                                    iconLoader = iconLoader,
+                                    modifier = Modifier
+                                        .minimumInteractiveComponentSize()
+                                        .clickable(
+                                            onClickLabel = entry.label,
+                                            onClick = { onPick(entry) },
+                                        ),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -270,6 +335,7 @@ private fun HttpsLinkEditor(
 @Composable
 private fun ShortcutPickList(
     apps: List<AppEntry>?,
+    recents: List<AppEntry>,
     iconLoader: (AppEntry) -> Drawable?,
     isHomeRoleHeld: Boolean,
     shortcutsFor: suspend (String) -> List<ShortcutEntry>,
@@ -295,6 +361,7 @@ private fun ShortcutPickList(
         )
         AppPickList(
             apps = apps,
+            recents = recents,
             iconLoader = iconLoader,
             onPick = { packageName = it.packageName },
         )

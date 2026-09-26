@@ -1,5 +1,7 @@
 package io.github.aritouma1205.quietintentlauncher.settings
 
+import android.content.ComponentName
+import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -22,6 +24,8 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.aritouma1205.quietintentlauncher.R
+import io.github.aritouma1205.quietintentlauncher.apps.AppCategory
+import io.github.aritouma1205.quietintentlauncher.apps.AppEntry
 import io.github.aritouma1205.quietintentlauncher.ui.QuietLauncherTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -42,6 +46,13 @@ class DoSettingsDraftTest {
     val rule = createAndroidComposeRule<ComponentActivity>()
 
     private fun res(id: Int): String = rule.activity.getString(id)
+
+    private fun fakeApp(packageName: String, label: String) = AppEntry(
+        component = ComponentName(packageName, "$packageName.Main"),
+        user = Process.myUserHandle(),
+        label = label,
+        category = AppCategory.Other,
+    )
 
     /**
      * The confirm dialog lives in a Popup whose first layout can land
@@ -269,6 +280,65 @@ class DoSettingsDraftTest {
 
         assertEquals(1, saveAttempts)
         assertEquals(null, saved?.actions?.first()?.target)
+    }
+
+    @Test
+    fun pickerSearchFiltersGridAndPickSetsTarget() {
+        // v1.2 (Issue #26): the app picker is a categorized grid with a
+        // search field; picking a cell writes the draft target.
+        var saved: SettingsData? = null
+        val entries = listOf(
+            fakeApp("com.example.maps", "マップ"),
+            fakeApp("com.example.mail", "メール"),
+            fakeApp("com.example.memo", "メモ"),
+        )
+        rule.setContent {
+            QuietLauncherTheme {
+                DoSettingsScreen(
+                    initial = SettingsData(),
+                    focusActionId = null,
+                    apps = entries,
+                    iconLoader = { null },
+                    isHomeRoleHeld = false,
+                    shortcutsFor = { emptyList() },
+                    onSave = { data, done -> saved = data; done(true) },
+                    onBack = {},
+                )
+            }
+        }
+
+        rule.onAllNodesWithText(res(R.string.action_target_change))
+            .onFirst()
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        // The search field and the categorized grid are composed.
+        rule.onNode(
+            hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
+        ).assertIsDisplayed()
+        rule.onNodeWithText("マップ").assertExists()
+        rule.onNodeWithText("メール").assertExists()
+
+        // A normalized substring query hides non-matching cells.
+        rule.onNode(
+            hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
+        ).performTextReplacement("メー")
+        rule.waitForIdle()
+        rule.onNodeWithText("マップ").assertDoesNotExist()
+        rule.onNodeWithText("メモ").assertDoesNotExist()
+
+        // Picking the surviving cell stores the app target in the draft.
+        rule.onNodeWithText("メール").performClick()
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        assertEquals(
+            StoredTarget.App("com.example.mail/.Main"),
+            saved?.actions?.first()?.target,
+        )
     }
 
     @Test

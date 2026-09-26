@@ -258,11 +258,12 @@ private fun IntroActionsStep(
             onDismissRequest = { pickFor = null },
             title = { Text(stringResource(R.string.intro_pick_app)) },
             text = {
+                // The picker grid scrolls inside its own bounded region —
+                // an outer verticalScroll would nest two vertical scrollers.
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 400.dp)
-                        .verticalScroll(rememberScrollState()),
+                        .heightIn(max = 400.dp),
                 ) {
                     AppPickList(
                         apps = apps,
