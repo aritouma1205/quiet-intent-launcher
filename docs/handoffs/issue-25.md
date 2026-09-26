@@ -57,8 +57,23 @@ accessibility契約。時刻表示はTODAYに追加しない（GLANCEと役割�
 - `assembleDebug testDebugUnitTest lintDebug`: BUILD SUCCESSFUL
   - unit **302件 0失敗**（mainと同数 — 変更はView層のみで新規unitテストなし）
   - lint **0 errors / 4 warnings**（ベースライン維持）
-- 計装: 実行中 — `ANDROID_SERIAL=emulator-5554` でエミュレータのみ対象化
-  （実機Pixel同時接続中のため誤配布防止）。結果を追記予定。
+- 計装（qil_test / API 36）: **134件 全緑**
+  - 実機 Pixel 9 Pro が同時接続中だったため `connectedDebugAndroidTest`
+    （全デバイス対象・実機への無断インストール禁止に抵触）は使わず、
+    `adb -s emulator-5554 shell am instrument` で手動実行
+  - 全量ランは InfoIntegrationTest 途中でエミュレータの system_server が
+    クラッシュし `INSTRUMENTATION_ABORTED: System has crashed` で中断。
+    `fingerHoldPausesTheAutoDismiss` が teardown `DESTROYED` 待ちで1件失敗
+    （変更範囲外の既知フレーク型）
+  - エミュレータ冷ブート後に残り10クラスを逐次再実行 → 全合格
+    （Info 16/16 で失敗分も緑確認）。証跡:
+    `docs/handoffs/pr27/evidence/instrumentation/`
+
+## PR
+
+- Draft PR #27 — head `6bab36b`（base `main@29c36e8`）
+- 証跡: `docs/handoffs/pr27/evidence/`（lint XML/SARIF・unit XML・
+  計装ログ・HEAD.txt 計49件）
 
 ## 残課題・判断メモ
 

@@ -1,0 +1,37 @@
+INSTRUMENTATION_STATUS: class=io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=2
+INSTRUMENTATION_STATUS: stream=
+io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest:
+INSTRUMENTATION_STATUS: test=saveDeliversTheEditedSwitches
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=2
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=saveDeliversTheEditedSwitches
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=2
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=failedSaveKeepsTheDraftSwitch
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=2
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=failedSaveKeepsTheDraftSwitch
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_RESULT: stream=
+
+Time: 6.319
+
+OK (2 tests)
+
+
+INSTRUMENTATION_CODE: -1

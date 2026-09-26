@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-26T17:22:20.976Z" hostname="DESKTOP-C13D2IN" time="0.165">
+  <properties/>
+  <testcase name="retry after a live store reopens without a duplicate instance" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.019"/>
+  <testcase name="reset after a live store reopens without a duplicate instance" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.018"/>
+  <testcase name="update persists new file" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.027"/>
+  <testcase name="file open failure degrades without crashing" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.009"/>
+  <testcase name="valid file loads" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.013"/>
+  <testcase name="corrupted file degrades and is preserved" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.007"/>
+  <testcase name="read failure after open degrades and retry recovers" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.019"/>
+  <testcase name="reset replaces the file with defaults" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.017"/>
+  <testcase name="failed replace preserves the original file" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.012"/>
+  <testcase name="retry rereads a repaired file" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.01"/>
+  <testcase name="future schema version degrades" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.006"/>
+  <testcase name="absent file starts ready with defaults" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsStoreTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

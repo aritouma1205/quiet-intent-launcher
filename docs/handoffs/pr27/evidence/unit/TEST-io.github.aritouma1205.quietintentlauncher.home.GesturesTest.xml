@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" tests="20" skipped="0" failures="0" errors="0" timestamp="2026-09-26T17:22:19.912Z" hostname="DESKTOP-C13D2IN" time="0.005">
+  <properties/>
+  <testcase name="diagonal below the ratio stays pending until a direction wins" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.001"/>
+  <testcase name="clear down swipe fires" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="cancel locks everything out" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="large horizontal leg prevents a late vertical bend from firing" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.001"/>
+  <testcase name="fired long press suppresses swipe and tap for the rest" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="horizontal dominant move locks out and stays silent" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="move beyond slop then hold then up is neither long press nor tap" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="diagonal at the boundary fires" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="one input yields at most one action" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="short upward travel below the distance does not fire" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="second pointer added mid-gesture cancels a pending swipe and tap" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="ambiguous start can still bend into a swipe on the totals" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="stationary release is a tap" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="fired swipe suppresses the release tap" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="second pointer locks the gesture out" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="clear up swipe fires once" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="move beyond slop revokes long press eligibility" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="swipe start can be disallowed by the caller" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="disallowed swipe start still permits a tap" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <testcase name="sub slop wiggle still ends as a tap" classname="io.github.aritouma1205.quietintentlauncher.home.GesturesTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

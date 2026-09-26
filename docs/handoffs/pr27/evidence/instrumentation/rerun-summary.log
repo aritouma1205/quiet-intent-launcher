@@ -1,0 +1,21 @@
+=== 1 io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest ===
+OK (16 tests)
+=== 2 io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest ===
+OK (23 tests)
+=== 3 io.github.aritouma1205.quietintentlauncher.home.TimeBroadcastIntegrationTest ===
+OK (1 test)
+=== 4 io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest ===
+OK (35 tests)
+=== 5 io.github.aritouma1205.quietintentlauncher.intro.IntroScreenTest ===
+OK (2 tests)
+=== 6 io.github.aritouma1205.quietintentlauncher.settings.ContextSlotsDraftTest ===
+OK (2 tests)
+=== 7 io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest ===
+OK (12 tests)
+=== 8 io.github.aritouma1205.quietintentlauncher.settings.EdgeSettingsDraftTest ===
+OK (1 test)
+=== 9 io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest ===
+OK (2 tests)
+=== 10 io.github.aritouma1205.quietintentlauncher.ui.ThemeTest ===
+OK (1 test)
+=== ALL DONE ===
