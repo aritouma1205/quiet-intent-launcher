@@ -268,6 +268,9 @@ fun QuietLauncherRoot(
                     )
                     HomeScreen.AllApps -> AllAppsScreen(
                         apps = viewModel.apps.collectAsState().value,
+                        recents = viewModel.recentRows.collectAsState().value
+                            .mapNotNull { it.appEntry }
+                            .distinctBy { it.key },
                         iconLoader = iconLoader,
                         onLaunch = viewModel::launchApp,
                         onAppInfo = { entry ->
