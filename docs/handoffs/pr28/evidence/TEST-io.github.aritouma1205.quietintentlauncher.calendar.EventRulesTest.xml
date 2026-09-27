@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" tests="21" skipped="0" failures="0" errors="0" timestamp="2026-09-26T18:58:16.483Z" hostname="DESKTOP-C13D2IN" time="0.033">
+  <properties/>
+  <testcase name="multi-day all-day event counts on every covered day" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.023"/>
+  <testcase name="timed event starting one millisecond past 24 hours is excluded" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.001"/>
+  <testcase name="timed event starting within 24 hours is upcoming" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="timed event ending exactly now is dropped" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="utc midnight on the previous local evening still counts as the utc date" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.003"/>
+  <testcase name="empty title stays empty for the ui fallback label" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.001"/>
+  <testcase name="yesterdays all-day event is excluded" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="all-day event keeps its utc date instead of shifting to local time" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="deleted canceled and declined instances are each dropped" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="empty input returns an empty list" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.001"/>
+  <testcase name="already-ended timed event is dropped" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="the earliest upcoming event wins" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="timed event starting exactly 24 hours from now is still upcoming" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="in-progress timed event is selected as ongoing" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.001"/>
+  <testcase name="todays all-day event is selected as all-day" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="tomorrows all-day event is excluded" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="timed event starting exactly now is ongoing not upcoming" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="the earliest all-day event covering today wins" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.001"/>
+  <testcase name="equal begins break the tie by end then event id" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="the earliest ongoing event wins by begin" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.0"/>
+  <testcase name="at most one row per section in ongoing upcoming all-day order" classname="io.github.aritouma1205.quietintentlauncher.calendar.EventRulesTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

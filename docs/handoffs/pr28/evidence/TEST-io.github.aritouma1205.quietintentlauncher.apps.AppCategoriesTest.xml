@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-26T18:58:16.327Z" hostname="DESKTOP-C13D2IN" time="0.082">
+  <properties/>
+  <testcase name="recent duplicates are deduplicated" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.041"/>
+  <testcase name="sections follow the fixed category order" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.003"/>
+  <testcase name="every OS category maps to its display category" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.007"/>
+  <testcase name="empty categories are skipped" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.001"/>
+  <testcase name="within a category the input order is preserved" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.0"/>
+  <testcase name="all nine categories emit in the fixed display order" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.014"/>
+  <testcase name="undefined and unknown values fall back to Other" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.0"/>
+  <testcase name="recent section is first and capped at six" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.005"/>
+  <testcase name="no recents means no recent section" classname="io.github.aritouma1205.quietintentlauncher.apps.AppCategoriesTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

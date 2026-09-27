@@ -343,6 +343,10 @@ fun QuietLauncherRoot(
                                 onEditFocusConsumed =
                                     viewModel::consumeEditFocus,
                                 apps = viewModel.apps.collectAsState().value,
+                                recents = viewModel.recentRows
+                                    .collectAsState().value
+                                    .mapNotNull { it.appEntry }
+                                    .distinctBy { it.key },
                                 iconLoader = iconLoader,
                                 isHomeRoleHeld = isDefaultHome,
                                 shortcutsFor = viewModel::shortcutsFor,
