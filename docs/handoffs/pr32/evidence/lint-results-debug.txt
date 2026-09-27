@@ -1,0 +1,68 @@
+E:\projects\quiet-intent-launcher\app\src\main\java\io\github\aritouma1205\quietintentlauncher\home\HomeViewModel.kt:462: Warning: No need to call super.onCleared; the super method is defined to be empty [EmptySuperCall]
+        super.onCleared()
+              ~~~~~~~~~
+
+   Explanation for issues of type "EmptySuperCall":
+   For methods annotated with @EmptySuper, overriding methods should not also
+   call the super implementation, either because it is empty, or perhaps it
+   contains code not intended to be run when the method is overridden.
+
+E:\projects\quiet-intent-launcher\gradle\libs.versions.toml:9: Warning: A newer version of androidx.core:core-ktx than 1.19.0 is available: 1.19.1 [GradleDependency]
+core-ktx = "1.19.0"
+           ~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+E:\projects\quiet-intent-launcher\app\src\main\res\mipmap-anydpi-v26: Warning: This folder configuration (v26) is unnecessary; minSdkVersion is 31. Merge all the resources in this folder into mipmap-anydpi. [ObsoleteSdkInt]
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+E:\projects\quiet-intent-launcher\app\src\main\res\values\strings.xml:178: Warning: The resource R.string.info_weather_needs_region appears to be unused [UnusedResources]
+    <string name="info_weather_needs_region">先に地域を選んでください</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests=true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests=true.
+
+   Available options:
+
+   **skip-libraries** (default is true):
+   Whether the unused resource check should skip reporting unused resources in libraries.
+
+   Many libraries will declare resources that are part of the library surface; other modules depending on the library will also reference the resources. To avoid reporting all these resources as unused (in the context of a library), the unused resource check normally skips reporting unused resources in libraries. Instead, run the unused resource check on the consuming app module (along with `checkDependencies=true`).
+
+   However, there are cases where you want to check that all the resources declared in a library are used; in that case, you can disable the skip option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UnusedResources">
+           <option name="skip-libraries" value="true" />
+       </issue>
+   </lint>
+   ```
+
+0 errors, 4 warnings

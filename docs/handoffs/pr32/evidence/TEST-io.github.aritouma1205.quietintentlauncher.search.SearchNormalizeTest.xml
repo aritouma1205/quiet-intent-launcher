@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-26T18:58:17.251Z" hostname="DESKTOP-C13D2IN" time="0.002">
+  <properties/>
+  <testcase name="words returns empty list for blank input" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.0"/>
+  <testcase name="nfkc folds full-width ascii to half-width" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.0"/>
+  <testcase name="unifies hiragana to katakana" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.0"/>
+  <testcase name="collapses whitespace runs to one space" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.001"/>
+  <testcase name="folds case" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.0"/>
+  <testcase name="trims surrounding whitespace" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.0"/>
+  <testcase name="words splits on collapsed spaces" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.001"/>
+  <testcase name="empty and blank input normalize to empty" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.0"/>
+  <testcase name="nfkc folds half-width katakana to full-width" classname="io.github.aritouma1205.quietintentlauncher.search.SearchNormalizeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

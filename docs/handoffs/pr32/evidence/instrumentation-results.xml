@@ -1,0 +1,213 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="140" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-09-27T06:13:52" hostname="localhost">
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" tests="8" failures="0" errors="0" skipped="0" time="38.533" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="backNavigationWorksWhileCatalogLoads" classname="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" time="7.441" />
+    <testcase name="emptyCategoriesDoNotRender" classname="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" time="4.851" />
+    <testcase name="emptyCatalogShowsEmptyState" classname="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" time="3.410" />
+    <testcase name="recentSectionIsFirstAndAppStaysInCategory" classname="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" time="5.081" />
+    <testcase name="emptyHistoryHidesRecentSection" classname="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" time="4.355" />
+    <testcase name="tapCellLaunchesAndReturnsToQuiet" classname="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" time="4.535" />
+    <testcase name="longPressShowsAppInfoDialog" classname="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" time="4.651" />
+    <testcase name="gridShowsCategorySectionsInFixedOrder" classname="io.github.aritouma1205.quietintentlauncher.apps.AllAppsIntegrationTest" time="4.209" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" tests="8" failures="0" errors="0" skipped="0" time="44.769" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="tappingUnsetActionOpensEditor" classname="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" time="7.208" />
+    <testcase name="editCancelDiscardsDraft" classname="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" time="7.448" />
+    <testcase name="editRejectsBlankNameWithExplanation" classname="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" time="6.699" />
+    <testcase name="longPressEditEntryOpensEditor" classname="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" time="6.276" />
+    <testcase name="tappingActionWithTargetLaunchesAndReturnsQuiet" classname="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" time="4.333" />
+    <testcase name="editSavePersistsRename" classname="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" time="5.376" />
+    <testcase name="doPanelRendersConfiguredActions" classname="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" time="3.430" />
+    <testcase name="longPressShowsDerivedOpsAndEditEntry" classname="io.github.aritouma1205.quietintentlauncher.home.DoActionIntegrationTest" time="3.999" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" tests="23" failures="0" errors="0" skipped="0" time="78.337" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="movingSecondPointerOnFreeAreaSuppressesActions" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.322" />
+    <testcase name="restingSecondFingerKeepsTap" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.353" />
+    <testcase name="longPressOnFreeAreaOpensEditSheet" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.760" />
+    <testcase name="movingFingerOnBarSuppressesFreeAreaLongPress" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.607" />
+    <testcase name="deepPullThresholdArmsBarVisual" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="2.874" />
+    <testcase name="heldSecondTapStillCountsAsDoubleTap" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.588" />
+    <testcase name="tapOnFreeAreaTogglesGlance" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.367" />
+    <testcase name="pressAndDragDriveBarVisualState" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.600" />
+    <testcase name="restingSecondPointerOnBarKeepsDrag" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.368" />
+    <testcase name="deepPullFromRightBarOpensToolsWhenEnabled" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.547" />
+    <testcase name="tapOnLeftBarOpensTodayPanel" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.438" />
+    <testcase name="osCancelOnFreeAreaDoesNotFireActions" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="2.787" />
+    <testcase name="shortInwardPullBelowThresholdCloses" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="2.488" />
+    <testcase name="swipeUpOnFreeAreaOpensSearch" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.824" />
+    <testcase name="swipeStartedInsideBottomSystemAreaDoesNothing" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.354" />
+    <testcase name="diagonalDragOnBarDoesNotOpenPanel" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.736" />
+    <testcase name="horizontalThenVerticalBendIsNotASwipe" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.295" />
+    <testcase name="osCancelOnBarDragDoesNotOpenPanel" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.439" />
+    <testcase name="horizontalMoveThenHoldDoesNotFireLongPress" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.437" />
+    <testcase name="restingFingerOnBarKeepsFreeAreaLongPress" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.819" />
+    <testcase name="movingSecondPointerCancelsBarDrag" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.409" />
+    <testcase name="restingSecondPointerOnFreeAreaKeepsSwipe" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.639" />
+    <testcase name="tapOnRightBarOpensDoPanel" classname="io.github.aritouma1205.quietintentlauncher.home.HomeInputIntegrationTest" time="3.286" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" tests="16" failures="0" errors="0" skipped="0" time="73.957" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="coreSurfaceKeepsWorkingWithoutWeather" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.842" />
+    <testcase name="aProviderFailureLeavesTodayEmptyButAlive" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.716" />
+    <testcase name="glanceNeverDismissesWhenConfiguredSo" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="6.737" />
+    <testcase name="aFailedCacheEraseFailsTheInfoSave" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.450" />
+    <testcase name="deniedCalendarPermissionKeepsEventsOffToday" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.581" />
+    <testcase name="timeChangeRefreshesTheSnapshot" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.454" />
+    <testcase name="staleWeatherIsMarkedInTodayAndHiddenInGlance" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="4.058" />
+    <testcase name="accessibilitySuppressesAutoDismiss" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="6.849" />
+    <testcase name="weatherRowAppearsInTodayAfterAFetch" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.579" />
+    <testcase name="revokedMidSessionDropsTheGrantAndEvents" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.800" />
+    <testcase name="backgroundingStopsTheClockTicker" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.634" />
+    <testcase name="glanceAutoDismissesAfterTheConfiguredSeconds" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="7.000" />
+    <testcase name="fingerHoldPausesTheAutoDismiss" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="9.212" />
+    <testcase name="tapTogglesGlanceOnAndOff" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.505" />
+    <testcase name="realProviderEventAppearsInTodayAndOpensViewIntent" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="4.000" />
+    <testcase name="grantedPermissionWithNoSelectionShowsNoEvents" classname="io.github.aritouma1205.quietintentlauncher.home.InfoIntegrationTest" time="3.540" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" tests="23" failures="0" errors="0" skipped="0" time="106.783" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="invalidTimeInputStillAsksBeforeDroppingTheDraft" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="6.616" />
+    <testcase name="stoppingRecordingClearsStoredHistory" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="5.248" />
+    <testcase name="slotFocusScrollsToTheSlotAndIsConsumed" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="4.240" />
+    <testcase name="expiredHistoryIsRemovedFromTheFileOnLoad" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="2.023" />
+    <testcase name="hiddenActionStillResolvesThroughItsSlot" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="3.381" />
+    <testcase name="deletingAReferencedActionStripsContextReferences" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="5.943" />
+    <testcase name="leavingAndReopeningDropsTheQuery" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="5.672" />
+    <testcase name="swipeUpOpensSearchWithFixedEntries" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="3.834" />
+    <testcase name="successfulLaunchFromSearchIsRecorded" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="5.155" />
+    <testcase name="danglingDefaultActionBlocksTheContextSlotSave" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="4.463" />
+    <testcase name="noMatchStillShowsExternalAndFixedEntries" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="4.663" />
+    <testcase name="contextSlotStaysHiddenWhenItsActionIsUnset" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="3.866" />
+    <testcase name="sameNamedActionsShowTheirTargetLabels" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="4.963" />
+    <testcase name="catalogCompletionRefreshesResultsWithTheSameQuery" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="5.503" />
+    <testcase name="editorFocusChannelsAreMutuallyExclusive" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="4.084" />
+    <testcase name="contextSlotsScreenRendersBothSlots" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="3.957" />
+    <testcase name="contextSlotRowAppearsBelowActionsAndLaunches" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="4.511" />
+    <testcase name="failedHistoryClearFailsTheSave" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="5.089" />
+    <testcase name="staleSlotFocusIsNotReappliedOnReentry" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="5.722" />
+    <testcase name="tappingRecentRowLaunchesItsTarget" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="2.761" />
+    <testcase name="typedQueryShowsActionMatchWithoutLaunching" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="4.902" />
+    <testcase name="emptyQueryShowsRecents" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="4.265" />
+    <testcase name="invalidTimeInputBlocksTheContextSlotSave" classname="io.github.aritouma1205.quietintentlauncher.home.SearchContextIntegrationTest" time="5.922" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.home.TimeBroadcastIntegrationTest" tests="1" failures="0" errors="0" skipped="0" time="1.602" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="registeredReceiverForwardsTimeChangesToTheViewModel" classname="io.github.aritouma1205.quietintentlauncher.home.TimeBroadcastIntegrationTest" time="1.602" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.home.TodayPanelStatesTest" tests="3" failures="0" errors="0" skipped="0" time="5.828" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="missingOptionalClustersLeaveNoDebris" classname="io.github.aritouma1205.quietintentlauncher.home.TodayPanelStatesTest" time="1.832" />
+    <testcase name="weatherOnlyShowsNoUpcomingCluster" classname="io.github.aritouma1205.quietintentlauncher.home.TodayPanelStatesTest" time="1.978" />
+    <testcase name="eventsOnlyHideWeatherAndKeepUpcoming" classname="io.github.aritouma1205.quietintentlauncher.home.TodayPanelStatesTest" time="2.018" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" tests="35" failures="0" errors="0" skipped="0" time="149.655" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="doubleTapWithScreenOffDisabledDoesNothing" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.674" />
+    <testcase name="anArmedScreenshotDiesWhenANewOverlayAppears" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.162" />
+    <testcase name="aFailedActionReportsTheFailureNotASuccess" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.518" />
+    <testcase name="anArmedScreenshotDiesWhenLeavingQuiet" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.944" />
+    <testcase name="serviceRevokedBetweenArmAndSettleCancelsTheScreenshot" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.590" />
+    <testcase name="systemSettingsChangePersistsThroughTheUi" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.416" />
+    <testcase name="screenshotFiresExactlyOnceAfterThePanelSettles" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.952" />
+    <testcase name="assistiveListFailureResolvesConservatively" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="6.625" />
+    <testcase name="swipeDownRunsTheNotificationActionThroughTheService" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="2.874" />
+    <testcase name="enablingTheServiceRecomputesTheTrackerCache" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="2.844" />
+    <testcase name="assistiveTrackerFiltersOutTheOwnService" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.365" />
+    <testcase name="screenshotWithTheSwitchOffOpensSystemSettings" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.311" />
+    <testcase name="timerOpensTheSystemTimerListAndNeverStartsOne" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.384" />
+    <testcase name="doubleTapWithOwnServiceEnabledFiresScreenOff" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.327" />
+    <testcase name="toolVisibilityChangePersistsThroughTheSettingsUi" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="5.579" />
+    <testcase name="swipeDownWithServiceOffReportsUnavailable" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.084" />
+    <testcase name="screenReaderActiveDisablesTheDoubleTapHold" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="2.396" />
+    <testcase name="assistiveTrackerSeesAnExternalService" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.455" />
+    <testcase name="swipeDownWithNotificationsOffShowsTheHintOnce" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.432" />
+    <testcase name="toolFocusIsConsumedAfterTheEditorOpens" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="5.686" />
+    <testcase name="toolsRenderInConfiguredOrderAndSkipHiddenRows" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.275" />
+    <testcase name="actionEntryAfterToolFocusOpensTheActionPicker" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="5.878" />
+    <testcase name="unsetCalculatorTapOpensTheToolEditor" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.848" />
+    <testcase name="ownServiceAloneDoesNotPauseGlanceAutoDismiss" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="6.762" />
+    <testcase name="lightOnFlashlessDeviceIsBlocked" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.122" />
+    <testcase name="anArmedScreenshotDiesWithBackgrounding" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.101" />
+    <testcase name="timerWithoutHandlerOffersTheEditor" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="5.433" />
+    <testcase name="toolEntryAfterActionFocusOpensTheToolPicker" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="7.021" />
+    <testcase name="removedTargetMarksTheRowBlocked" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.190" />
+    <testcase name="screenshotWithoutTheServiceReportsOff" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.105" />
+    <testcase name="lightRowMirrorsTheOsTorchCallback" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.825" />
+    <testcase name="aSecondTapWhileArmedNeverDoublesTheScreenshot" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="2.731" />
+    <testcase name="doubleTapRunsScreenOffThroughTheService" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="3.447" />
+    <testcase name="cameraBusyMapsToTheBusyMessage" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="4.274" />
+    <testcase name="missingCameraPermissionRequestsItFirst" classname="io.github.aritouma1205.quietintentlauncher.home.ToolsIntegrationTest" time="5.025" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.intro.IntroScreenTest" tests="2" failures="0" errors="0" skipped="0" time="5.038" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="successfulDoneDeliversDraft" classname="io.github.aritouma1205.quietintentlauncher.intro.IntroScreenTest" time="1.990" />
+    <testcase name="failedSaveKeepsStepAndDraft" classname="io.github.aritouma1205.quietintentlauncher.intro.IntroScreenTest" time="3.048" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.settings.ContextSlotsDraftTest" tests="2" failures="0" errors="0" skipped="0" time="4.045" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="entryFocusIsConsumedOnComposition" classname="io.github.aritouma1205.quietintentlauncher.settings.ContextSlotsDraftTest" time="1.395" />
+    <testcase name="unsettledTimeInputSurvivesRecreation" classname="io.github.aritouma1205.quietintentlauncher.settings.ContextSlotsDraftTest" time="2.650" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" tests="15" failures="0" errors="0" skipped="0" time="62.133" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="cleanBackExitsImmediately" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="2.595" />
+    <testcase name="blankNameIsRejectedBeforeSave" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="4.146" />
+    <testcase name="dirtyBackKeepEditing" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="5.280" />
+    <testcase name="osBackWithDirtyShowsConfirm" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="2.812" />
+    <testcase name="saveDeliversEditedData" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="3.975" />
+    <testcase name="failedSaveKeepsDraftAndShowsError" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="4.398" />
+    <testcase name="failedSaveKeepsToolVisibilityDraft" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="2.984" />
+    <testcase name="clearingInvalidLinkAllowsSavingUnsetTarget" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="4.950" />
+    <testcase name="dirtyBackShowsConfirm" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="3.389" />
+    <testcase name="toolPickerPickSavesAndPersistsOnReopen" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="4.643" />
+    <testcase name="derivedOpPickerPickSavesAndPersistsOnReopen" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="3.574" />
+    <testcase name="dirtyBackSaveExits" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="4.172" />
+    <testcase name="pickerSearchFiltersGridAndPickSetsTarget" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="4.998" />
+    <testcase name="invalidPendingLinkBlocksSave" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="4.936" />
+    <testcase name="cancelLeavesWithoutSaving" classname="io.github.aritouma1205.quietintentlauncher.settings.DoSettingsDraftTest" time="5.281" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.settings.EdgeSettingsDraftTest" tests="1" failures="0" errors="0" skipped="0" time="2.204" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="unsavedDraftSurvivesRecreation" classname="io.github.aritouma1205.quietintentlauncher.settings.EdgeSettingsDraftTest" time="2.204" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest" tests="2" failures="0" errors="0" skipped="0" time="4.955" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="saveDeliversTheEditedSwitches" classname="io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest" time="2.602" />
+    <testcase name="failedSaveKeepsTheDraftSwitch" classname="io.github.aritouma1205.quietintentlauncher.settings.SystemActionsDraftTest" time="2.353" />
+  </testsuite>
+  <testsuite name="io.github.aritouma1205.quietintentlauncher.ui.ThemeTest" tests="1" failures="0" errors="0" skipped="0" time="2.508" timestamp="2026-09-27T06:13:52" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5554" />
+    </properties>
+    <testcase name="themeProvidesALightDefaultContentColor" classname="io.github.aritouma1205.quietintentlauncher.ui.ThemeTest" time="2.508" />
+  </testsuite>
+</testsuites>

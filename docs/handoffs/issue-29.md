@@ -54,4 +54,5 @@ hairline自体は drawBehind のためセマンティクスを持たないが、
   BUILD SUCCESSFUL — unit **302件 0失敗** / lint **0 errors / 4 warnings**
 - 対象2クラス単独実行: TodayPanelStatesTest 3件 + DoSettingsDraftTest
   15件（新規2件含む）= **18件 全緑**
-- `connectedDebugAndroidTest` 全量実行: 結果は証跡参照（135+3件規模）
+- `connectedDebugAndroidTest` 全量実行（qil_test / API 36, 10m6s）:
+  **140件 0失敗・一回完走**（135+新規5件）
