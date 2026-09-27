@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-26T18:58:17.186Z" hostname="DESKTOP-C13D2IN" time="0.011">
+  <properties/>
+  <testcase name="same named apps all stay in the result" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.006"/>
+  <testcase name="queries beyond the input cap still work" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.002"/>
+  <testcase name="kinds order action tier then tool settings then apps" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.0"/>
+  <testcase name="exact beats prefix beats partial for a single word" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.0"/>
+  <testcase name="blank query returns empty" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.0"/>
+  <testcase name="no match returns empty" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.0"/>
+  <testcase name="japanese and width variants of the query match" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.0"/>
+  <testcase name="multi word queries require every term across name and aliases" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.001"/>
+  <testcase name="aliases match and can win the best class" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.0"/>
+  <testcase name="exposes the design constants" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.0"/>
+  <testcase name="same rank orders by groupOrder then id" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.0"/>
+  <testcase name="duplicate ids collapse to the first occurrence" classname="io.github.aritouma1205.quietintentlauncher.search.LocalSearchTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

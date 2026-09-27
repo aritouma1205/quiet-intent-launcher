@@ -153,7 +153,7 @@
 
     <!-- Info settings (design 8, 11.2, 12) -->
     <string name="settings_section_info">情報</string>
-    <string name="settings_info_entry">GLANCE・天気・予定の設定</string>
+    <string name="settings_info_entry">壁紙タップで出る情報（GLANCE）・天気・予定の設定</string>
     <string name="settings_info_note">GLANCEの位置と表示時間、小時計、天気（Open-Meteo）、予定の表示を変更します。</string>
     <string name="info_settings_title">情報</string>
     <string name="info_glance_position">GLANCEの位置</string>
@@ -198,7 +198,7 @@
 
     <!-- Intro -->
     <string name="intro_title">Quiet Intent Launcher</string>
-    <string name="intro_body">何もしていない時は壁紙だけ。何かしたい時だけ、操作が現れます。\n\n画面の右端のバーを引くと行動（DO）、左端のバーを引くと今日の情報（TODAY）が開きます。壁紙の空いているところを上にスワイプすると検索が開き、そこから全アプリと設定に進めます。</string>
+    <string name="intro_body">何もしていない時は壁紙だけ。何かしたい時だけ、操作が現れます。\n\n画面の右端のバーをタップ、または内側へ引くと行動（DO）、左端のバーをタップ、または内側へ引くと今日の情報（TODAY）が開きます。壁紙をタップするとひと目の情報（GLANCE）が開き、上にスワイプすると検索が開き、そこから全アプリと設定に進めます。</string>
     <string name="intro_set_home">ホームアプリに設定する</string>
     <string name="intro_done">はじめる</string>
     <string name="intro_note">設定せずに試すこともできます。説明は設定からいつでも再表示できます。</string>
@@ -208,7 +208,7 @@
     <string name="intro_pick_app">アプリを選ぶ</string>
 
     <!-- Search (design 9) -->
-    <string name="search_hint">検索</string>
+    <string name="search_hint">行動・アプリ・設定を検索</string>
     <string name="search_recent_section">最近</string>
     <string name="search_more">さらに表示</string>
     <string name="search_empty_results">一致する項目はありません</string>
@@ -310,8 +310,8 @@
     <string name="settings_section_actions">行動・道具</string>
     <string name="settings_actions_entry">行動と起動先の設定</string>
     <string name="settings_actions_note">DOの行動の名前・アイコン・順序・表示・起動先・別名・派生操作を変更します。</string>
-    <string name="settings_section_context">Context Slots</string>
-    <string name="settings_context_entry">Context Slotsの条件</string>
+    <string name="settings_section_context">時間や曜日で変わる行動（Context Slots）</string>
+    <string name="settings_context_entry">スロットの条件の設定</string>
     <string name="settings_context_note">曜日・時刻・既定の行動で、DOパネルの行動リストの下に出る2枠の表示を切り替えます。</string>
     <string name="settings_section_search">検索</string>
     <string name="settings_search_entry">検索と履歴の設定</string>
