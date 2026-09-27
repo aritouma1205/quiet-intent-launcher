@@ -57,6 +57,7 @@
 
 - `assembleDebug testDebugUnitTest lintDebug`: BUILD SUCCESSFUL
   - unit **302件 0失敗** / lint **0 errors / 4 warnings**（ベースライン維持）
-- 計装（qil_test / API 36）: 実行結果は証跡参照
+- 計装（qil_test / API 36, `connectedDebugAndroidTest` 11m）:
+  **135件 0失敗・一回完走**
   - 既存テストは全て `res(R.string.*)` 経由またはfixture文言のため
     文案変更への依存なし（事前に静的確認済み）
