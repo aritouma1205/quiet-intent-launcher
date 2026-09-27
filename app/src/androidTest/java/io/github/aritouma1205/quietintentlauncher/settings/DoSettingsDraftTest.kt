@@ -3,6 +3,11 @@ package io.github.aritouma1205.quietintentlauncher.settings
 import android.content.ComponentName
 import android.os.Process
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -339,6 +344,144 @@ class DoSettingsDraftTest {
             StoredTarget.App("com.example.mail/.Main"),
             saved?.actions?.first()?.target,
         )
+    }
+
+    @Test
+    fun derivedOpPickerPickSavesAndPersistsOnReopen() {
+        // Issue #29 UX28-01: the derived-op editor's TargetPicker is a
+        // different call path (slot "actionId|opId") than the action's own
+        // picker — the pick must reach the draft, survive save, and still
+        // be shown when the screen is displayed again.
+        var saved: SettingsData? = null
+        // Re-displaying the screen re-runs setContent, which is allowed
+        // once per test — flip [visit] inside a key() so the subtree is
+        // recreated fresh with the saved data as its new initial draft.
+        var visit by mutableIntStateOf(0)
+        var initial by mutableStateOf(SettingsData())
+        val entries = listOf(
+            fakeApp("com.example.maps", "マップ"),
+            fakeApp("com.example.mail", "メール"),
+            fakeApp("com.example.memo", "メモ"),
+        )
+        rule.setContent {
+            QuietLauncherTheme {
+                key(visit) {
+                    DoSettingsScreen(
+                        initial = initial,
+                        focusActionId = null,
+                        apps = entries,
+                        iconLoader = { null },
+                        isHomeRoleHeld = false,
+                        shortcutsFor = { emptyList() },
+                        onSave = { data, done -> saved = data; done(true) },
+                        onBack = {},
+                    )
+                }
+            }
+        }
+
+        // Add a derived op to the first action, then open its picker —
+        // inside action 1's card the op's 変更する follows the action's
+        // own target row (index 1).
+        rule.onAllNodesWithText(res(R.string.action_op_add))
+            .onFirst()
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+        rule.onAllNodesWithText(res(R.string.action_target_change))[1]
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        rule.onNode(
+            hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
+        ).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("メール").performClick()
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        assertEquals(
+            StoredTarget.App("com.example.mail/.Main"),
+            saved?.actions?.first()?.derivedOps?.first()?.target,
+        )
+
+        // Leave and display the screen again: the op retains the app.
+        initial = saved!!
+        visit++
+        rule.waitForIdle()
+        rule.onNodeWithText("メール")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun toolPickerPickSavesAndPersistsOnReopen() {
+        // Issue #29 UX28-02: the tool editor's TargetPicker (slot
+        // "tool:<id>", App-only modes) is yet another call path — the
+        // pick must persist and re-display the same way.
+        var saved: SettingsData? = null
+        var visit by mutableIntStateOf(0)
+        var initial by mutableStateOf(SettingsData())
+        val entries = listOf(
+            fakeApp("com.example.maps", "マップ"),
+            fakeApp("com.example.mail", "メール"),
+            fakeApp("com.example.memo", "メモ"),
+        )
+        rule.setContent {
+            QuietLauncherTheme {
+                key(visit) {
+                    DoSettingsScreen(
+                        initial = initial,
+                        focusActionId = null,
+                        focusToolId = if (visit == 0) "calculator" else null,
+                        apps = entries,
+                        iconLoader = { null },
+                        isHomeRoleHeld = false,
+                        shortcutsFor = { emptyList() },
+                        onSave = { data, done -> saved = data; done(true) },
+                        onBack = {},
+                    )
+                }
+            }
+        }
+        // focusToolId is the production entry path for tool editing: it
+        // opens that tool's picker directly ("tool:calculator").
+        rule.waitUntil(timeoutMillis = 15_000) {
+            rule.onAllNodes(
+                hasSetTextAction() and
+                    hasText(res(R.string.picker_search_hint)),
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        rule.onNode(
+            hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
+        ).assertIsDisplayed()
+        rule.onNodeWithText("メール").performClick()
+        // Diagnostic: a successful pick sets `current` in the still-open
+        // picker, which surfaces the 「解除する」 row (target_clear).
+        rule.waitForIdle()
+        rule.onNodeWithText(res(R.string.target_clear))
+            .assertIsDisplayed()
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        assertEquals(true, saved != null)
+        assertEquals(
+            StoredTarget.App("com.example.mail/.Main"),
+            saved?.tools?.items?.first { it.id == "calculator" }?.target,
+        )
+
+        // Leave and display the screen again: the tool retains the app.
+        initial = saved!!
+        visit++
+        rule.waitForIdle()
+        rule.onNodeWithText("メール")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
