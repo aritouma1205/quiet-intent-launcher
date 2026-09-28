@@ -4,7 +4,9 @@ import android.content.ComponentName
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
@@ -52,6 +54,14 @@ class DoActionIntegrationTest {
     private lateinit var viewModel: HomeViewModel
 
     private fun res(id: Int): String = rule.activity.getString(id)
+
+    /** Issue #35: the action editors start collapsed — tap the row first. */
+    private fun expandAction(name: String) {
+        rule.onNode(hasClickAction() and hasText(name))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+    }
 
     private fun ownAppTarget(): StoredTarget.App = StoredTarget.App(
         ComponentName(
@@ -221,6 +231,7 @@ class DoActionIntegrationTest {
         rule.waitForIdle()
         assertEquals(HomeScreen.DoSettings, viewModel.screen.value)
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("   ")
         rule.onNodeWithText(res(R.string.save))
@@ -238,6 +249,7 @@ class DoActionIntegrationTest {
         viewModel.openActionEditor(null)
         rule.waitForIdle()
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("写真")
         rule.onNodeWithText(res(R.string.save))
@@ -261,6 +273,7 @@ class DoActionIntegrationTest {
         viewModel.openActionEditor(null)
         rule.waitForIdle()
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("変えた")
         rule.onNodeWithText(res(R.string.cancel))
