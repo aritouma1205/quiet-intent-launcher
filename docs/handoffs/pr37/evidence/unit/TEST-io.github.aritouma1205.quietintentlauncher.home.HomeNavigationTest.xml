@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.home.HomeNavigationTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-28T09:54:12.308Z" hostname="DESKTOP-C13D2IN" time="0.015">
+  <properties/>
+  <testcase name="external flow keeps the originating screen" classname="io.github.aritouma1205.quietintentlauncher.home.HomeNavigationTest" time="0.013"/>
+  <testcase name="back walks the stack to Quiet" classname="io.github.aritouma1205.quietintentlauncher.home.HomeNavigationTest" time="0.0"/>
+  <testcase name="reset to Quiet clears deep stack" classname="io.github.aritouma1205.quietintentlauncher.home.HomeNavigationTest" time="0.001"/>
+  <testcase name="home intent resets even during external flow" classname="io.github.aritouma1205.quietintentlauncher.home.HomeNavigationTest" time="0.0"/>
+  <testcase name="starts at Quiet" classname="io.github.aritouma1205.quietintentlauncher.home.HomeNavigationTest" time="0.0"/>
+  <testcase name="backgrounding without external flow resets to Quiet" classname="io.github.aritouma1205.quietintentlauncher.home.HomeNavigationTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

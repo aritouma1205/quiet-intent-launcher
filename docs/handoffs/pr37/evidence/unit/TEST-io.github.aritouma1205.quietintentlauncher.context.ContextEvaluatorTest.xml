@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" tests="23" skipped="0" failures="0" errors="0" timestamp="2026-09-28T09:54:12.221Z" hostname="DESKTOP-C13D2IN" time="0.026">
+  <properties/>
+  <testcase name="invalid rules never match" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.01"/>
+  <testcase name="hidden slot does not promote its next rule" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.003"/>
+  <testcase name="two slots resolving to the same action hide the later one" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="matching rule with unusable action falls through to next rule" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.001"/>
+  <testcase name="slot is hidden when nothing resolves" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="empty input yields nothing" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.001"/>
+  <testcase name="hidden first slot keeps the second slot index" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.001"/>
+  <testcase name="end of zero means until midnight" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.001"/>
+  <testcase name="no rules and a usable default always shows" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="cross day range is owned by its start day" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.001"/>
+  <testcase name="rule referencing a missing action is skipped" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="all day rule ignores the time of day" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="first matching rule wins" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.001"/>
+  <testcase name="empty day set matches every day" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="all day rule without days always matches" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="multiple days all match" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.001"/>
+  <testcase name="cross day range spills over from every listed start day" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="day set restricts matching to listed days" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.001"/>
+  <testcase name="rule without an action id is skipped" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="time range includes start and excludes end" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="falls back to default when no rule matches" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <testcase name="matched rule with unusable action still falls back to default" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.003"/>
+  <testcase name="two slots with different actions both show in order" classname="io.github.aritouma1205.quietintentlauncher.context.ContextEvaluatorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

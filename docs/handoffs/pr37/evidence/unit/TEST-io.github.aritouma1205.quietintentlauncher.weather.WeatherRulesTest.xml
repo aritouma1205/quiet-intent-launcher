@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-09-28T09:54:13.362Z" hostname="DESKTOP-C13D2IN" time="0.003">
+  <properties/>
+  <testcase name="a reading exactly 60 minutes old is fresh" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.001"/>
+  <testcase name="a reading just over 60 minutes old is stale" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a reading exactly 6 hours old is still stale" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a boot marker inside the tolerance still measures age" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.001"/>
+  <testcase name="a missing reading is hidden" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a reading over 6 hours old is hidden" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="unknown codes map to the generic label" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="age is measured on the monotonic clock" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="wmo codes map to their short labels" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a wall clock change breaks the boot marker and hides the reading" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a future fetch time is never fresh" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a reading from a previous boot is hidden" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
