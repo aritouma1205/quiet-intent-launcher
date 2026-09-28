@@ -20,14 +20,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
 import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -472,6 +475,7 @@ fun QuietLauncherRoot(
  * Quiet: wallpaper, the two edge bars and the free area (design 3, 4, 5).
  * Bars stay while GLANCE is up and are hidden while a Reveal panel is open.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun QuietScreen(
     isDefaultHome: Boolean,
@@ -570,7 +574,11 @@ private fun QuietScreen(
         val widthPx = constraints.maxWidth.toFloat()
         val heightPx = constraints.maxHeight.toFloat()
 
-        val systemBars = WindowInsets.systemBars
+        // Visibility-linked systemBars would recompute the track each time
+        // the status bar transiently shows/hides in immersive mode, making
+        // the bars jump (issue 33). The ignoring-visibility inset keeps a
+        // constant clearance equal to the status bar height.
+        val systemBars = WindowInsets.systemBarsIgnoringVisibility
         val cutout = WindowInsets.displayCutout
         val layoutDirection = LocalLayoutDirection.current
         val topPx = maxOf(
@@ -822,7 +830,9 @@ private fun QuietScreen(
                             QuietClockPosition.TopEnd -> Alignment.TopEnd
                         },
                     )
-                    .statusBarsPadding()
+                    // Constant top clearance: a transient status bar must
+                    // not shift the clock (issue 33).
+                    .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
                     .padding(horizontal = 24.dp, vertical = 16.dp),
             )
         }
