@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" tests="23" skipped="0" failures="0" errors="0" timestamp="2026-09-28T07:13:42.858Z" hostname="DESKTOP-C13D2IN" time="0.076">
+  <properties/>
+  <testcase name="corrupted files still raise CorruptionException" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.012"/>
+  <testcase name="v4 round trip keeps context slots and search settings" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.019"/>
+  <testcase name="v2 migration preserves existing fields" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="v1 file is seeded too" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.001"/>
+  <testcase name="glance dismiss seconds are clamped into the designed range" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="v3 file gains the two empty context slots and search defaults" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="v5 file gains the default tool list and screenshot switch" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="v6 round trip keeps tool order visibility and targets" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.004"/>
+  <testcase name="future schema versions still raise CorruptionException" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.001"/>
+  <testcase name="duplicated calendar ids are deduplicated" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="v2 file decodes context slots and search defaults too" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="v3 file keeps a stored action list" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.003"/>
+  <testcase name="tool targets survive only where the tool can use them" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.003"/>
+  <testcase name="blank input yields defaults" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="v3 file with an empty actions list is not re-seeded" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="validation errors are null for seeded defaults" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.0"/>
+  <testcase name="v4 file gains clock and info defaults" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="v2 file is seeded with the six unset defaults" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.001"/>
+  <testcase name="stored tool list is normalized to the five known tools" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.001"/>
+  <testcase name="v3 file with stored shortcut and link targets round-trips" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.003"/>
+  <testcase name="v5 round trip keeps clock and info settings" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.004"/>
+  <testcase name="stored context slots are normalized to two" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <testcase name="weather enabled without a valid region decodes to disabled" classname="io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializerTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

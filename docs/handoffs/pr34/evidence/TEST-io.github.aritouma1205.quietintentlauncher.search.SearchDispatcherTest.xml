@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.search.SearchDispatcherTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-28T07:13:42.796Z" hostname="DESKTOP-C13D2IN" time="0.045">
+  <properties/>
+  <testcase name="a stale computation never overwrites a newer result" classname="io.github.aritouma1205.quietintentlauncher.search.SearchDispatcherTest" time="0.038"/>
+  <testcase name="rapid inputs collapse into one computation" classname="io.github.aritouma1205.quietintentlauncher.search.SearchDispatcherTest" time="0.004"/>
+  <testcase name="reset clears pending work and the published result" classname="io.github.aritouma1205.quietintentlauncher.search.SearchDispatcherTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

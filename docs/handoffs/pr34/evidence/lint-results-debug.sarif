@@ -1,0 +1,278 @@
+{
+    "$schema" : "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+    "version" : "2.1.0",
+    "runs" : [
+        {
+            "tool": {
+                "driver": {
+                    "name": "Android Lint",
+                    "fullName": "Android Lint (in gradle)",
+                    "version": "9.4.1",
+                    "semanticVersion": "9.4.1",
+                    "organization": "Google",
+                    "informationUri": "https://developer.android.com/studio/write/lint",
+                    "fullDescription": {
+                        "text": "Static analysis originally for Android source code but now performing general analysis"
+                    },
+                    "language": "en-US",
+                    "rules": [
+                        {
+                            "id": "EmptySuperCall",
+                            "shortDescription": {
+                                "text": "Calling an empty super method"
+                            },
+                            "fullDescription": {
+                                "text": "For methods annotated with @EmptySuper, overriding methods should not also call the super implementation, either because it is empty, or perhaps it contains code not intended to be run when the method is overridden.",
+                                "markdown": "For methods annotated with `@EmptySuper`, overriding methods should not also call the super implementation, either because it is empty, or perhaps it contains code not intended to be run when the method is overridden."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 20
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Correctness"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "GradleDependency",
+                            "shortDescription": {
+                                "text": "Obsolete Gradle Dependency"
+                            },
+                            "fullDescription": {
+                                "text": "This detector looks for usages of libraries where the version you are using is not the current stable release. Using older versions is fine, and there are cases where you deliberately want to stick with an older version. However, you may simply not be aware that a more recent version is available, and that is what this lint check helps find."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 70
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Correctness"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "ObsoleteSdkInt",
+                            "shortDescription": {
+                                "text": "Obsolete SDK_INT Version Check"
+                            },
+                            "fullDescription": {
+                                "text": "This check flags version checks that are not necessary, because the minSdkVersion (or surrounding known API level) is already at least as high as the version checked for.\n\nSimilarly, it also looks for resources in -vNN folders, such as values-v14 where the version qualifier is less than or equal to the minSdkVersion, where the contents should be merged into the best folder.",
+                                "markdown": "This check flags version checks that are not necessary, because the `minSdkVersion` (or surrounding known API level) is already at least as high as the version checked for.\n\nSimilarly, it also looks for resources in `-vNN` folders, such as `values-v14` where the version qualifier is less than or equal to the `minSdkVersion`, where the contents should be merged into the best folder."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 50
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Performance"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "UnusedResources",
+                            "shortDescription": {
+                                "text": "Unused resources"
+                            },
+                            "fullDescription": {
+                                "text": "Unused resources make applications larger and slow down builds.\n\n\nThe unused resource check can ignore tests. If you want to include resources that are only referenced from tests, consider packaging them in a test source set instead.\n\nYou can include test sources in the unused resource check by setting the system property lint.unused-resources.include-tests=true, and to exclude them (usually for performance reasons), use lint.unused-resources.exclude-tests=true.\n",
+                                "markdown": "Unused resources make applications larger and slow down builds.\n\n\nThe unused resource check can ignore tests. If you want to include resources that are only referenced from tests, consider packaging them in a test source set instead.\n\nYou can include test sources in the unused resource check by setting the system property `lint.unused-resources.include-tests=true`, and to exclude them (usually for performance reasons), use `lint.unused-resources.exclude-tests=true`.\n"
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning",
+                                "rank": 80
+                            },
+                            "properties": {
+                                "tags": [
+                                    "Performance"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "originalUriBaseIds": {
+                "%SRCROOT%": {
+                    "uri": "file:///E:/projects/quiet-intent-launcher/"
+                }
+            },
+            "results": [
+                {
+                    "ruleId": "EmptySuperCall",
+                    "ruleIndex": 0,
+                    "message": {
+                        "text": "No need to call super.onCleared; the super method is defined to be empty",
+                        "markdown": "No need to call `super.onCleared`; the super method is defined to be empty"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "app/src/main/java/io/github/aritouma1205/quietintentlauncher/home/HomeViewModel.kt"
+                                },
+                                "region": {
+                                    "startLine": 462,
+                                    "startColumn": 15,
+                                    "endLine": 462,
+                                    "endColumn": 24,
+                                    "charOffset": 21119,
+                                    "charLength": 9,
+                                    "snippet": {
+                                        "text": "onCleared"
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 460,
+                                    "endLine": 465,
+                                    "snippet": {
+                                        "text": "        eventsObserverUnregister?.invoke()\n        eventsObserverUnregister = null\n        super.onCleared()\n    }\n\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "c69ea0aaf2b66ebd"
+                    }
+                },
+                {
+                    "ruleId": "GradleDependency",
+                    "ruleIndex": 1,
+                    "message": {
+                        "text": "A newer version of androidx.core:core-ktx than 1.19.0 is available: 1.19.1"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "gradle/libs.versions.toml"
+                                },
+                                "region": {
+                                    "startLine": 9,
+                                    "startColumn": 12,
+                                    "endLine": 9,
+                                    "endColumn": 20,
+                                    "charOffset": 286,
+                                    "charLength": 8,
+                                    "snippet": {
+                                        "text": "\"1.19.0\""
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 7,
+                                    "endLine": 12,
+                                    "snippet": {
+                                        "text": "activity-compose = \"1.13.0\"\r\nlifecycle = \"2.11.0\"\r\ncore-ktx = \"1.19.0\"\r\ndatastore = \"1.2.1\"\r\nkotlinx-serialization-json = \"1.11.0\"\r\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "fixes": [
+                        {
+                            "description": {
+                                "text": "Change to 1.19.1"
+                            },
+                            "artifactChanges": [
+                                {
+                                    "artifactLocation": {
+                                        "uriBaseId": "%SRCROOT%",
+                                        "uri": "gradle/libs.versions.toml"
+                                    },
+                                    "replacements": [
+                                        {
+                                            "deletedRegion": {
+                                                "startLine": 9,
+                                                "startColumn": 13,
+                                                "charOffset": 287,
+                                                "endLine": 9,
+                                                "endColumn": 19,
+                                                "charLength": 6
+                                            },
+                                            "insertedContent": {
+                                                "text": "1.19.1\n"
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "d687897eeb158fd5"
+                    }
+                },
+                {
+                    "ruleId": "ObsoleteSdkInt",
+                    "ruleIndex": 2,
+                    "message": {
+                        "text": "This folder configuration (v26) is unnecessary; minSdkVersion is 31. Merge all the resources in this folder into mipmap-anydpi.",
+                        "markdown": "This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 31. Merge all the resources in this folder into `mipmap-anydpi`."
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "app/src/main/res/mipmap-anydpi-v26"
+                                },
+                                "region": {
+                                    "startLine": 1
+                                }                            }
+                        }
+                    ],
+                    "fixes": [
+                    ],
+                    "partialFingerprints": {
+                    }
+                },
+                {
+                    "ruleId": "UnusedResources",
+                    "ruleIndex": 3,
+                    "message": {
+                        "text": "The resource R.string.info_weather_needs_region appears to be unused",
+                        "markdown": "The resource `R.string.info_weather_needs_region` appears to be unused"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uriBaseId": "%SRCROOT%",
+                                    "uri": "app/src/main/res/values/strings.xml"
+                                },
+                                "region": {
+                                    "startLine": 178,
+                                    "startColumn": 13,
+                                    "endLine": 178,
+                                    "endColumn": 45,
+                                    "charOffset": 9853,
+                                    "charLength": 32,
+                                    "snippet": {
+                                        "text": "name=\"info_weather_needs_region\""
+                                    }
+                                },
+                                "contextRegion": {
+                                    "startLine": 176,
+                                    "endLine": 181,
+                                    "snippet": {
+                                        "text": "    <string name=\"info_weather_fetching\">取得中…</string>\r\n    <string name=\"info_weather_failed\">前回の取得に失敗しました</string>\r\n    <string name=\"info_weather_needs_region\">先に地域を選んでください</string>\r\n    <string name=\"info_weather_disable_title\">天気をオフにしますか？</string>\r\n    <string name=\"info_weather_disable_body\">地域の設定と保存済みの天気キャッシュを削除します。保存で確定します。</string>\r\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "fixes": [
+                    ],
+                    "partialFingerprints": {
+                        "sourceContext/v1": "425f155ec0b7e4eb"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-09-28T07:13:42.847Z" hostname="DESKTOP-C13D2IN" time="0.007">
+  <properties/>
+  <testcase name="filter by id deletes an action" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.002"/>
+  <testcase name="moveDown swaps with the next entry" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="name of 0 chars is invalid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="alias of 0 chars is invalid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="moves at the bounds are no-ops" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="alias of 32 chars is valid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="defaults are the six actions in the designed order" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="name of 24 chars is valid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.001"/>
+  <testcase name="twelve actions pass and thirteen fail" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="one invalid alias fails the whole action" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="blank-only name is invalid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="name of 1 char is valid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="alias of 33 chars is invalid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="moveUp swaps with the previous entry" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="alias of 1 char is valid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="eight aliases pass and nine fail" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="name of 25 chars is invalid" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.0"/>
+  <testcase name="six derived ops pass and seven fail" classname="io.github.aritouma1205.quietintentlauncher.settings.DoActionTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-09-28T07:13:42.207Z" hostname="DESKTOP-C13D2IN" time="0.006">
+  <properties/>
+  <testcase name="minutes outside the day are rejected" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.001"/>
+  <testcase name="day values outside 1 to 7 are rejected" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="more than two slots is rejected" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="normalized pads and truncates to exactly two slots" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.001"/>
+  <testcase name="normalized pads get unique ids" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="removingAction drops rule references and clears defaults" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="label allows empty and up to 32 chars" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.001"/>
+  <testcase name="default slots are two empty slots" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.001"/>
+  <testcase name="valid slot passes validation" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="equal start and end is rejected" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="referencesAction finds rule and default references" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="validation reports the first violation" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.001"/>
+  <testcase name="one sided time range is rejected" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="rule without an action is rejected" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.0"/>
+  <testcase name="more than eight rules is rejected" classname="io.github.aritouma1205.quietintentlauncher.context.ContextModelTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

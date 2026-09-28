@@ -10,7 +10,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,8 +21,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -99,6 +102,7 @@ private fun PanelDivider() {
  * dragging; callers animate it for the settle. Tapping the outside area or
  * dragging the header outward by 0.20W closes the whole panel.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PanelLayer(
     side: EdgeSide,
@@ -154,7 +158,10 @@ fun PanelLayer(
                     )
                 }
                 .semantics { this.paneTitle = paneTitle }
-                .statusBarsPadding()
+                // Panels ride over Quiet where the status bar can
+                // transiently reappear; use a constant clearance so the
+                // content does not jump (issue 33).
+                .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
                 .navigationBarsPadding(),
         ) {
             content()
@@ -859,6 +866,7 @@ private fun EventRowItem(
  * battery at the configured position. Non-interactive — touches pass
  * through to the bars and the free area.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun GlanceOverlay(state: TodayUi, position: GlancePosition) {
     Box(Modifier.fillMaxSize()) {
@@ -872,7 +880,7 @@ fun GlanceOverlay(state: TodayUi, position: GlancePosition) {
                         GlancePosition.Bottom -> Alignment.BottomCenter
                     },
                 )
-                .statusBarsPadding()
+                .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
                 .navigationBarsPadding()
                 .padding(vertical = 48.dp)
                 .semantics { paneTitle = "GLANCE" },
