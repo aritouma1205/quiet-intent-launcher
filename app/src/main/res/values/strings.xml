@@ -47,6 +47,10 @@
     <string name="action_visible">パネルに表示する</string>
     <string name="action_move_up">上へ</string>
     <string name="action_move_down">下へ</string>
+    <string name="action_expand">展開する</string>
+    <string name="action_collapse">折りたたむ</string>
+    <string name="action_state_expanded">展開中</string>
+    <string name="action_state_collapsed">折りたたみ</string>
     <string name="action_delete">削除</string>
     <string name="action_delete_title">この行動を削除しますか？</string>
     <string name="action_delete_body">「%1$s」を削除します。保存するまで確定されません。</string>

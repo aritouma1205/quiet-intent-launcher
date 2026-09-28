@@ -14,11 +14,13 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isOff
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
@@ -73,6 +75,18 @@ class DoSettingsDraftTest {
         rule.onNodeWithText(res(R.string.unsaved_title)).assertIsDisplayed()
     }
 
+    /**
+     * Issue #35: editors start collapsed. The merged row node carries the
+     * action name as merged text plus the click action — tapping it opens
+     * the editor (accordion: at most one expanded).
+     */
+    private fun expandAction(name: String) {
+        rule.onNode(hasClickAction() and hasText(name))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+    }
+
     private fun setContent(
         initial: SettingsData = SettingsData(),
         onSave: (SettingsData, (Boolean) -> Unit) -> Unit,
@@ -99,6 +113,7 @@ class DoSettingsDraftTest {
         var saveAttempts = 0
         setContent(onSave = { _, done -> saveAttempts++; done(true) })
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("   ")
         rule.onNodeWithText(res(R.string.save))
@@ -115,6 +130,7 @@ class DoSettingsDraftTest {
         var saveAttempts = 0
         setContent(onSave = { _, done -> saveAttempts++; done(false) })
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("写真")
         rule.onNodeWithText(res(R.string.save))
@@ -165,6 +181,7 @@ class DoSettingsDraftTest {
             onBack = { backed = true },
         )
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("写真")
         rule.onNodeWithText(res(R.string.save))
@@ -201,6 +218,7 @@ class DoSettingsDraftTest {
         )
 
         // Open the first action's target picker and switch to the link mode.
+        expandAction("撮る")
         rule.onAllNodesWithText(res(R.string.action_target_change))
             .onFirst()
             .performScrollTo()
@@ -254,6 +272,7 @@ class DoSettingsDraftTest {
         )
 
         // Open the first action's target picker and switch to the link mode.
+        expandAction("撮る")
         rule.onAllNodesWithText(res(R.string.action_target_change))
             .onFirst()
             .performScrollTo()
@@ -312,6 +331,7 @@ class DoSettingsDraftTest {
             }
         }
 
+        expandAction("撮る")
         rule.onAllNodesWithText(res(R.string.action_target_change))
             .onFirst()
             .performScrollTo()
@@ -383,6 +403,7 @@ class DoSettingsDraftTest {
         // Add a derived op to the first action, then open its picker —
         // inside action 1's card the op's 変更する follows the action's
         // own target row (index 1).
+        expandAction("撮る")
         rule.onAllNodesWithText(res(R.string.action_op_add))
             .onFirst()
             .performScrollTo()
@@ -396,7 +417,37 @@ class DoSettingsDraftTest {
         rule.onNode(
             hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
         ).performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("メール").performClick()
+        // Filter to a single cell — the surviving メール is then the only
+        // match and sits fully inside the grid viewport for the click.
+        rule.onNode(
+            hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
+        ).performTextReplacement("メー")
+        // Dismiss the IME: with the keyboard up, the surviving cell can sit
+        // underneath it and the injected touch is swallowed by the keyboard.
+        rule.runOnUiThread {
+            val imm = rule.activity.getSystemService(
+                android.content.Context.INPUT_METHOD_SERVICE,
+            ) as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(
+                rule.activity.window.decorView.windowToken, 0,
+            )
+        }
+        rule.waitForIdle()
+        // The grid's own scroll range is empty, so scrolling the cell is a
+        // no-op; scroll the page instead by pulling the element BELOW the
+        // picker into view — the cell then sits inside the window.
+        rule.onAllNodesWithText(res(R.string.action_op_add))
+            .onFirst()
+            .performScrollTo()
+        rule.onNodeWithText("メール")
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+        // The pick must reach the draft — a set `current` makes the open
+        // picker surface 解除する (off-screen at first, so scroll).
+        rule.onNodeWithText(res(R.string.target_clear))
+            .performScrollTo()
+            .assertIsDisplayed()
         rule.onNodeWithText(res(R.string.save))
             .performScrollTo()
             .performClick()
@@ -408,9 +459,12 @@ class DoSettingsDraftTest {
         )
 
         // Leave and display the screen again: the op retains the app.
+        // The revisited screen starts collapsed (issue 35), so expand the
+        // row first to reach the op summary inside the editor.
         initial = saved!!
         visit++
         rule.waitForIdle()
+        expandAction("撮る")
         rule.onNodeWithText("メール")
             .performScrollTo()
             .assertIsDisplayed()
@@ -458,11 +512,28 @@ class DoSettingsDraftTest {
         rule.onNode(
             hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
         ).assertIsDisplayed()
-        rule.onNodeWithText("メール").performClick()
+        // Filter to a single cell so the click lands unambiguously, and
+        // dismiss the IME so it cannot swallow the injected touch.
+        rule.onNode(
+            hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
+        ).performTextReplacement("メー")
+        rule.runOnUiThread {
+            val imm = rule.activity.getSystemService(
+                android.content.Context.INPUT_METHOD_SERVICE,
+            ) as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(
+                rule.activity.window.decorView.windowToken, 0,
+            )
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("メール")
+            .performScrollTo()
+            .performClick()
         // Diagnostic: a successful pick sets `current` in the still-open
         // picker, which surfaces the 「解除する」 row (target_clear).
         rule.waitForIdle()
         rule.onNodeWithText(res(R.string.target_clear))
+            .performScrollTo()
             .assertIsDisplayed()
         rule.onNodeWithText(res(R.string.save))
             .performScrollTo()
@@ -492,6 +563,7 @@ class DoSettingsDraftTest {
             onBack = { backed = true },
         )
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("変えた")
         rule.onNodeWithText(res(R.string.back)).performClick()
@@ -513,6 +585,7 @@ class DoSettingsDraftTest {
             onBack = { backed = true },
         )
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("変えた")
         rule.onNodeWithText(res(R.string.back)).performClick()
@@ -542,6 +615,7 @@ class DoSettingsDraftTest {
             onBack = { backed = true },
         )
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("写真")
         rule.onNodeWithText(res(R.string.back)).performClick()
@@ -577,6 +651,7 @@ class DoSettingsDraftTest {
             onBack = { backed = true },
         )
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("変えた")
         rule.waitForIdle()
@@ -602,6 +677,7 @@ class DoSettingsDraftTest {
             onBack = { backed = true },
         )
 
+        expandAction("撮る")
         rule.onAllNodes(hasSetTextAction()).onFirst()
             .performTextReplacement("変えた")
         rule.onNodeWithText(res(R.string.cancel))
@@ -615,5 +691,129 @@ class DoSettingsDraftTest {
 
         assertEquals(0, saveAttempts)
         assertEquals(true, backed)
+    }
+
+    @Test
+    fun collapsedRowShowsNameAndExpandsToEditor() {
+        // Issue #35: rows start collapsed — name + target summary visible,
+        // no form fields. Tapping the row opens the full editor and the
+        // edited name still saves through the unchanged path.
+        var saved: SettingsData? = null
+        setContent(onSave = { data, done -> saved = data; done(true) })
+
+        rule.onNode(hasClickAction() and hasText("撮る")).assertIsDisplayed()
+        rule.onAllNodes(hasSetTextAction()).assertCountEquals(0)
+
+        expandAction("撮る")
+        rule.onNode(hasSetTextAction() and hasText("撮る"))
+            .assertIsDisplayed()
+            .performTextReplacement("写真")
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        assertEquals("写真", saved?.actions?.first()?.name)
+    }
+
+    @Test
+    fun accordionCollapsesPreviousRow() {
+        // Issue #35: a single expanded editor — opening the next row folds
+        // the previous one.
+        setContent(onSave = { _, done -> done(true) })
+
+        expandAction("撮る")
+        rule.onNode(hasSetTextAction() and hasText("撮る")).assertIsDisplayed()
+
+        expandAction("話す")
+        rule.onAllNodes(hasSetTextAction() and hasText("撮る"))
+            .assertCountEquals(0)
+        rule.onNode(hasSetTextAction() and hasText("話す")).assertIsDisplayed()
+    }
+
+    @Test
+    fun collapsedReorderMovesActionWithoutExpanding() {
+        // Issue #35: ↑/↓ reorder must stay available while folded
+        // (design 11.2 switch-accessible reorder).
+        var saved: SettingsData? = null
+        var backed = false
+        setContent(
+            onSave = { data, done -> saved = data; done(true) },
+            onBack = { backed = true },
+        )
+
+        // The first row's 下へ icon button — no editor opens.
+        rule.onAllNodesWithContentDescription(res(R.string.action_move_down))
+            .onFirst()
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+        rule.onAllNodes(hasSetTextAction()).assertCountEquals(0)
+
+        rule.onNodeWithText(res(R.string.save))
+            .performScrollTo()
+            .performClick()
+        rule.waitForIdle()
+
+        assertEquals("話す", saved?.actions?.get(0)?.name)
+        assertEquals("撮る", saved?.actions?.get(1)?.name)
+        assertEquals(true, backed)
+    }
+
+    @Test
+    fun focusActionIdAutoExpandsAndOpensPicker() {
+        // Issue #35: focusActionId is the production entry path (DO panel
+        // unset-tap / この行動を編集) — it must expand the target row AND
+        // open its picker, even though editors start collapsed.
+        // AppPickList renders its search field only when apps exist.
+        val entries = listOf(
+            fakeApp("com.example.maps", "マップ"),
+            fakeApp("com.example.mail", "メール"),
+        )
+        rule.setContent {
+            QuietLauncherTheme {
+                DoSettingsScreen(
+                    initial = SettingsData(),
+                    focusActionId = "00000000-0000-4000-8000-000000000004",
+                    apps = entries,
+                    iconLoader = { null },
+                    isHomeRoleHeld = false,
+                    shortcutsFor = { emptyList() },
+                    onSave = { _, done -> done(true) },
+                    onBack = {},
+                )
+            }
+        }
+
+        // The target's picker mounts (it lives inside the expanded editor).
+        rule.waitUntil(timeoutMillis = 15_000) {
+            rule.onAllNodes(
+                hasSetTextAction() and hasText(res(R.string.picker_search_hint)),
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        // …and the focused row （見る, id …004) is the expanded one while
+        // other editors stay folded.
+        rule.onNode(hasSetTextAction() and hasText("見る")).assertExists()
+        rule.onAllNodes(hasSetTextAction() and hasText("撮る"))
+            .assertCountEquals(0)
+    }
+
+    @Test
+    fun addedActionAutoExpands() {
+        // Issue #35: 行動を追加 opens the new row expanded (and the deferred
+        // scroll lands on it).
+        setContent(onSave = { _, done -> done(true) })
+
+        rule.onNodeWithText(res(R.string.action_add))
+            .performScrollTo()
+            .performClick()
+        rule.waitUntil(timeoutMillis = 15_000) {
+            rule.onAllNodes(
+                hasSetTextAction() and hasText("行動"),
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNode(hasSetTextAction() and hasText("行動"))
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 }

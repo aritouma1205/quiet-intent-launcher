@@ -3,22 +3,31 @@ package io.github.aritouma1205.quietintentlauncher.settings
 import android.graphics.drawable.Drawable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -38,9 +47,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.aritouma1205.quietintentlauncher.R
@@ -99,6 +111,16 @@ fun DoSettingsScreen(
     // restored slot would resurrect a stale picker on the next plain visit
     // (editor focus requests are one-shot, consumed on entry).
     var pickerSlot by remember { mutableStateOf<String?>(null) }
+
+    // Issue 35 accordion: at most one editor is expanded at a time. The key
+    // space is shared — "tool:<id>" keys stay disjoint from action UUIDs.
+    // A focus entry auto-expands its row so the picker inside it can mount.
+    var expandedId by rememberSaveable {
+        mutableStateOf(focusActionId ?: focusToolId?.let { "tool:$it" })
+    }
+    // Deferred scroll target: the row must lay out before its offset is
+    // known, so the effect waits for the anchor via snapshotFlow.
+    var scrollTargetKey by remember { mutableStateOf<String?>(null) }
 
     // The open link editor reports an invalid non-blank input here; saving
     // while one is pending would silently keep the previous target.
@@ -160,11 +182,18 @@ fun DoSettingsScreen(
         // re-opens a stale picker (design 7 代替導線).
         onEditFocusConsumed()
         if (slot != null) {
-            val offsetKey = if (focus != null) focus else TOOLS_OFFSET_KEY
-            val y = snapshotFlow { itemOffsets[offsetKey] }
-                .filterNotNull().first()
-            scrollState.animateScrollTo(y)
+            scrollTargetKey = if (focus != null) focus else TOOLS_OFFSET_KEY
         }
+    }
+
+    // Scroll after the target row reports its position: expanding a row
+    // changes the layout, so the anchor arrives asynchronously.
+    LaunchedEffect(scrollTargetKey) {
+        val anchorKey = scrollTargetKey ?: return@LaunchedEffect
+        val y = snapshotFlow { itemOffsets[anchorKey] }
+            .filterNotNull().first()
+        scrollState.animateScrollTo(y)
+        scrollTargetKey = null
     }
 
     Column(
@@ -198,47 +227,83 @@ fun DoSettingsScreen(
         ) {
             draft.actions.forEachIndexed { index, action ->
                 key(action.id) {
-                    ActionEditor(
-                        action = action,
-                        isFirst = index == 0,
-                        isLast = index == draft.actions.lastIndex,
-                        pickerSlot = pickerSlot,
-                        onPickerSlot = { pickerSlot = it },
-                        apps = apps,
-                        recents = recents,
-                        iconLoader = iconLoader,
-                        isHomeRoleHeld = isHomeRoleHeld,
-                        shortcutsFor = shortcutsFor,
-                        onPendingInvalid = { pendingInvalidLink = it },
-                        onChange = { updated ->
-                            draft = draft.copy(
-                                actions = draft.actions.map {
-                                    if (it.id == action.id) updated else it
+                    val expanded = expandedId == action.id
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned {
+                                itemOffsets[action.id] =
+                                    it.positionInParent().y.toInt()
+                            },
+                    ) {
+                        CollapsedActionRow(
+                            action = action,
+                            expanded = expanded,
+                            isFirst = index == 0,
+                            isLast = index == draft.actions.lastIndex,
+                            apps = apps,
+                            onToggle = {
+                                expandedId = if (expanded) null else action.id
+                            },
+                            onMoveUp = {
+                                draft = draft.copy(
+                                    actions = ActionRules.moveUp(draft.actions, index),
+                                )
+                            },
+                            onMoveDown = {
+                                draft = draft.copy(
+                                    actions = ActionRules.moveDown(draft.actions, index),
+                                )
+                            },
+                        )
+                        if (expanded) {
+                            ActionEditor(
+                                action = action,
+                                isFirst = index == 0,
+                                isLast = index == draft.actions.lastIndex,
+                                pickerSlot = pickerSlot,
+                                onPickerSlot = { pickerSlot = it },
+                                apps = apps,
+                                recents = recents,
+                                iconLoader = iconLoader,
+                                isHomeRoleHeld = isHomeRoleHeld,
+                                shortcutsFor = shortcutsFor,
+                                onPendingInvalid = { pendingInvalidLink = it },
+                                onChange = { updated ->
+                                    draft = draft.copy(
+                                        actions = draft.actions.map {
+                                            if (it.id == action.id) updated else it
+                                        },
+                                    )
                                 },
+                                onMoveUp = {
+                                    draft = draft.copy(
+                                        actions = ActionRules.moveUp(draft.actions, index),
+                                    )
+                                },
+                                onMoveDown = {
+                                    draft = draft.copy(
+                                        actions = ActionRules.moveDown(draft.actions, index),
+                                    )
+                                },
+                                onDelete = { deleteCandidate = action },
                             )
-                        },
-                        onMoveUp = {
-                            draft = draft.copy(
-                                actions = ActionRules.moveUp(draft.actions, index),
-                            )
-                        },
-                        onMoveDown = {
-                            draft = draft.copy(
-                                actions = ActionRules.moveDown(draft.actions, index),
-                            )
-                        },
-                        onDelete = { deleteCandidate = action },
-                        onPositioned = { itemOffsets[action.id] = it },
-                    )
+                        }
+                    }
                 }
                 HorizontalDivider()
             }
 
             OutlinedButton(
                 onClick = {
+                    val added = ActionRules.newAction()
                     draft = draft.copy(
-                        actions = draft.actions + ActionRules.newAction(),
+                        actions = draft.actions + added,
                     )
+                    // Issue 35: the new row opens expanded and scrolls into
+                    // view once it has laid out.
+                    expandedId = added.id
+                    scrollTargetKey = added.id
                 },
                 enabled = ActionRules.canAdd(draft.actions),
                 modifier = Modifier
@@ -276,49 +341,99 @@ fun DoSettingsScreen(
             draft.tools.items.forEachIndexed { index, item ->
                 val tool = ToolItem.byId(item.id) ?: return@forEachIndexed
                 key(item.id) {
-                    ToolEditor(
-                        tool = tool,
-                        item = item,
-                        isFirst = index == 0,
-                        isLast = index == draft.tools.items.lastIndex,
-                        pickerSlot = pickerSlot,
-                        onPickerSlot = { pickerSlot = it },
-                        apps = apps,
-                        recents = recents,
-                        iconLoader = iconLoader,
-                        isHomeRoleHeld = isHomeRoleHeld,
-                        shortcutsFor = shortcutsFor,
-                        onPendingInvalid = { pendingInvalidLink = it },
-                        onChange = { updated ->
-                            draft = draft.copy(
-                                tools = draft.tools.copy(
-                                    items = draft.tools.items.map {
-                                        if (it.id == item.id) updated else it
-                                    },
-                                ),
-                            )
-                        },
-                        onMoveUp = {
-                            draft = draft.copy(
-                                tools = draft.tools.copy(
-                                    items = ToolRules.moveUp(
-                                        draft.tools.items,
-                                        index,
+                    val toolExpanded = expandedId == "tool:${tool.id}"
+                    Column(Modifier.fillMaxWidth()) {
+                        CollapsedToolRow(
+                            tool = tool,
+                            item = item,
+                            expanded = toolExpanded,
+                            isFirst = index == 0,
+                            isLast = index == draft.tools.items.lastIndex,
+                            apps = apps,
+                            onToggle = {
+                                expandedId =
+                                    if (toolExpanded) null else "tool:${tool.id}"
+                            },
+                            onVisibleChange = { visible ->
+                                draft = draft.copy(
+                                    tools = draft.tools.copy(
+                                        items = draft.tools.items.map {
+                                            if (it.id == item.id) {
+                                                it.copy(visible = visible)
+                                            } else {
+                                                it
+                                            }
+                                        },
                                     ),
-                                ),
-                            )
-                        },
-                        onMoveDown = {
-                            draft = draft.copy(
-                                tools = draft.tools.copy(
-                                    items = ToolRules.moveDown(
-                                        draft.tools.items,
-                                        index,
+                                )
+                            },
+                            onMoveUp = {
+                                draft = draft.copy(
+                                    tools = draft.tools.copy(
+                                        items = ToolRules.moveUp(
+                                            draft.tools.items,
+                                            index,
+                                        ),
                                     ),
-                                ),
+                                )
+                            },
+                            onMoveDown = {
+                                draft = draft.copy(
+                                    tools = draft.tools.copy(
+                                        items = ToolRules.moveDown(
+                                            draft.tools.items,
+                                            index,
+                                        ),
+                                    ),
+                                )
+                            },
+                        )
+                        if (toolExpanded) {
+                            ToolEditor(
+                                tool = tool,
+                                item = item,
+                                isFirst = index == 0,
+                                isLast = index == draft.tools.items.lastIndex,
+                                pickerSlot = pickerSlot,
+                                onPickerSlot = { pickerSlot = it },
+                                apps = apps,
+                                recents = recents,
+                                iconLoader = iconLoader,
+                                isHomeRoleHeld = isHomeRoleHeld,
+                                shortcutsFor = shortcutsFor,
+                                onPendingInvalid = { pendingInvalidLink = it },
+                                onChange = { updated ->
+                                    draft = draft.copy(
+                                        tools = draft.tools.copy(
+                                            items = draft.tools.items.map {
+                                                if (it.id == item.id) updated else it
+                                            },
+                                        ),
+                                    )
+                                },
+                                onMoveUp = {
+                                    draft = draft.copy(
+                                        tools = draft.tools.copy(
+                                            items = ToolRules.moveUp(
+                                                draft.tools.items,
+                                                index,
+                                            ),
+                                        ),
+                                    )
+                                },
+                                onMoveDown = {
+                                    draft = draft.copy(
+                                        tools = draft.tools.copy(
+                                            items = ToolRules.moveDown(
+                                                draft.tools.items,
+                                                index,
+                                            ),
+                                        ),
+                                    )
+                                },
                             )
-                        },
-                    )
+                        }
+                    }
                 }
                 HorizontalDivider()
             }
@@ -460,14 +575,10 @@ private fun ActionEditor(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onDelete: () -> Unit,
-    onPositioned: (Int) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .onGloballyPositioned {
-                onPositioned(it.positionInParent().y.toInt())
-            }
             .padding(vertical = 12.dp),
     ) {
         OutlinedTextField(
@@ -830,10 +941,8 @@ private fun ToolEditor(
             .fillMaxWidth()
             .padding(vertical = 12.dp),
     ) {
-        Text(
-            text = stringResource(tool.labelRes),
-            style = MaterialTheme.typography.bodyLarge,
-        )
+        // The tool name lives on the collapsed row above; the expanded
+        // editor starts directly with the fields.
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -911,6 +1020,178 @@ private fun ToolEditor(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Collapsed action row (issue 35): icon, name and the launch-target summary
+ * stay visible while the full editor below is folded away. The leading zone
+ * is one merged clickable node so TalkBack reads name + summary + expand
+ * state as a unit; the reorder buttons and chevron stay separate targets so
+ * switch access can still move an action without expanding it.
+ */
+@Composable
+private fun CollapsedActionRow(
+    action: DoAction,
+    expanded: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
+    apps: List<AppEntry>?,
+    onToggle: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    val stateDesc = stringResource(
+        if (expanded) R.string.action_state_expanded
+        else R.string.action_state_collapsed,
+    )
+    val toggleLabel = stringResource(
+        if (expanded) R.string.action_collapse else R.string.action_expand,
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .weight(1f)
+                .semantics(mergeDescendants = true) {
+                    stateDescription = stateDesc
+                }
+                .clickable(onClickLabel = toggleLabel, onClick = onToggle)
+                .padding(vertical = 8.dp),
+        ) {
+            Icon(
+                imageVector = action.icon.imageVector(),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = action.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = targetSummary(action.target, apps),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        IconButton(onClick = onMoveUp, enabled = !isFirst) {
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowUp,
+                contentDescription = stringResource(R.string.action_move_up),
+            )
+        }
+        IconButton(onClick = onMoveDown, enabled = !isLast) {
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = stringResource(R.string.action_move_down),
+            )
+        }
+        IconButton(onClick = onToggle) {
+            Icon(
+                imageVector = Icons.Filled.ArrowDropDown,
+                contentDescription = toggleLabel,
+                modifier = Modifier.rotate(if (expanded) 180f else 0f),
+            )
+        }
+    }
+}
+
+/**
+ * Collapsed tool row (issue 35): name, launch-target summary for the
+ * targetable tools, the visibility switch (kept reachable while folded),
+ * reorder buttons and the expand chevron.
+ */
+@Composable
+private fun CollapsedToolRow(
+    tool: ToolItem,
+    item: ToolSetting,
+    expanded: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
+    apps: List<AppEntry>?,
+    onToggle: () -> Unit,
+    onVisibleChange: (Boolean) -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    val stateDesc = stringResource(
+        if (expanded) R.string.action_state_expanded
+        else R.string.action_state_collapsed,
+    )
+    val toggleLabel = stringResource(
+        if (expanded) R.string.action_collapse else R.string.action_expand,
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .weight(1f)
+                .semantics(mergeDescendants = true) {
+                    stateDescription = stateDesc
+                }
+                .clickable(onClickLabel = toggleLabel, onClick = onToggle)
+                .padding(vertical = 8.dp),
+        ) {
+            Column {
+                Text(
+                    text = stringResource(tool.labelRes),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (tool in ToolItem.TARGETABLE) {
+                    Text(
+                        text = if (tool == ToolItem.Timer && item.target == null) {
+                            stringResource(R.string.tool_timer_list)
+                        } else {
+                            targetSummary(item.target, apps)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        Switch(
+            checked = item.visible,
+            onCheckedChange = onVisibleChange,
+        )
+        IconButton(onClick = onMoveUp, enabled = !isFirst) {
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowUp,
+                contentDescription = stringResource(R.string.action_move_up),
+            )
+        }
+        IconButton(onClick = onMoveDown, enabled = !isLast) {
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = stringResource(R.string.action_move_down),
+            )
+        }
+        IconButton(onClick = onToggle) {
+            Icon(
+                imageVector = Icons.Filled.ArrowDropDown,
+                contentDescription = toggleLabel,
+                modifier = Modifier.rotate(if (expanded) 180f else 0f),
+            )
         }
     }
 }
