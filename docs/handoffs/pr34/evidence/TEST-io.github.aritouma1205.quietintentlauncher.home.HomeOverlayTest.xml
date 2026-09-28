@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-28T07:13:42.249Z" hostname="DESKTOP-C13D2IN" time="0.005">
+  <properties/>
+  <testcase name="panels are exclusive" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.003"/>
+  <testcase name="collapse tools is a no-op outside an expanded do panel" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.001"/>
+  <testcase name="glance toggles on tap" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.001"/>
+  <testcase name="back on glance dismisses it" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
+  <testcase name="back folds tools before closing the panel" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
+  <testcase name="opening a panel dismisses glance" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
+  <testcase name="clear drops every overlay" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
+  <testcase name="back on today closes it" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

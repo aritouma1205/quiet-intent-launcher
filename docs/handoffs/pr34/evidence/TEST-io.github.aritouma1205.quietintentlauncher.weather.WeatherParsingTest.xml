@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-09-28T07:13:43.047Z" hostname="DESKTOP-C13D2IN" time="0.007">
+  <properties/>
+  <testcase name="rows with out-of-range coordinates are skipped" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.001"/>
+  <testcase name="forecast rejects temperatures outside the sanity range" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="geocoding rejects a non-array results field" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.001"/>
+  <testcase name="a malformed row is skipped while valid rows are kept" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="a non-integral id keeps its literal form" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="forecast rejects missing or mistyped fields" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="absent results mean no matches" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="an unknown weather code still parses" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="rows with mistyped or blank fields are skipped" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="temperature sanity bounds are inclusive" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.002"/>
+  <testcase name="current conditions map to a reading" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="is_day zero means night" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="forecast rejects a non-json or non-object body" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="forecast rejects a missing current object" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="geocoding rejects a non-object body" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.0"/>
+  <testcase name="geocoding results map to locations" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherParsingTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

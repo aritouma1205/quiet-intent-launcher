@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.launch.LaunchGateTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-28T07:13:42.265Z" hostname="DESKTOP-C13D2IN" time="0.002">
+  <properties/>
+  <testcase name="held key expires after the window" classname="io.github.aritouma1205.quietintentlauncher.launch.LaunchGateTest" time="0.002"/>
+  <testcase name="release frees the key immediately" classname="io.github.aritouma1205.quietintentlauncher.launch.LaunchGateTest" time="0.0"/>
+  <testcase name="same target is blocked while held" classname="io.github.aritouma1205.quietintentlauncher.launch.LaunchGateTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
