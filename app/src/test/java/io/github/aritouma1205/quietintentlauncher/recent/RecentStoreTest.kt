@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -492,4 +494,38 @@ class RecentStoreTest {
         assertFalse(withTimeout(1_000) { store.prune() })
         assertFalse(withTimeout(1_000) { store.clear() })
     }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a writer superseded before dispatch returns false instead of hanging`() =
+        runBlocking<Unit> {
+            // Issue #42 MINOR-1: a collect job cancelled before its first
+            // dispatch never runs — finally included — so the superseding
+            // start() must release the previous generation's signal itself.
+            // StandardTestDispatcher keeps the launched job queued forever.
+            val queuedScope = CoroutineScope(
+                SupervisorJob() + StandardTestDispatcher(),
+            )
+            try {
+                val store = RecentStore(
+                    scope = queuedScope,
+                    serializer = serializer,
+                    fileProvider = { file },
+                    dataStoreFactory = {
+                        // Never reached: the job is superseded while queued.
+                        error("unreachable")
+                    },
+                    clock = { now },
+                )
+                store.start()
+                val pending = async { store.record(appA) }
+                delay(200)
+                assertFalse(pending.isCompleted)
+
+                store.start()
+                assertFalse(withTimeout(5_000) { pending.await() })
+            } finally {
+                queuedScope.cancel()
+            }
+        }
 }

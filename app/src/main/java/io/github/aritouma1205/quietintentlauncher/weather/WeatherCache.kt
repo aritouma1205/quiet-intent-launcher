@@ -140,6 +140,10 @@ class WeatherCacheStore(
 
     fun start() {
         collectJob?.cancel()
+        // A collect job cancelled before its first dispatch never runs —
+        // finally included — so the superseding start() must release the
+        // previous generation's signal itself or its writers would hang.
+        openSignal?.complete(null)
         val signal = CompletableDeferred<DataStore<WeatherCacheData>?>()
         openSignal = signal
         collectJob = scope.launch {
