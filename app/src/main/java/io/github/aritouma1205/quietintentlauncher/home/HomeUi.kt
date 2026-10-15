@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -113,6 +114,7 @@ fun QuietLauncherRoot(
 ) {
     QuietLauncherTheme {
         val screen by viewModel.screen.collectAsState()
+        val draftEpoch by viewModel.nav.draftEpoch.collectAsState()
         val overlay by viewModel.overlay.collectAsState()
         val settingsState by viewModel.settingsState.collectAsState()
         val isDefaultHome by viewModel.isDefaultHome.collectAsState()
@@ -195,7 +197,18 @@ fun QuietLauncherRoot(
                     onReset = { resetConfirm = true },
                     onContinue = viewModel::dismissRecovery,
                 )
-                else -> when (screen) {
+                // Issue #41 (design 3): the epoch bumps on every stack
+                // publish and the session id changes with the process, so
+                // a screen that left the top can never recompose under the
+                // composite key a previous visit's saveable state (drafts,
+                // queries, picker state) still occupies — leaving the top
+                // discards it deterministically. Configuration changes and
+                // armed external flows publish no new epoch, so drafts
+                // survive exactly those paths. The whole dispatch is
+                // wrapped so future rememberSaveable additions inherit the
+                // rule without per-screen wiring.
+                else -> key(draftEpoch, viewModel.sessionId) {
+                    when (screen) {
                     HomeScreen.Quiet -> QuietScreen(
                         isDefaultHome = isDefaultHome,
                         overlay = overlay,
@@ -449,6 +462,7 @@ fun QuietLauncherRoot(
                         },
                         onDismiss = { viewModel.nav.back() },
                     )
+                    }
                 }
             }
         }

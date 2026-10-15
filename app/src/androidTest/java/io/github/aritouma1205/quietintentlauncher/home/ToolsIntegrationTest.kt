@@ -515,6 +515,34 @@ class ToolsIntegrationTest {
         assertTrue(recorded.isEmpty())
     }
 
+    // Issue #41 review: a HOME invocation must disarm a pending screenshot
+    // the same way backgrounding does. The nav reset retires the close
+    // animation whose settle the request was waiting on, so a stale flag
+    // would let an unrelated later settle (e.g. an aborted edge drag
+    // reporting Closed) shoot Quiet unexpectedly.
+    @Test
+    fun anArmedScreenshotDiesOnHomeInvoke() {
+        val recorded = CopyOnWriteArrayList<SystemAction>()
+        armScreenshotService(recorded)
+        runBlocking {
+            container.settingsStore.update {
+                it.copy(
+                    systemActions = it.systemActions.copy(
+                        screenshotEnabled = true,
+                    ),
+                )
+            }
+        }
+        rule.runOnUiThread { viewModel.requestScreenshot() }
+        rule.runOnUiThread { viewModel.onHomeInvoked() }
+        // The settle that would have fired the armed request is gone;
+        // any settle arriving now must be a no-op.
+        rule.runOnUiThread { viewModel.onRevealSettled() }
+        rule.waitForIdle()
+        assertEquals(HomeScreen.Quiet, viewModel.screen.value)
+        assertTrue(recorded.isEmpty())
+    }
+
     @Test
     fun screenshotWithTheSwitchOffOpensSystemSettings() {
         val recorded = CopyOnWriteArrayList<SystemAction>()
