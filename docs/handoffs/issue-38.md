@@ -113,7 +113,8 @@ design-v1.md 9.3・13章権限表・16.2受入条件を更新する。
 
 ## 検証結果
 
-対象: `feature/issue-38-app-uninstall` head、emulator-5556（ops_emu AVD / API 36）。
+対象: `feature/issue-38-app-uninstall` head（`2994e03`、PR #39）、emulator-5556
+（ops_emu AVD / API 36）。証跡一式は `docs/handoffs/pr39/evidence/` にコミット済み。
 
 | ID | 確認内容（期待） | 実測 | 結果 | 実行方法 | 証跡 |
 | --- | --- | --- | --- | --- | --- |
