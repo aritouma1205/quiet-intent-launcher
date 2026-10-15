@@ -1,0 +1,19 @@
+I40-T02 discriminating check — 修正前コード（onResume の nav.onForegrounded() 呼出を
+一時的に無効化した MainActivity）に対し pauseOnlyExternalFlowReleasesFlagOnResume を
+単独実行した結果。期待どおり失敗し、本テストが修正を識別することを確認済み。
+
+実行: flock /tmp/qil-androidtest.lock ./gradlew :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=\
+io.github.aritouma1205.quietintentlauncher.home.ExternalFlowLifecycleTest#pauseOnlyExternalFlowReleasesFlagOnResume
+
+結果: tests=1 failures=1（BUILD FAILED — There were failing tests）
+
+java.lang.AssertionError: expected:<Quiet> but was:<Settings>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotEquals(Assert.java:835)
+	at org.junit.Assert.assertEquals(Assert.java:120)
+	at org.junit.Assert.assertEquals(Assert.java:146)
+	at io.github.aritouma1205.quietintentlauncher.home.ExternalFlowLifecycleTest.pauseOnlyExternalFlowReleasesFlagOnResume(ExternalFlowLifecycleTest.kt:81)
+
+確認後に修正を復元し、最終コードで全量計装（164件 0失敗）を再実行して
+instrumentation-results.xml に収録。
