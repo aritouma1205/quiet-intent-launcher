@@ -2,7 +2,10 @@
 
 ## 工程状態
 
-- 現在工程: テスト計画（B）→ 実装（SWE-2）→ 検証レビュー（B）→ PRレビュー（A）
+- 現在工程: 完了（ユーザーのマージ判断待ち）
+- PR #39: OPEN、head `801e0ed`（feat 2994e03 + docs 801e0ed）→ レビュー記録追加コミットでhead更新予定
+- B検証結果レビュー: TEST READY（docs/handoffs/pr39/b-test-review.md）
+- A独立PRレビュー: APPROVE・MINOR1件（docs/handoffs/pr39/a-pr-review.md）
 - ベース: `origin/main` @ e391cd6、作業ブランチ `feature/issue-38-app-uninstall`
 - 作業ディレクトリ: `/home/aritouma/projects/qil-issue38-uninstall`（git worktree。mainワーキングツリーはCRLF差分が残っているため隔離）
 - A設計レビュー: CHANGES REQUIRED → 以下のv2仕様で全指摘を解消済み
