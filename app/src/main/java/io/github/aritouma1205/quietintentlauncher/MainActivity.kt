@@ -67,12 +67,12 @@ class MainActivity : ComponentActivity() {
                 viewModel = viewModel,
                 iconLoader = container.appCatalog::loadIcon,
                 onRequestHomeRole = ::requestHomeRole,
-                onRestoreHome = ::openDefaultHomeSettings,
-                onChangeWallpaper = ::openWallpaperPicker,
+                onRestoreHome = { openDefaultHomeSettings() },
+                onChangeWallpaper = { openWallpaperPicker() },
                 onOpenAppInfo = ::openAppInfo,
                 onUninstallApp = ::openUninstall,
                 onOpenEvent = ::openCalendarEvent,
-                onOpenAccessibilitySettings = ::openAccessibilitySettings,
+                onOpenAccessibilitySettings = { openAccessibilitySettings() },
             )
         }
     }
@@ -103,6 +103,18 @@ class MainActivity : ComponentActivity() {
         container.appCatalog.reloadAll()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Dialog-type OS surfaces (uninstall confirmation, role request)
+        // only pause this activity, so returning from them reaches
+        // onResume but never onStart — the armed external-flow flag must
+        // be released here too, otherwise it stays armed and suppresses
+        // the next ordinary Quiet reset (design 3, Issue #40). Only the
+        // light nav path runs: the heavier foreground refresh work stays
+        // in onStart so a full leave does not run it twice.
+        viewModel.nav.onForegrounded()
+    }
+
     override fun onStop() {
         super.onStop()
         unregisterReceiver(timeChangeReceiver)
@@ -128,20 +140,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun openDefaultHomeSettings() {
-        try {
-            startActivity(container.homeRole.defaultHomeSettingsIntent())
-        } catch (e: ActivityNotFoundException) {
-            startActivity(Intent(Settings.ACTION_SETTINGS))
-        }
+    /**
+     * "元のホームへ戻す": the OS default-home settings, falling back to the
+     * generic settings top when the dedicated screen does not resolve.
+     * internal with injectable intents so instrumentation can exercise the
+     * rollback on both arms (Issue #40).
+     */
+    internal fun openDefaultHomeSettings(
+        intent: Intent = container.homeRole.defaultHomeSettingsIntent(),
+        fallbackIntent: Intent = Intent(Settings.ACTION_SETTINGS),
+    ) {
+        launchExternalOrToast(intent, R.string.all_apps_launch_failed, fallbackIntent)
     }
 
-    private fun openWallpaperPicker() {
-        try {
-            startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
-        } catch (e: ActivityNotFoundException) {
-            Toast.makeText(this, R.string.all_apps_launch_failed, Toast.LENGTH_SHORT).show()
-        }
+    internal fun openWallpaperPicker(
+        intent: Intent = Intent(Intent.ACTION_SET_WALLPAPER),
+    ) {
+        launchExternalOrToast(intent, R.string.all_apps_launch_failed)
     }
 
     private fun openCalendarEvent(intent: Intent) {
@@ -157,12 +172,11 @@ class MainActivity : ComponentActivity() {
      * be granted (design 13). The ViewModel already marked this an external
      * flow, so returning lands back on the system settings screen.
      */
-    private fun openAccessibilitySettings() {
-        try {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        } catch (e: ActivityNotFoundException) {
-            startActivity(Intent(Settings.ACTION_SETTINGS))
-        }
+    internal fun openAccessibilitySettings(
+        intent: Intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+        fallbackIntent: Intent = Intent(Settings.ACTION_SETTINGS),
+    ) {
+        launchExternalOrToast(intent, R.string.all_apps_launch_failed, fallbackIntent)
     }
 
     /**
@@ -170,12 +184,27 @@ class MainActivity : ComponentActivity() {
      * `nav.beginExternalFlow()`. When no activity resolves the intent the
      * armed flag is rolled back — otherwise the next ordinary backgrounding
      * would wrongly preserve the screen as if a flow were still running
-     * (design 3). internal so instrumentation can exercise the rollback.
+     * (design 3). A declared [fallbackIntent] still counts as a real
+     * hand-off, so the flag rolls back only when even that fails.
+     * internal so instrumentation can exercise the rollback.
      */
-    internal fun launchExternalOrToast(intent: Intent, @StringRes failureTextRes: Int) {
+    internal fun launchExternalOrToast(
+        intent: Intent,
+        @StringRes failureTextRes: Int,
+        fallbackIntent: Intent? = null,
+    ) {
         try {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
+            if (fallbackIntent != null) {
+                try {
+                    startActivity(fallbackIntent)
+                    return
+                } catch (e2: ActivityNotFoundException) {
+                    // Nothing resolved either intent — fall through to the
+                    // shared rollback below.
+                }
+            }
             viewModel.nav.cancelExternalFlow()
             Toast.makeText(this, failureTextRes, Toast.LENGTH_SHORT).show()
         }
