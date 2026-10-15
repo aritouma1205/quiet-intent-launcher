@@ -3,7 +3,7 @@
 ## 工程状態
 
 - 現在工程: PR作成済み・レビュー待ち
-- PR #47: OPEN、head `24ee54d`（fix 24ee54d + docs 追加予定）、base=main、
+- PR #47: OPEN、base=main、fix commit `24ee54d` + 本docsコミット群。
   本文に `Depends on PR #39` 明記（#39 が Issue #38 実装の前提）
 - ベース: `feature/issue-38-app-uninstall` 先端 `8f47354`、作業ブランチ `feature/issue-43-review-minors`
 - 作業ディレクトリ: `/home/aritouma/projects/qil-issue43-minors`（git worktree。親作業ツリーは不接触）
