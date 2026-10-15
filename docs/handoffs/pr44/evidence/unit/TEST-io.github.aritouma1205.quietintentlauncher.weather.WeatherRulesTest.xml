@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:02:29.188Z" hostname="pop-os" time="0.006">
+<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:56:28.970Z" hostname="pop-os" time="0.002">
   <properties/>
   <testcase name="a reading exactly 60 minutes old is fresh" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.001"/>
   <testcase name="a reading just over 60 minutes old is stale" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>

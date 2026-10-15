@@ -116,3 +116,31 @@ JUnit XML: `app/build/test-results/testDebugUnitTest/TEST-*.xml`（単体）。
   なる副次影響（上記受容済み）。体感が気になる場合は世代適用範囲を
   `when` 内の非Quiet分岐に絞る改訂が可能（その場合 Quiet の saveable 化を
   将来別途検討）。
+
+## A独立レビュー対応（PR #44）
+
+### MINOR-1: pendingScreenshot が HOME 競合で残留 → 対応済み
+
+- 指摘: `requestScreenshot()` の arm 後、close アニメーション中に HOME を
+  押すと `nav.onHomeInvoked()`→`resetToQuiet()`→publish→epoch bump で
+  QuietScreen サブツリーが再生成され `animate()` がキャンセル。
+  `onRevealSettled` が不発のまま arm が残留し、後の無関係な settle
+  （閾値未満中断エッジドラッグの `EdgeDragEvent.Closed` など）で
+  `_foregrounded && screen==Quiet` を通過してスクリーンショットが発射
+  し得た。`onBackgrounded` は `pendingScreenshot.set(false)` でクリアするが
+  `onHomeInvoked` はクリアしていなかった。
+- 対応: `HomeViewModel.onHomeInvoked()` に `pendingScreenshot.set(false)` を
+  追加（`onBackgrounded` と同様の扱い。既存処理は不変、追加のみ）。
+- 回帰テスト: `ToolsIntegrationTest.anArmedScreenshotDiesOnHomeInvoke`
+  — arm→`onHomeInvoked()`→`onRevealSettled()` で発射しないことを検証。
+- 再検証: `testDebugUnitTest` 314件 0失敗、`lintDebug` 0 errors/7 warnings
+  （ベースライン不変）、`connectedDebugAndroidTest` 165件 0失敗
+  （emulator-5556、flock 直列化）。証跡は `docs/handoffs/pr44/evidence/` を
+  更新済み。
+
+### MINOR-2: 破棄済み下書きの savedState 蓄積 → 既知限界として記録
+
+- rememberSaveable の機構上、破棄済み下書きの savedState エントリが
+  二度と再現しない複合キー配下に残り、プロセスが生きる限り保存バンドル内に
+  蓄積し得る。値は再読出しされずサイズは僅少 — 実害なしと判断し
+  design-v1.md 11.2 に既知限界として明記（コード修正なし）。

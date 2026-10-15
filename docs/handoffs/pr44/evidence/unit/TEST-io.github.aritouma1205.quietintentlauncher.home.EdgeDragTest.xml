@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" tests="21" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:02:28.033Z" hostname="pop-os" time="0.017">
+<testsuite name="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" tests="21" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:56:28.328Z" hostname="pop-os" time="0.01">
   <properties/>
-  <testcase name="move beyond slop without a direction still closes" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.001"/>
-  <testcase name="release exactly at the open threshold opens" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
-  <testcase name="os cancel closes the drag" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.005"/>
-  <testcase name="sub slop wiggle still taps" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.001"/>
+  <testcase name="move beyond slop without a direction still closes" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.002"/>
+  <testcase name="release exactly at the open threshold opens" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.001"/>
+  <testcase name="os cancel closes the drag" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
+  <testcase name="sub slop wiggle still taps" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
   <testcase name="deep pull expands tools at the threshold with hysteresis" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.003"/>
   <testcase name="left bar mirrors the inward direction" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.001"/>
   <testcase name="vertical first cancels the drag" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
   <testcase name="tap on left bar reports tapped" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
   <testcase name="large unresolved diagonal move is not a tap" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
   <testcase name="second pointer closes the drag" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
-  <testcase name="movement past slop then return to origin is not a tap" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.001"/>
+  <testcase name="movement past slop then return to origin is not a tap" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
   <testcase name="deep pull disabled emits no tools events" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
   <testcase name="release while expanded opens with tools" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
   <testcase name="down outside the bar never arms" classname="io.github.aritouma1205.quietintentlauncher.home.EdgeDragTest" time="0.0"/>
