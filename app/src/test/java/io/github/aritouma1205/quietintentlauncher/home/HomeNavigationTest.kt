@@ -67,6 +67,36 @@ class HomeNavigationTest {
     }
 
     @Test
+    fun `cancel external flow restores plain backgrounding`() {
+        val nav = HomeNavigation()
+        nav.navigateTo(HomeScreen.AllApps)
+
+        nav.beginExternalFlow()
+        // The hand-off failed (ActivityNotFoundException): disarm, then the
+        // next backgrounding must reset like any other (Issue #38).
+        nav.cancelExternalFlow()
+        nav.onBackgrounded()
+        assertEquals(HomeScreen.Quiet, nav.screen.value)
+    }
+
+    @Test
+    fun `cancel external flow is idempotent`() {
+        val nav = HomeNavigation()
+        nav.navigateTo(HomeScreen.AllApps)
+
+        // Cancelling without an armed flow is a no-op…
+        nav.cancelExternalFlow()
+        assertEquals(HomeScreen.AllApps, nav.screen.value)
+
+        nav.beginExternalFlow()
+        nav.cancelExternalFlow()
+        nav.cancelExternalFlow()
+        // …and a double cancel cannot resurrect the armed state.
+        nav.onBackgrounded()
+        assertEquals(HomeScreen.Quiet, nav.screen.value)
+    }
+
+    @Test
     fun `reset to Quiet clears deep stack`() {
         val nav = HomeNavigation()
         nav.navigateTo(HomeScreen.Search)

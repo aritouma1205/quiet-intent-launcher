@@ -102,6 +102,7 @@ class SearchContextIntegrationTest {
                 onRestoreHome = {},
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
+                onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
             )
