@@ -99,6 +99,7 @@ class DoActionIntegrationTest {
                 onRestoreHome = {},
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
+                onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
             )

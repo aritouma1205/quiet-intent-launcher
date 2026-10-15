@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.HttpWeatherApiTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-15T11:02:55.097Z" hostname="pop-os" time="0.02">
+  <properties/>
+  <testcase name="aBodyWithinTheCapParses" classname="io.github.aritouma1205.quietintentlauncher.weather.HttpWeatherApiTest" time="0.015"/>
+  <testcase name="aDeclaredLengthOverTheCapFailsBeforeReading" classname="io.github.aritouma1205.quietintentlauncher.weather.HttpWeatherApiTest" time="0.003"/>
+  <testcase name="aBodyStreamingPastTheCapFails" classname="io.github.aritouma1205.quietintentlauncher.weather.HttpWeatherApiTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

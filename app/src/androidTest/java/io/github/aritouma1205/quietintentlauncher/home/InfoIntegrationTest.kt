@@ -95,6 +95,7 @@ class InfoIntegrationTest {
                 onRestoreHome = {},
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
+                onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
             )

@@ -78,6 +78,7 @@ class HomeInputIntegrationTest {
                 onRestoreHome = {},
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
+                onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
             )
