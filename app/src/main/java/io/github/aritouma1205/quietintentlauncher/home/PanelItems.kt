@@ -94,4 +94,12 @@ sealed interface ToolStatus {
 data class ToolRow(
     val tool: ToolItem,
     val status: ToolStatus,
+    /**
+     * Whether a system timer-list handler existed when this row was
+     * resolved — the lookup runs on the IO path at row-build time so a
+     * tap never re-queries the package manager on the UI thread
+     * (design 15). Only meaningful for a [ToolItem.Timer] row that has
+     * no launch target of its own.
+     */
+    val timerListAvailable: Boolean = false,
 )

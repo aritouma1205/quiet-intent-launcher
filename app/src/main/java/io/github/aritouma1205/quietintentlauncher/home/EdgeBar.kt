@@ -39,6 +39,8 @@ import androidx.compose.ui.util.lerp
 import io.github.aritouma1205.quietintentlauncher.settings.EdgeBarColor
 import io.github.aritouma1205.quietintentlauncher.settings.EdgeBarSettings
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsSettings
+import io.github.aritouma1205.quietintentlauncher.settings.edgeBarEffectiveLength
+import io.github.aritouma1205.quietintentlauncher.settings.edgeBarTopOffset
 import kotlin.math.roundToInt
 
 /**
@@ -88,9 +90,11 @@ fun EdgeBar(
     val lengthPx = with(density) { settings.lengthDp.dp.toPx() }
     val thicknessPx = with(density) { settings.thicknessDp.dp.toPx() }
 
-    val barLengthPx = lengthPx.coerceAtMost(usableHeightPx)
-    val centerY = usableTopPx +
-        settings.verticalBias.coerceIn(0f, 1f) * (usableHeightPx - barLengthPx)
+    // Shared with the settings preview (EdgeBarGeometry): the same
+    // bias*(usableLength-length) formula keeps both renderers identical.
+    val barLengthPx = edgeBarEffectiveLength(usableHeightPx, lengthPx)
+    val topPx = usableTopPx +
+        edgeBarTopOffset(settings.verticalBias, usableHeightPx, lengthPx)
     val xPx = if (side == EdgeSide.Left) {
         insetSidePx
     } else {
@@ -123,7 +127,7 @@ fun EdgeBar(
 
     Box(
         Modifier
-            .offset { IntOffset(xPx.roundToInt(), centerY.roundToInt()) }
+            .offset { IntOffset(xPx.roundToInt(), topPx.roundToInt()) }
             .size(
                 width = settings.thicknessDp.dp,
                 height = with(density) { barLengthPx.toDp() },

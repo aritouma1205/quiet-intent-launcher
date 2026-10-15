@@ -228,13 +228,16 @@ private fun SettingsData.sanitizedForSave(): SettingsData = copy(
 )
 
 /** Live preview: both bars drawn at their real size inside a frame so the
- * configured area is explicit (design 4.1). */
+ * configured area is explicit (design 4.1). The frame height is the
+ * preview's usable track. */
+private val PREVIEW_HEIGHT = 220.dp
+
 @Composable
 private fun BarPreview(data: SettingsData) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp)
+            .height(PREVIEW_HEIGHT)
             .padding(top = 8.dp)
             .background(
                 Color.White.copy(alpha = 0.08f),
@@ -255,11 +258,16 @@ private fun androidx.compose.foundation.layout.BoxScope.PreviewBar(
         EdgeBarColor.White -> Color.White
         EdgeBarColor.Black -> Color.Black
     }
+    // Same formula the production bar runs (EdgeBarGeometry): the preview
+    // frame is the usable track, so bias % shown here matches the real
+    // bar position exactly.
+    val effectiveLengthDp = edgeBarEffectiveLength(PREVIEW_HEIGHT.value, bar.lengthDp)
+    val topDp = edgeBarTopOffset(bar.verticalBias, PREVIEW_HEIGHT.value, bar.lengthDp)
     Box(
         modifier = Modifier
             .align(if (isLeft) Alignment.TopStart else Alignment.TopEnd)
-            .offset(y = 110.dp * (bar.verticalBias) - bar.lengthDp.dp / 2)
-            .size(width = bar.thicknessDp.dp, height = bar.lengthDp.dp)
+            .offset(y = topDp.dp)
+            .size(width = bar.thicknessDp.dp, height = effectiveLengthDp.dp)
             .background(color.copy(alpha = bar.opacity), RoundedCornerShape(50)),
     )
 }

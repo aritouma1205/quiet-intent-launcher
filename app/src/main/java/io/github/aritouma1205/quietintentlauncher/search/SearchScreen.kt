@@ -278,7 +278,10 @@ private fun SearchResultRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            // TalkBack announces the tap action explicitly (design 12):
+            // the row title is the action label, same convention as the
+            // DO panel and all-apps rows.
+            .clickable(onClickLabel = title, onClick = onClick)
             .padding(vertical = 8.dp),
     ) {
         if (icon != null) {
@@ -315,7 +318,7 @@ private fun SearchEntry(label: String, onClick: () -> Unit) {
         style = MaterialTheme.typography.bodyLarge,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClickLabel = label, onClick = onClick)
             .padding(vertical = 16.dp),
     )
 }
