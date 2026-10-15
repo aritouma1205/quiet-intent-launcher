@@ -54,6 +54,27 @@ class HomeNavigationTest {
     }
 
     @Test
+    fun `foreground release is idempotent and a new flow can re-arm`() {
+        val nav = HomeNavigation()
+        nav.navigateTo(HomeScreen.Settings)
+        nav.beginExternalFlow()
+
+        // Release happens on both onStart and onResume returns (Issue #40):
+        // a second release must be a no-op, and once released the next
+        // backgrounding resets again.
+        nav.onForegrounded()
+        nav.onForegrounded()
+        nav.onBackgrounded()
+        assertEquals(HomeScreen.Quiet, nav.screen.value)
+
+        nav.navigateTo(HomeScreen.Settings)
+        nav.beginExternalFlow()
+        nav.onBackgrounded()
+        // A flow armed after the release still protects its screen.
+        assertEquals(HomeScreen.Settings, nav.screen.value)
+    }
+
+    @Test
     fun `home intent resets even during external flow`() {
         val nav = HomeNavigation()
         nav.navigateTo(HomeScreen.Settings)

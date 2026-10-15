@@ -1,25 +1,31 @@
 package io.github.aritouma1205.quietintentlauncher.recent
 
+import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
@@ -70,7 +76,7 @@ class RecentStoreTest {
      */
     private fun fakeStore(
         initial: RecentData,
-        failWrites: Boolean = false,
+        failure: Throwable? = null,
     ): RecentStore {
         val fake = object : DataStore<RecentData> {
             private val state = MutableStateFlow(initial)
@@ -78,7 +84,7 @@ class RecentStoreTest {
             override suspend fun updateData(
                 transform: suspend (RecentData) -> RecentData,
             ): RecentData {
-                if (failWrites) throw IOException("injected write failure")
+                failure?.let { throw it }
                 val updated = transform(state.value)
                 state.value = updated
                 return updated
@@ -323,7 +329,7 @@ class RecentStoreTest {
     fun `failed write returns false and keeps the in-memory list`() =
         runBlocking {
             val seeded = RecentData(listOf(RecentEntry(appA, now)))
-            val store = fakeStore(seeded, failWrites = true)
+            val store = fakeStore(seeded, failure = IOException("injected write failure"))
             store.start()
             awaitOpen(store)
             withTimeout(10_000) { store.entries.first { it.size == 1 } }
@@ -362,4 +368,164 @@ class RecentStoreTest {
         assertFalse(store.record(appA))
         assertTrue(dirPath.isDirectory)
     }
+
+    /**
+     * Asserts that [block] propagates a CancellationException to its
+     * caller instead of converting it into a write failure (Issue #42).
+     */
+    private suspend fun assertCancelled(block: suspend () -> Boolean) {
+        try {
+            block()
+            fail("expected CancellationException")
+        } catch (e: CancellationException) {
+            // Expected — the cancellation reaches the caller unchanged.
+        }
+    }
+
+    @Test
+    fun `a cancelled write propagates without touching the file`() =
+        runBlocking<Unit> {
+            // Issue #42 (I42-T03): CancellationException extends
+            // IllegalStateException — a cancelled updateData must reach the
+            // caller, never the failure or corruption branches.
+            file.writeText("{}") // exists so a corruption drop is observable
+            val store = fakeStore(
+                RecentData(),
+                failure = CancellationException("injected cancellation"),
+            )
+            store.start()
+            awaitOpen(store)
+
+            assertCancelled { store.record(appA) }
+            assertCancelled { store.prune() }
+            assertCancelled { store.clear() }
+            // Neither a write result nor the disposable file changed.
+            assertTrue(store.entries.value.isEmpty())
+            assertTrue(file.exists())
+        }
+
+    @Test
+    fun `a corruption write failure still reports false and drops the file`() =
+        runBlocking<Unit> {
+            // Contrast for I42-T03: the CorruptionException branch keeps its
+            // existing meaning — only cancellation was reclassified.
+            file.writeText("{}")
+            val store = fakeStore(
+                RecentData(),
+                failure = CorruptionException("injected", null),
+            )
+            store.start()
+            awaitOpen(store)
+
+            assertFalse(store.record(appA))
+            assertFalse(file.exists())
+            assertFalse(store.prune())
+            assertFalse(store.clear())
+        }
+
+    @Test
+    fun `a record issued before the open finishes waits and lands`() =
+        runBlocking<Unit> {
+            // Issue #42 (I42-T05): the first launch of a fresh process must
+            // not be dropped while the store is still opening.
+            val gate = CompletableDeferred<Unit>()
+            val state = MutableStateFlow(RecentData())
+            val fake = object : DataStore<RecentData> {
+                override val data: Flow<RecentData> = state
+                override suspend fun updateData(
+                    transform: suspend (RecentData) -> RecentData,
+                ): RecentData {
+                    val updated = transform(state.value)
+                    state.value = updated
+                    return updated
+                }
+            }
+            val store = RecentStore(
+                scope = scope,
+                serializer = serializer,
+                fileProvider = { file },
+                dataStoreFactory = {
+                    gate.await()
+                    fake
+                },
+                clock = { now },
+            )
+            store.start()
+
+            val pending = async { store.record(appA) }
+            // While the factory is gated the write is pending, not dropped.
+            delay(300)
+            assertFalse(pending.isCompleted)
+            assertTrue(store.entries.value.isEmpty())
+
+            gate.complete(Unit)
+            assertTrue(withTimeout(5_000) { pending.await() })
+            val entries = withTimeout(10_000) {
+                store.entries.first { it.isNotEmpty() }
+            }
+            assertEquals(appA, entries.single().target)
+        }
+
+    @Test
+    fun `a failed open makes writes return false without hanging`() =
+        runBlocking<Unit> {
+            // Issue #42 (I42-T06): an open that fails must release waiting
+            // writers as a normal failure.
+            val store = RecentStore(
+                scope = scope,
+                serializer = serializer,
+                fileProvider = { file },
+                dataStoreFactory = { throw IllegalStateException("open failed") },
+                clock = { now },
+            )
+            store.start()
+
+            assertFalse(withTimeout(5_000) { store.record(appA) })
+            assertFalse(withTimeout(5_000) { store.prune() })
+            assertFalse(withTimeout(5_000) { store.clear() })
+        }
+
+    @Test
+    fun `writes before start return false immediately`() = runBlocking<Unit> {
+        // Issue #42 (I42-T08): the documented contract — without start()
+        // there is no open to wait for, so writes fail fast.
+        val store = fakeStore(RecentData())
+        assertFalse(withTimeout(1_000) { store.record(appA) })
+        assertFalse(withTimeout(1_000) { store.prune() })
+        assertFalse(withTimeout(1_000) { store.clear() })
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a writer superseded before dispatch returns false instead of hanging`() =
+        runBlocking<Unit> {
+            // Issue #42 MINOR-1: a collect job cancelled before its first
+            // dispatch never runs — finally included — so the superseding
+            // start() must release the previous generation's signal itself.
+            // StandardTestDispatcher keeps the launched job queued forever.
+            val queuedScope = CoroutineScope(
+                SupervisorJob() + StandardTestDispatcher(),
+            )
+            try {
+                val store = RecentStore(
+                    scope = queuedScope,
+                    serializer = serializer,
+                    fileProvider = { file },
+                    dataStoreFactory = {
+                        // Never reached: the job is superseded while queued.
+                        error("unreachable")
+                    },
+                    clock = { now },
+                )
+                store.start()
+                val pending = async { store.record(appA) }
+                delay(200)
+                assertFalse(pending.isCompleted)
+
+                store.start()
+                assertFalse(withTimeout(5_000) { pending.await() })
+            } finally {
+                queuedScope.cancel()
+            }
+        }
 }

@@ -1,22 +1,30 @@
 package io.github.aritouma1205.quietintentlauncher.settings
 
 import androidx.datastore.core.CorruptionException
+import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
@@ -265,5 +273,89 @@ class SettingsStoreTest {
         assertTrue(dirPath.isDirectory)
         // No scratch file is left behind either.
         assertFalse(File(dir, "blocked_settings.json.tmp").exists())
+    }
+
+    /**
+     * A DataStore whose [DataStore.updateData] always throws [failure];
+     * the data flow itself stays healthy.
+     */
+    private fun failingWriteStore(failure: Throwable): SettingsStore {
+        val fake = object : DataStore<SettingsData> {
+            private val state = MutableStateFlow(SettingsData())
+            override val data: Flow<SettingsData> = state
+            override suspend fun updateData(
+                transform: suspend (SettingsData) -> SettingsData,
+            ): SettingsData = throw failure
+        }
+        return SettingsStore(
+            scope = scope,
+            serializer = serializer,
+            fileProvider = { file },
+            dataStoreFactory = { fake },
+        )
+    }
+
+    @Test
+    fun `a cancelled update propagates instead of degrading`() = runBlocking {
+        // Issue #42 (I42-T01): CancellationException extends
+        // IllegalStateException — a cancelled updateData must reach the
+        // caller, never the degrade path.
+        val store = failingWriteStore(CancellationException("injected"))
+        store.start()
+        assertTrue(awaitSettled(store) is SettingsState.Ready)
+
+        try {
+            store.update { it.copy(introCompleted = true) }
+            fail("expected CancellationException")
+        } catch (e: CancellationException) {
+            // Expected — propagated, not swallowed as a write failure.
+        }
+        assertTrue(store.state.value is SettingsState.Ready)
+    }
+
+    @Test
+    fun `an update closed-store failure degrades as before`() = runBlocking {
+        // Contrast for I42-T01: a plain IllegalStateException still reports
+        // failure and degrades — only cancellation was reclassified.
+        val store = failingWriteStore(IllegalStateException("store closed"))
+        store.start()
+        assertTrue(awaitSettled(store) is SettingsState.Ready)
+
+        assertFalse(store.update { it.copy(introCompleted = true) })
+        assertTrue(store.state.value is SettingsState.Degraded)
+    }
+
+    @Test
+    fun `a cancelled data flow does not degrade`() = runBlocking {
+        // Issue #42 (I42-T02): a CancellationException surfacing through
+        // the data flow is a lifecycle event, not corruption.
+        val throwGate = CompletableDeferred<Unit>()
+        val fake = object : DataStore<SettingsData> {
+            private val state = MutableStateFlow(SettingsData())
+            override val data: Flow<SettingsData> = flow {
+                emit(SettingsData())
+                throwGate.await()
+                throw CancellationException("injected cancellation")
+            }
+            override suspend fun updateData(
+                transform: suspend (SettingsData) -> SettingsData,
+            ): SettingsData {
+                val updated = transform(state.value)
+                state.value = updated
+                return updated
+            }
+        }
+        val store = SettingsStore(
+            scope = scope,
+            serializer = serializer,
+            fileProvider = { file },
+            dataStoreFactory = { fake },
+        )
+        store.start()
+        assertTrue(awaitSettled(store) is SettingsState.Ready)
+
+        throwGate.complete(Unit)
+        delay(300) // let the flow's failure land
+        assertTrue(store.state.value is SettingsState.Ready)
     }
 }
