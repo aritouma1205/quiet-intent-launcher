@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:14:12.176Z" hostname="pop-os" time="0.55">
+<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-15T17:02:01.095Z" hostname="pop-os" time="0.737">
   <properties/>
-  <testcase name="writes before start return false immediately" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.011"/>
-  <testcase name="a cancelled write propagates and keeps the snapshot" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.009"/>
-  <testcase name="a region mismatch keeps the stored snapshot" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.209"/>
-  <testcase name="a save issued before the open finishes waits and lands" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.314"/>
-  <testcase name="a failed open makes writes return false without hanging" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.007"/>
+  <testcase name="writes before start return false immediately" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.002"/>
+  <testcase name="a cancelled write propagates and keeps the snapshot" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.002"/>
+  <testcase name="a region mismatch keeps the stored snapshot" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.215"/>
+  <testcase name="a save issued before the open finishes waits and lands" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.31"/>
+  <testcase name="a writer superseded before dispatch returns false instead of hanging" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.206"/>
+  <testcase name="a failed open makes writes return false without hanging" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.002"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

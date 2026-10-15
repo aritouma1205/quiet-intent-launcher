@@ -118,3 +118,26 @@
 - `RecentStore` / `WeatherCacheStore` の失敗分岐（Corruption→ファイル削除、
   IOException/IllegalState→false）と region 一致ガードは不変（I42-T03対照・I42-T07cで検証）。
 - `WeatherServiceTest` 12件・他全unitが緑。
+
+## レビュー対応（PR #45）
+
+### MINOR-1（修正済み）
+
+- **指摘**: `start()` で置き換えられた collect ジョブが初回ディスパッチ前に
+  キャンセルされると本体（try/finally 含む）が一度も実行されず、旧
+  `openSignal` が永久に未完了となる。それを掴んだ waiter が hang し得る
+  （本番は `AppContainer.start()` が1回のみのため到達不能だが契約の穴）。
+- **対応**: `RecentStore.start()` / `WeatherCacheStore.start()` で旧 signal を
+  置き換える前に `openSignal?.complete(null)` を追加（superseded→false の
+  契約どおり null で解放）。
+- **回帰テスト**: RecentStoreTest / WeatherCacheStoreTest に
+  `a writer superseded before dispatch returns false instead of hanging` を追加
+  （`StandardTestDispatcher` で collect ジョブを「永遠にキュー済み未実行」にして
+  決定論的に再現。旧実装では `withTimeout(5_000)` がタイムアウトする）。
+- **再検証**: `testDebugUnitTest` 全量 **317件 0失敗**（+2件）。
+
+### MINOR-2 / MINOR-3（対応不要・記録のみ）
+
+- MINOR-2（テスト網羅性）: 修正不要の指摘のため対応なし。
+- MINOR-3（restart競合の観察）: 現状到達不能の観察レベル。`start()` 再呼出しは
+  アプリ内で `AppContainer.start()` 一度のみであり、観察のみで問題なし。
