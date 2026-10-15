@@ -45,6 +45,7 @@ import io.github.aritouma1205.quietintentlauncher.weather.WeatherRules
 import io.github.aritouma1205.quietintentlauncher.weather.WeatherService
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -121,6 +122,17 @@ data class ExternalAvailability(
 class HomeViewModel(private val container: AppContainer) : ViewModel() {
     val nav = HomeNavigation()
     val screen: StateFlow<HomeScreen> = nav.screen
+
+    /**
+     * Process-lifetime nonce mixed into the saveable-state key together
+     * with [HomeNavigation.draftEpoch] (Issue #41). The epoch restarts at
+     * 0 in a fresh process, so a post-kill visit could otherwise hit the
+     * same composite key a pre-kill session wrote into the instance-state
+     * bundle and resurrect that zombie draft. The VM survives
+     * configuration changes — the id survives with it — and a new process
+     * gets a new id.
+     */
+    val sessionId: String = UUID.randomUUID().toString()
 
     val settingsState: StateFlow<SettingsState> = container.settingsStore.state
     val apps: StateFlow<List<AppEntry>?> = container.appCatalog.apps

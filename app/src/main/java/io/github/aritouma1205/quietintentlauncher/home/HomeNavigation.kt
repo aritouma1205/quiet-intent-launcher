@@ -28,6 +28,12 @@ enum class HomeScreen {
  * - Flows this app itself opened (role picker, wallpaper picker, app info)
  *   restore the screen that launched them instead of resetting to Quiet.
  * - A process restart always begins at Quiet again (no saved stack).
+ * - A screen that leaves the stack top loses its unsaved drafts for good
+ *   (Issue #41): every [publish] bumps [draftEpoch], which the UI mixes
+ *   into the saveable-state key wrapping the screen dispatch, so the key a
+ *   discarded draft was stored under is never generated again. Screens
+ *   kept by an armed external flow publish nothing and keep their drafts;
+ *   configuration changes keep both the epoch and the process nonce.
  */
 class HomeNavigation(initial: HomeScreen = HomeScreen.Quiet) {
     private val stack = ArrayDeque<HomeScreen>().apply { add(initial) }
@@ -35,6 +41,20 @@ class HomeNavigation(initial: HomeScreen = HomeScreen.Quiet) {
 
     /** Top of the stack. */
     val screen: StateFlow<HomeScreen> = _screen.asStateFlow()
+
+    private val _draftEpoch = MutableStateFlow(0L)
+
+    /**
+     * Monotonic generation key for unsaved-draft discarding (Issue #41).
+     * Incremented once per [publish] — the single funnel used by
+     * [navigateTo], [back], [resetToQuiet] and the reset paths in
+     * [onBackgrounded]/[onHomeInvoked] — so a screen's composite key can
+     * never repeat. Non-publishing operations (external-flow arm/disarm/
+     * return, a root-level [back] that pops nothing) leave it unchanged,
+     * which is exactly what keeps drafts alive under an armed OS flow and
+     * across configuration changes.
+     */
+    val draftEpoch: StateFlow<Long> = _draftEpoch.asStateFlow()
 
     private var externalFlowActive = false
 
@@ -93,5 +113,8 @@ class HomeNavigation(initial: HomeScreen = HomeScreen.Quiet) {
 
     private fun publish() {
         _screen.value = stack.last()
+        // One funnel, one bump: whichever operation moved the top also
+        // retires every draft a previous top left behind (Issue #41).
+        _draftEpoch.value += 1
     }
 }
