@@ -2,7 +2,9 @@
 
 ## 工程状態
 
-- 現在工程: 完了（レビュー・ユーザーのマージ判断待ち）
+- 現在工程: 完了（ユーザーのマージ判断待ち）
+- A独立PRレビュー: APPROVE・MINOR1件（既知制限の明記 → 本ファイル「既知制限」節と
+  design-v1.md 3章に反映）
 - PR #46: OPEN、base=main、本文に「Depends on PR #39」明記（ブランチは
   `feature/issue-38-app-uninstall` 先端 8f47354 を基点に派生。#39 マージ後に
   diff が自動縮小する）
@@ -105,6 +107,14 @@ emulator-5556（ops_emu AVD / API 36）。証跡一式は
 - `connectedDebugAndroidTest`（emulator-5556、flock直列化）: **164件 0失敗**
   （`docs/handoffs/pr46/evidence/instrumentation-results.xml`、
   ExternalFlowLifecycleTest 5/5 を含む）
+
+## 既知制限
+
+- **マルチウィンドウでの早期消費**（A独立レビュー MINOR-1 指摘・記載対応）:
+  分割画面等で arm 済み外部画面が隣接ウィンドウに表示中に本アプリへ再フォーカス
+  すると、onResume でフラグが消費され、以後の通常背景化は元画面復元ではなく
+  Quiet に戻る。「再フォーカス=フロー復帰」という意味論として一貫しており
+  許容範囲と判断。design-v1.md 3章にも既知制限として記載済み。
 
 ## 実機確認（ラウンド7候補・pending-device-checks.md）
 
