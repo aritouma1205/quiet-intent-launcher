@@ -1543,6 +1543,11 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun onHomeInvoked() {
+        // An armed screenshot must not survive a HOME return either
+        // (design 7, Issue #41 review): the stack reset retires the close
+        // animation whose settle the request was waiting on, so leaving it
+        // armed would let a later unrelated settle fire it into Quiet.
+        pendingScreenshot.set(false)
         overlays.clear()
         nav.onHomeInvoked()
     }
