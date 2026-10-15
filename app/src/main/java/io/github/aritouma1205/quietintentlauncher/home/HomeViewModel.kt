@@ -575,17 +575,35 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    private suspend fun resolveToolRows(data: SettingsData): List<ToolRow> =
-        data.tools.items.mapNotNull { item ->
+    private suspend fun resolveToolRows(data: SettingsData): List<ToolRow> {
+        // The timer-list handler lookup is a package-manager binder call;
+        // it runs once per pass here on the worker context and travels
+        // inside the row so a tap never re-queries it on the UI thread
+        // (design 15). The stored bit is needed only for a targetless
+        // timer row — the tap checks a configured target first.
+        var timerListAvailable: Boolean? = null
+        fun timerListAvailableOnce(): Boolean = timerListAvailable
+            ?: container.toolLauncher.canShowTimers()
+                .also { timerListAvailable = it }
+        return data.tools.items.mapNotNull { item ->
             val tool = ToolItem.byId(item.id) ?: return@mapNotNull null
             if (!item.visible) return@mapNotNull null
-            ToolRow(tool, resolveToolStatus(tool, item, data))
+            val timersReady =
+                tool == ToolItem.Timer && item.target == null &&
+                    timerListAvailableOnce()
+            ToolRow(
+                tool = tool,
+                status = resolveToolStatus(tool, item, data, timersReady),
+                timerListAvailable = timersReady,
+            )
         }
+    }
 
     private suspend fun resolveToolStatus(
         tool: ToolItem,
         item: ToolSetting,
         data: SettingsData,
+        timerListAvailable: Boolean = false,
     ): ToolStatus = when (tool) {
         // The light row mirrors the OS-reported torch state; a missing
         // permission shows the state anyway — only switching needs CAMERA.
@@ -606,7 +624,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             val target = item.target
             when {
                 target != null -> resolveToolTarget(target)
-                container.toolLauncher.canShowTimers() ->
+                timerListAvailable ->
                     ToolStatus.Ready(container.stringFor(R.string.tool_timer_list))
                 else -> ToolStatus.Blocked(ToolUnavailable.NoTimerHandler)
             }
@@ -651,18 +669,28 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                     item?.target?.toLaunchTarget(container.appCatalog.currentUser)
                 if (target != null) {
                     applyLaunchResult(container.targetLauncher.launch(target))
-                } else if (container.toolLauncher.canShowTimers()) {
-                    // Only the timer LIST is opened — the launcher never
-                    // creates or starts a timer (design 7).
-                    if (container.toolLauncher.showTimers()) {
-                        overlays.clear()
-                        nav.resetToQuiet()
+                } else {
+                    // The handler availability was resolved on the IO path
+                    // when the row was built — a tap must not re-query the
+                    // package manager on the UI thread (design 15). The
+                    // rows re-resolve on catalog/settings changes, so the
+                    // stored bit tracks the live OS state.
+                    val timerListReady = _toolRows.value
+                        .firstOrNull { it.tool == ToolItem.Timer }
+                        ?.timerListAvailable == true
+                    if (timerListReady) {
+                        // Only the timer LIST is opened — the launcher
+                        // never creates or starts a timer (design 7).
+                        if (container.toolLauncher.showTimers()) {
+                            overlays.clear()
+                            nav.resetToQuiet()
+                        } else {
+                            _messages.tryEmit(HomeMessage.ToolNoTimerHandler)
+                        }
                     } else {
                         _messages.tryEmit(HomeMessage.ToolNoTimerHandler)
+                        openToolEditor(tool)
                     }
-                } else {
-                    _messages.tryEmit(HomeMessage.ToolNoTimerHandler)
-                    openToolEditor(tool)
                 }
             }
         }
@@ -1475,8 +1503,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     /**
      * Enabled in the OS accessibility settings AND a live service
-     * connection — re-read on every call so a revoked service never runs
-     * (design 13: 実行直前にも確認).
+     * connection — the enabled bit goes through [SystemActions]' short
+     * TTL cache so a gesture burst costs one Settings.Secure read instead
+     * of one binder call per event, and the connection is re-checked on
+     * every call so a revoked service never runs (design 13, 15).
      */
     private fun systemServiceReady(): Boolean =
         container.systemActions.isEnabledInOs() &&

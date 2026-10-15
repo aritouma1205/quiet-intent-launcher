@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-15T17:56:54.730Z" hostname="pop-os" time="11.546">
+  <properties/>
+  <testcase name="manualRetryIsLimitedToEveryThirtySeconds" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.034"/>
+  <testcase name="anUnexpectedExceptionMarksFailureWithoutCrashing" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.012"/>
+  <testcase name="aFetchAlreadyInFlightIsNotDuplicated" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.216"/>
+  <testcase name="autoRefreshFetchesAtTheThirtyMinuteBoundary" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.013"/>
+  <testcase name="anOverallTimeoutMarksFailure" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="10.01"/>
+  <testcase name="aRegionChangeCancelsTheInFlightFetch" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.01"/>
+  <testcase name="aFailedFetchKeepsTheExistingCacheEntry" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.006"/>
+  <testcase name="aLateResponseForTheOldRegionIsDiscarded" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.407"/>
+  <testcase name="aFailureSuppressesAutoRetriesForFiveMinutes" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.214"/>
+  <testcase name="disabledWeatherNeverFetches" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.203"/>
+  <testcase name="autoRefreshSkipsAReadingYoungerThanThirtyMinutes" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.215"/>
+  <testcase name="aCacheEntryOfAnotherRegionIsNotShown" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherServiceTest" time="0.205"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

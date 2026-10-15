@@ -25,6 +25,7 @@ import io.github.aritouma1205.quietintentlauncher.QuietLauncherApp
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.context.ContextRules
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsState
+import io.github.aritouma1205.quietintentlauncher.settings.StoredTarget
 import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
 import io.github.aritouma1205.quietintentlauncher.settings.ToolSetting
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
@@ -281,6 +282,69 @@ class ToolsIntegrationTest {
         } finally {
             job.cancel()
         }
+    }
+
+    @Test
+    fun timerTapRunsOnTheAvailabilityResolvedAtRowBuild() {
+        // I43-T07 (design 15): the package-manager lookup happens once on
+        // the IO row-build path; the tap must read the stored bit and
+        // never query again on the UI thread.
+        val queries = AtomicInteger(0)
+        val launches = AtomicInteger(0)
+        container.toolLauncher.timersAvailableCheck = {
+            queries.incrementAndGet()
+            true
+        }
+        container.toolLauncher.timersLauncher = {
+            launches.incrementAndGet()
+            true
+        }
+        openTools()
+        // Ready means a resolve pass completed with the seam — the
+        // build-time query has landed and the count is stable.
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.toolRows.value
+                .firstOrNull { it.tool == ToolItem.Timer }
+                ?.status is ToolStatus.Ready
+        }
+        rule.waitForIdle()
+        val buildQueries = queries.get()
+        assertTrue(buildQueries >= 1)
+
+        rule.onNodeWithText(res(R.string.tool_timer)).performClick()
+        rule.waitUntil(timeoutMillis = 5_000) { launches.get() == 1 }
+        rule.waitForIdle()
+        assertEquals(buildQueries, queries.get())
+        assertNull(viewModel.overlay.value)
+        assertEquals(HomeScreen.Quiet, viewModel.screen.value)
+    }
+
+    @Test
+    fun timerWithATargetNeverQueriesTheTimerList() {
+        // A configured launch target wins over the timer list and the
+        // availability lookup is skipped entirely at row build (design 7).
+        val queries = AtomicInteger(0)
+        container.toolLauncher.timersAvailableCheck = {
+            queries.incrementAndGet()
+            true
+        }
+        setTools(
+            ToolItem.entries.map { t ->
+                if (t == ToolItem.Timer) {
+                    ToolSetting(t.id, target = StoredTarget.App("no.such.pkg/.Nope"))
+                } else {
+                    ToolSetting(t.id)
+                }
+            },
+        )
+        openTools()
+        assertEquals(0, queries.get())
+        // The vanished target is explained as blocked — no timer-list
+        // fallback masks the broken config.
+        assertEquals(
+            ToolStatus.Blocked(ToolUnavailable.TargetGone),
+            viewModel.toolRows.value.first { it.tool == ToolItem.Timer }.status,
+        )
     }
 
     // ---- Light / torch ---------------------------------------------------------

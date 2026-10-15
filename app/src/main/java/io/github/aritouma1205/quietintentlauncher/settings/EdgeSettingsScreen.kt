@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.aritouma1205.quietintentlauncher.R
@@ -228,14 +229,23 @@ private fun SettingsData.sanitizedForSave(): SettingsData = copy(
 )
 
 /** Live preview: both bars drawn at their real size inside a frame so the
- * configured area is explicit (design 4.1). */
+ * configured area is explicit (design 4.1). The frame height is the
+ * preview's usable track. */
+private val PREVIEW_HEIGHT = 220.dp
+
 @Composable
 private fun BarPreview(data: SettingsData) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp)
+            // The top margin must precede the height: the content box of
+            // the frame is the usable track the shared geometry functions
+            // are fed (PREVIEW_HEIGHT). With height-then-padding the track
+            // shrank to 212dp and a bias=1 preview bar overflowed the frame
+            // bottom by 8dp (review F-1).
             .padding(top = 8.dp)
+            .height(PREVIEW_HEIGHT)
+            .testTag("edgePreviewFrame")
             .background(
                 Color.White.copy(alpha = 0.08f),
                 RoundedCornerShape(12.dp),
@@ -255,11 +265,20 @@ private fun androidx.compose.foundation.layout.BoxScope.PreviewBar(
         EdgeBarColor.White -> Color.White
         EdgeBarColor.Black -> Color.Black
     }
+    // Same formula the production bar runs (EdgeBarGeometry): the preview
+    // frame is the usable track, so bias % shown here matches the real
+    // bar position exactly.
+    val effectiveLengthDp = edgeBarEffectiveLength(PREVIEW_HEIGHT.value, bar.lengthDp)
+    val topDp = edgeBarTopOffset(bar.verticalBias, PREVIEW_HEIGHT.value, bar.lengthDp)
     Box(
         modifier = Modifier
             .align(if (isLeft) Alignment.TopStart else Alignment.TopEnd)
-            .offset(y = 110.dp * (bar.verticalBias) - bar.lengthDp.dp / 2)
-            .size(width = bar.thicknessDp.dp, height = bar.lengthDp.dp)
+            .offset(y = topDp.dp)
+            // testTag must sit after offset: semantics bounds report the
+            // coordinates at this chain position, so only an inner tag sees
+            // the translated bar position.
+            .testTag(if (isLeft) "edgePreviewBarLeft" else "edgePreviewBarRight")
+            .size(width = bar.thicknessDp.dp, height = effectiveLengthDp.dp)
             .background(color.copy(alpha = bar.opacity), RoundedCornerShape(50)),
     )
 }

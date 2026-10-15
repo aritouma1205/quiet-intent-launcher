@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.calendar.CalendarAccess
@@ -390,22 +392,32 @@ fun InfoSettingsScreen(
                 } else {
                     calendars.forEach { calendar ->
                         val selected = calendar.id in draft.info.selectedCalendarIds
+                        // The whole row is the checkbox (design 12): the
+                        // toggleable modifier merges the child texts and the
+                        // visual Checkbox into one node so TalkBack reads
+                        // the calendar name with role=checkbox + on/off
+                        // state. The inner Checkbox stays non-interactive —
+                        // the row handles the tap.
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    val ids = draft.info.selectedCalendarIds
-                                    draft = draft.copy(
-                                        info = draft.info.copy(
-                                            selectedCalendarIds = if (selected) {
-                                                ids - calendar.id
-                                            } else {
-                                                ids + calendar.id
-                                            },
-                                        ),
-                                    )
-                                }
+                                .toggleable(
+                                    value = selected,
+                                    role = Role.Checkbox,
+                                    onValueChange = { checked ->
+                                        val ids = draft.info.selectedCalendarIds
+                                        draft = draft.copy(
+                                            info = draft.info.copy(
+                                                selectedCalendarIds = if (checked) {
+                                                    ids + calendar.id
+                                                } else {
+                                                    ids - calendar.id
+                                                },
+                                            ),
+                                        )
+                                    },
+                                )
                                 .padding(vertical = 4.dp),
                         ) {
                             Checkbox(checked = selected, onCheckedChange = null)

@@ -125,8 +125,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestHomeRole() {
+        // A missing RoleManager, an unavailable role or a failed intent
+        // build all surface as null — the OS default-home settings are
+        // the designed fallback so the button can never crash.
+        val intent = container.homeRole.requestIntent()
+        if (intent == null) {
+            openDefaultHomeSettings()
+            return
+        }
         try {
-            roleRequest.launch(container.homeRole.requestIntent())
+            roleRequest.launch(intent)
         } catch (e: ActivityNotFoundException) {
             openDefaultHomeSettings()
         }
