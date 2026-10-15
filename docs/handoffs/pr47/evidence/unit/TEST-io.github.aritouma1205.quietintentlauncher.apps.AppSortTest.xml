@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="io.github.aritouma1205.quietintentlauncher.apps.AppSortTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:26:20.356Z" hostname="pop-os" time="0.089">
+<testsuite name="io.github.aritouma1205.quietintentlauncher.apps.AppSortTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-15T17:56:53.656Z" hostname="pop-os" time="0.085">
   <properties/>
-  <testcase name="result is stable for identical keys" classname="io.github.aritouma1205.quietintentlauncher.apps.AppSortTest" time="0.086"/>
+  <testcase name="result is stable for identical keys" classname="io.github.aritouma1205.quietintentlauncher.apps.AppSortTest" time="0.082"/>
   <testcase name="same label falls back to package then activity" classname="io.github.aritouma1205.quietintentlauncher.apps.AppSortTest" time="0.002"/>
   <testcase name="orders by Japanese label collation" classname="io.github.aritouma1205.quietintentlauncher.apps.AppSortTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>

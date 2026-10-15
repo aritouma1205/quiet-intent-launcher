@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:26:21.982Z" hostname="pop-os" time="0.002">
+<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-15T17:56:54.721Z" hostname="pop-os" time="0.003">
   <properties/>
-  <testcase name="a reading exactly 60 minutes old is fresh" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
-  <testcase name="a reading just over 60 minutes old is stale" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.001"/>
-  <testcase name="a reading exactly 6 hours old is still stale" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.001"/>
-  <testcase name="a boot marker inside the tolerance still measures age" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a reading exactly 60 minutes old is fresh" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.001"/>
+  <testcase name="a reading just over 60 minutes old is stale" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a reading exactly 6 hours old is still stale" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
+  <testcase name="a boot marker inside the tolerance still measures age" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.001"/>
   <testcase name="a missing reading is hidden" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
   <testcase name="a reading over 6 hours old is hidden" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>
   <testcase name="unknown codes map to the generic label" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherRulesTest" time="0.0"/>

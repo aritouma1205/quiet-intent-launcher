@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.aritouma1205.quietintentlauncher.R
@@ -237,8 +238,14 @@ private fun BarPreview(data: SettingsData) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(PREVIEW_HEIGHT)
+            // The top margin must precede the height: the content box of
+            // the frame is the usable track the shared geometry functions
+            // are fed (PREVIEW_HEIGHT). With height-then-padding the track
+            // shrank to 212dp and a bias=1 preview bar overflowed the frame
+            // bottom by 8dp (review F-1).
             .padding(top = 8.dp)
+            .height(PREVIEW_HEIGHT)
+            .testTag("edgePreviewFrame")
             .background(
                 Color.White.copy(alpha = 0.08f),
                 RoundedCornerShape(12.dp),
@@ -267,6 +274,10 @@ private fun androidx.compose.foundation.layout.BoxScope.PreviewBar(
         modifier = Modifier
             .align(if (isLeft) Alignment.TopStart else Alignment.TopEnd)
             .offset(y = topDp.dp)
+            // testTag must sit after offset: semantics bounds report the
+            // coordinates at this chain position, so only an inner tag sees
+            // the translated bar position.
+            .testTag(if (isLeft) "edgePreviewBarLeft" else "edgePreviewBarRight")
             .size(width = bar.thicknessDp.dp, height = effectiveLengthDp.dp)
             .background(color.copy(alpha = bar.opacity), RoundedCornerShape(50)),
     )

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="io.github.aritouma1205.quietintentlauncher.settings.EdgePreviewMathTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:26:21.473Z" hostname="pop-os" time="0.001">
+<testsuite name="io.github.aritouma1205.quietintentlauncher.settings.EdgePreviewMathTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-10-15T17:56:54.478Z" hostname="pop-os" time="0.027">
   <properties/>
-  <testcase name="out of range bias is clamped to the track ends" classname="io.github.aritouma1205.quietintentlauncher.settings.EdgePreviewMathTest" time="0.0"/>
+  <testcase name="offset plus effective length never exceeds the track" classname="io.github.aritouma1205.quietintentlauncher.settings.EdgePreviewMathTest" time="0.026"/>
+  <testcase name="out of range bias is clamped to the track ends" classname="io.github.aritouma1205.quietintentlauncher.settings.EdgePreviewMathTest" time="0.001"/>
   <testcase name="bias half centers the bar inside the track" classname="io.github.aritouma1205.quietintentlauncher.settings.EdgePreviewMathTest" time="0.0"/>
   <testcase name="bias 1 puts the bar bottom on the track bottom" classname="io.github.aritouma1205.quietintentlauncher.settings.EdgePreviewMathTest" time="0.0"/>
   <testcase name="a zero-height track leaves no room to move" classname="io.github.aritouma1205.quietintentlauncher.settings.EdgePreviewMathTest" time="0.0"/>

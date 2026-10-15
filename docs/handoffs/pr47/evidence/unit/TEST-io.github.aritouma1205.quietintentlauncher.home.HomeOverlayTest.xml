@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-15T16:26:20.606Z" hostname="pop-os" time="0.003">
+<testsuite name="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-15T17:56:53.888Z" hostname="pop-os" time="0.002">
   <properties/>
   <testcase name="panels are exclusive" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.001"/>
   <testcase name="collapse tools is a no-op outside an expanded do panel" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
-  <testcase name="glance toggles on tap" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
+  <testcase name="glance toggles on tap" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.001"/>
   <testcase name="back on glance dismisses it" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
   <testcase name="back folds tools before closing the panel" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>
   <testcase name="opening a panel dismisses glance" classname="io.github.aritouma1205.quietintentlauncher.home.HomeOverlayTest" time="0.0"/>

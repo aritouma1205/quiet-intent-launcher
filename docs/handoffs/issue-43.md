@@ -128,9 +128,56 @@ lint: `docs/handoffs/pr47/evidence/lint-results.txt`。
   seam が null を返しても `?:` で実 RoleManager 経路に落ちていた。seam の意味論を
   「セット時は完全な答え」に修正して解消。
 
+## 追記: レビュー指摘 F-1（プレビューフレームの高さ不整合）
+
+### 指摘内容
+
+PR #47 レビューで、旧実装 `Modifier.height(PREVIEW_HEIGHT).padding(top = 8.dp)`
+では修飾順によりフレーム内容ボックスが 212dp に縮み、`edgeBarTopOffset` には
+220dp が渡るため bias=1 のバー下端が枠を 8dp はみ出す指摘（visible artifact
+あり）。共有幾何関数自体は正しいため、修正はプレビュー側レイアウトのみ
+（実描画 `home/EdgeBar.kt` は不変更）。
+
+### 対応
+
+- `BarPreview` の修飾順を `.fillMaxWidth().padding(top = 8.dp).height(PREVIEW_HEIGHT)`
+  に変更。padding が外側マージンとなり、内容ボックス＝トラックが
+  `PREVIEW_HEIGHT` と一致（幾何入力と実トラックの同値を回復）。
+- 検証タグを追加: `edgePreviewFrame`（frame Box）、
+  `edgePreviewBarLeft` / `edgePreviewBarRight`（各 PreviewBar）。
+- 弁別テスト `settings/EdgeSettingsPreviewTest.kt`（計装・新規）:
+  bias=0/1 の2バーを設定し、bias=0 バー上端＝フレーム上端・bias=1 バー下端＝
+  フレーム下端・両バーがフレーム内に収まることを実レイアウト bounds で固定。
+- `EdgePreviewMathTest` に不変条件 `offset + effectiveLength <= track` を追加
+  （複数トラック高・長さ・bias の総当たり）。
+
+### F-1 の試行錯誤（透明記録）
+
+- 修正編集時に `.fillMaxWidth()` を誤って脱落させ、フレームが子幅（12dp）に
+  ラップして左右バーが同一 x に重なった。計装テスト初回失敗の bounds
+  （frame が 32px 幅）と `printToLog` のセマンティクスツリーで検出・復元。
+- Compose のセマンティクス bounds は修飾チェーン内の testTag 位置の
+  座標を報告する。`edgePreviewFrame` タグは `.padding().height()` の内側に
+  あるため内容ボックス（マージン除いたトラック本体）を報告し、バーのタグを
+  `.offset()` の内側へ移して初めて bias による並進後の位置が観測できた
+  （offset より外側のタグは整列済み・並進前の位置を報告していた）。
+
+### F-1 検証結果
+
+| ID | 確認内容（期待） | 実測 | 結果 | 実行方法 | 証跡 |
+| --- | --- | --- | --- | --- | --- |
+| I43-F1 | bias=0 バー上端＝フレーム内容ボックス上端・bias=1 バー下端＝フレーム下端・両バー格納・左右分離 | 全一致 | PASS | 計装 | `EdgeSettingsPreviewTest.previewBarsStayInsideTheFrameAndBiasOneFlushesTheBottom` |
+| I43-F1b | `offset + effectiveLength <= track` 不変条件（トラック220/212/500/1dp × 長さ48/96/160/300 × bias 0/0.25/0.5/1） | 全ケース成立 | PASS | 単体 | `EdgePreviewMathTest.offset plus effective length never exceeds the track` |
+
+F-1 対応後の再実行（emulator-5556 / API 36、flock 直列化）:
+`testDebugUnitTest` 317件 0失敗、`connectedDebugAndroidTest` 173件 0失敗、
+`lintDebug` 0 errors / 7 warnings（全件既存・本差分外）。
+証跡は `docs/handoffs/pr47/evidence/` に最新化済み。
+
 ## 実機確認（ラウンド7候補・pending-device-checks.md）
 
 - TalkBack実機でカレンダー行の読み上げ（行名＋チェックボックス役割＋選択状態＋
   ダブルタップ操作）
 - TalkBack実機で検索結果行・最近行の読み上げ（行名が操作ラベルとして読まれる）
 - タイマー行タップから実タイマーアプリ起動まで（ハンドラ有無両経路）
+- Edge設定プレビューで bias=1 のバーが枠下端に収まること（F-1 の目視確認）

@@ -1,6 +1,7 @@
 package io.github.aritouma1205.quietintentlauncher.settings
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -52,5 +53,31 @@ class EdgePreviewMathTest {
         assertEquals(0f, edgeBarEffectiveLength(0f, 96f), 0.001f)
         assertEquals(0f, edgeBarTopOffset(0.5f, 0f, 96f), 0.001f)
         assertEquals(0f, edgeBarTopOffset(1f, 0f, 96f), 0.001f)
+    }
+
+    /**
+     * Contract pin (review F-1): whatever track height the caller passes,
+     * offset + effective length must stay inside it for every bias. The
+     * fixed preview bug was the CALLER feeding a track larger than the
+     * frame's real content box — this invariant documents what the
+     * formula guarantees once the input is honest.
+     */
+    @Test
+    fun `offset plus effective length never exceeds the track`() {
+        val tracks = listOf(220f, 212f, 500f, 1f)
+        val lengths = listOf(48f, 96f, 160f, 300f)
+        val biases = listOf(0f, 0.25f, 0.5f, 1f)
+        for (h in tracks) for (l in lengths) for (b in biases) {
+            val bottom =
+                edgeBarTopOffset(b, h, l) + edgeBarEffectiveLength(h, l)
+            assertTrue(
+                "bottom $bottom exceeds track $h (bias=$b length=$l)",
+                bottom <= h + 0.001f,
+            )
+            assertTrue(
+                "top is negative (bias=$b h=$h l=$l)",
+                edgeBarTopOffset(b, h, l) >= -0.001f,
+            )
+        }
     }
 }
