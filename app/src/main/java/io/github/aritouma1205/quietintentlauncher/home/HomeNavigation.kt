@@ -62,6 +62,15 @@ class HomeNavigation(initial: HomeScreen = HomeScreen.Quiet) {
         externalFlowActive = true
     }
 
+    /**
+     * The external hand-off never happened (e.g. no activity resolved the
+     * intent): disarm the flag so the next backgrounding resets to Quiet
+     * instead of resurrecting a screen that launched nothing.
+     */
+    fun cancelExternalFlow() {
+        externalFlowActive = false
+    }
+
     /** Activity foregrounded: an external flow (if any) has returned. */
     fun onForegrounded() {
         externalFlowActive = false

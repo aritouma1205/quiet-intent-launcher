@@ -108,6 +108,7 @@ class ToolsIntegrationTest {
                 onRestoreHome = {},
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
+                onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
             )

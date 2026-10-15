@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import io.github.aritouma1205.quietintentlauncher.home.HomeViewModel
 import io.github.aritouma1205.quietintentlauncher.home.QuietLauncherRoot
@@ -69,6 +70,7 @@ class MainActivity : ComponentActivity() {
                 onRestoreHome = ::openDefaultHomeSettings,
                 onChangeWallpaper = ::openWallpaperPicker,
                 onOpenAppInfo = ::openAppInfo,
+                onUninstallApp = ::openUninstall,
                 onOpenEvent = ::openCalendarEvent,
                 onOpenAccessibilitySettings = ::openAccessibilitySettings,
             )
@@ -155,16 +157,45 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun openAppInfo(packageName: String) {
+    /**
+     * Shared guard for the external flows the ViewModel arms via
+     * `nav.beginExternalFlow()`. When no activity resolves the intent the
+     * armed flag is rolled back — otherwise the next ordinary backgrounding
+     * would wrongly preserve the screen as if a flow were still running
+     * (design 3). internal so instrumentation can exercise the rollback.
+     */
+    internal fun launchExternalOrToast(intent: Intent, @StringRes failureTextRes: Int) {
         try {
-            startActivity(
-                Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.fromParts("package", packageName, null),
-                ),
-            )
+            startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(this, R.string.all_apps_launch_failed, Toast.LENGTH_SHORT).show()
+            viewModel.nav.cancelExternalFlow()
+            Toast.makeText(this, failureTextRes, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun openAppInfo(packageName: String) {
+        launchExternalOrToast(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null),
+            ),
+            R.string.all_apps_launch_failed,
+        )
+    }
+
+    /**
+     * OS uninstall confirmation (design 9.3): ACTION_DELETE on a package:
+     * URI. REQUEST_DELETE_PACKAGES must be declared or UninstallerActivity
+     * finishes silently. No result callback — LauncherApps.Callback
+     * .onPackageRemoved reports the actual removal.
+     */
+    private fun openUninstall(packageName: String) {
+        launchExternalOrToast(
+            Intent(
+                Intent.ACTION_DELETE,
+                Uri.fromParts("package", packageName, null),
+            ),
+            R.string.all_apps_uninstall_failed,
+        )
     }
 }

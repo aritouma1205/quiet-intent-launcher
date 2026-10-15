@@ -30,9 +30,30 @@ data class AppEntry(
     val user: UserHandle,
     val label: String,
     val category: AppCategory = AppCategory.Other,
+    val canUninstall: Boolean = false,
 ) {
     val packageName: String get() = component.packageName
     val key: String get() = component.flattenToShortString()
+}
+
+/**
+ * Whether the long-press dialog may offer an uninstall row for the package
+ * (design 9.3). Package-level approximation only — device admin /
+ * setUninstallBlocked / profile supervision can still make the OS refuse;
+ * the OS dialog owns that outcome. A null flags value stays on the safe
+ * side (no row), and the launcher never offers to remove itself. Updated
+ * system apps count as uninstallable: the OS turns their removal into a
+ * revert-to-factory action.
+ */
+internal fun canUninstallApp(
+    applicationInfoFlags: Int?,
+    packageName: String,
+    ownPackageName: String,
+): Boolean {
+    val flags = applicationInfoFlags ?: return false
+    if (packageName == ownPackageName) return false
+    return flags and ApplicationInfo.FLAG_SYSTEM == 0 ||
+        flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
 }
 
 /**
@@ -45,6 +66,11 @@ data class AppEntry(
 class AppCatalog(
     context: Context,
     private val scope: CoroutineScope,
+    /**
+     * Test seam for the self-exclusion in [canUninstallApp]; production
+     * wiring always keeps the context package name.
+     */
+    internal val ownPackageName: String = context.packageName,
 ) {
     private val launcherApps = context.getSystemService(LauncherApps::class.java)
     private val userHandle: UserHandle = Process.myUserHandle()
@@ -149,6 +175,11 @@ class AppCatalog(
                         info.applicationInfo?.category
                             ?: ApplicationInfo.CATEGORY_UNDEFINED,
                     ),
+                    canUninstall = canUninstallApp(
+                        info.applicationInfo?.flags,
+                        info.componentName.packageName,
+                        ownPackageName,
+                    ),
                 )
             }
             sorted(entries)
@@ -186,6 +217,11 @@ class AppCatalog(
                         category = AppCategories.fromOsCategory(
                             info.applicationInfo?.category
                                 ?: ApplicationInfo.CATEGORY_UNDEFINED,
+                        ),
+                        canUninstall = canUninstallApp(
+                            info.applicationInfo?.flags,
+                            info.componentName.packageName,
+                            ownPackageName,
                         ),
                     )
                 }

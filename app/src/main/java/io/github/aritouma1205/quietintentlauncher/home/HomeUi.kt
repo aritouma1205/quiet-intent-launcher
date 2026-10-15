@@ -107,6 +107,7 @@ fun QuietLauncherRoot(
     onRestoreHome: () -> Unit,
     onChangeWallpaper: () -> Unit,
     onOpenAppInfo: (String) -> Unit,
+    onUninstallApp: (String) -> Unit,
     onOpenEvent: (Intent) -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
 ) {
@@ -276,6 +277,10 @@ fun QuietLauncherRoot(
                         onAppInfo = { entry ->
                             viewModel.nav.beginExternalFlow()
                             onOpenAppInfo(entry.packageName)
+                        },
+                        onUninstallApp = { entry ->
+                            viewModel.nav.beginExternalFlow()
+                            onUninstallApp(entry.packageName)
                         },
                         onBack = { viewModel.nav.back() },
                     )

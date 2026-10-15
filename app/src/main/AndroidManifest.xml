@@ -9,6 +9,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- 全アプリの長押しメニューからOSのアンインストール確認を開くための
+         宣言（設計9.3・13）。protectionLevel=normal で宣言のみ。OSの
+         UninstallerActivity は呼び出し元がこの権限を未宣言だと例外なく
+         即終了する。 -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <!-- ライトは任意機能。フラッシュ非搭載端末でもインストール・動作は
          そのままにし、行だけ「ライトなし」と表示する（設計7）。 -->

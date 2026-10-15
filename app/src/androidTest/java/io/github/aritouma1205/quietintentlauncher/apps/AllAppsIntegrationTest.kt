@@ -3,12 +3,14 @@ package io.github.aritouma1205.quietintentlauncher.apps
 import android.content.ComponentName
 import android.os.Process
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -50,6 +52,9 @@ class AllAppsIntegrationTest {
 
     private lateinit var viewModel: HomeViewModel
 
+    /** Package names handed to the injected onUninstallApp callback. */
+    private val uninstallRequests = mutableListOf<String>()
+
     private fun res(id: Int, vararg args: Any): String =
         rule.activity.getString(id, *args)
 
@@ -67,11 +72,13 @@ class AllAppsIntegrationTest {
         label: String,
         category: AppCategory,
         cls: String = "$pkg.Main",
+        canUninstall: Boolean = false,
     ): AppEntry = AppEntry(
         component = ComponentName(pkg, cls),
         user = Process.myUserHandle(),
         label = label,
         category = category,
+        canUninstall = canUninstall,
     )
 
     private fun ownEntry(category: AppCategory = AppCategory.Productivity): AppEntry =
@@ -101,6 +108,7 @@ class AllAppsIntegrationTest {
             }
             container.recentStore.clear()
         }
+        uninstallRequests.clear()
         viewModel = HomeViewModel(container)
         rule.setContent {
             QuietLauncherRoot(
@@ -110,6 +118,7 @@ class AllAppsIntegrationTest {
                 onRestoreHome = {},
                 onChangeWallpaper = {},
                 onOpenAppInfo = {},
+                onUninstallApp = { uninstallRequests += it },
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
             )
@@ -254,5 +263,198 @@ class AllAppsIntegrationTest {
         seedCatalog(emptyList())
         openAllApps()
         rule.onNodeWithText(res(R.string.all_apps_empty)).assertIsDisplayed()
+    }
+
+    // I38-T10: the long-press dialog lists every action for an
+    // uninstallable app, stacked package → アプリ情報 → アンインストール.
+    @Test
+    fun uninstallableAppDialogShowsAllActionsInOrder() {
+        seedCatalog(
+            listOf(
+                entry(
+                    "pkg.game", "Game App", AppCategory.Game,
+                    canUninstall = true,
+                ),
+            ),
+        )
+        openAllApps()
+
+        rule.onNodeWithText("Game App").performTouchInput { longClick() }
+        rule.waitForIdle()
+
+        // Label appears in the cell and as the dialog title.
+        rule.onAllNodesWithText("Game App").assertCountEquals(2)
+        rule.onNodeWithText("pkg.game").assertIsDisplayed()
+        rule.onNodeWithText(res(R.string.app_info)).assertIsDisplayed()
+        rule.onNodeWithText(res(R.string.all_apps_uninstall)).assertIsDisplayed()
+        // Header back + dialog dismiss share the 戻る label.
+        rule.onAllNodesWithText(res(R.string.back)).assertCountEquals(2)
+
+        assertTrue(topOf("pkg.game") < topOf(res(R.string.app_info)))
+        assertTrue(
+            topOf(res(R.string.app_info)) <
+                topOf(res(R.string.all_apps_uninstall)),
+        )
+    }
+
+    // I38-T11: the uninstall row only exists for canUninstall targets —
+    // system-like entries and this app itself never show it.
+    @Test
+    fun uninstallRowHiddenForProtectedEntries() {
+        seedCatalog(
+            listOf(
+                entry("pkg.sys", "System App", AppCategory.Productivity),
+                ownEntry(),
+            ),
+        )
+        openAllApps()
+
+        rule.onNodeWithText("System App").performTouchInput { longClick() }
+        rule.waitForIdle()
+        rule.onNodeWithText("pkg.sys").assertIsDisplayed()
+        rule.onAllNodesWithText(res(R.string.all_apps_uninstall))
+            .assertCountEquals(0)
+
+        // Close via the dialog's 戻る (the header back is the other match).
+        rule.onAllNodesWithText(res(R.string.back)).onLast().performClick()
+        rule.waitForIdle()
+
+        rule.onNodeWithText("Quiet Intent Launcher")
+            .performTouchInput { longClick() }
+        rule.waitForIdle()
+        rule.onNodeWithText(ownComponent().packageName).assertIsDisplayed()
+        rule.onAllNodesWithText(res(R.string.all_apps_uninstall))
+            .assertCountEquals(0)
+    }
+
+    // I38-T12: 「アンインストール」 hands the package to the host callback
+    // without closing the dialog; the armed external flow survives a
+    // backgrounding (design 3 — the OS confirmation owns the outcome).
+    @Test
+    fun uninstallTapInvokesCallbackAndKeepsScreen() {
+        seedCatalog(
+            listOf(
+                entry(
+                    "pkg.game", "Game App", AppCategory.Game,
+                    canUninstall = true,
+                ),
+            ),
+        )
+        openAllApps()
+
+        rule.onNodeWithText("Game App").performTouchInput { longClick() }
+        rule.waitForIdle()
+        rule.onNodeWithText(res(R.string.all_apps_uninstall)).performClick()
+        rule.waitForIdle()
+
+        assertEquals(listOf("pkg.game"), uninstallRequests)
+        rule.onNodeWithText("pkg.game").assertIsDisplayed()
+        assertEquals(HomeScreen.AllApps, viewModel.screen.value)
+
+        // External flow is armed: backgrounding keeps All Apps.
+        viewModel.nav.onBackgrounded()
+        assertEquals(HomeScreen.AllApps, viewModel.screen.value)
+        viewModel.nav.onForegrounded()
+    }
+
+    // I38-T13: the open dialog tracks the displayed package — it survives
+    // a component-level refresh of the same package and closes when the
+    // package leaves the list (design 9.3).
+    @Test
+    fun dialogFollowsDisplayedPackage() {
+        seedCatalog(
+            listOf(
+                entry(
+                    "pkg.game", "Game App", AppCategory.Game,
+                    canUninstall = true,
+                ),
+            ),
+        )
+        openAllApps()
+
+        rule.onNodeWithText("Game App").performTouchInput { longClick() }
+        rule.waitForIdle()
+        rule.onNodeWithText("pkg.game").assertIsDisplayed()
+
+        // Same package under another component: still listed, stays open.
+        seedCatalog(
+            listOf(
+                entry(
+                    "pkg.game", "Game App", AppCategory.Game,
+                    cls = "pkg.game.Alt", canUninstall = true,
+                ),
+            ),
+        )
+        rule.waitForIdle()
+        rule.onNodeWithText("pkg.game").assertIsDisplayed()
+
+        // Package gone from the catalog: the dialog closes itself.
+        seedCatalog(listOf(entry("pkg.other", "Other App", AppCategory.Other)))
+        rule.waitForIdle()
+        rule.onAllNodesWithText("pkg.game").assertCountEquals(0)
+        rule.onAllNodesWithText(res(R.string.app_info)).assertCountEquals(0)
+    }
+
+    // I38-T14: a 「最近」 row opens the same dialog; resolved through the
+    // real catalog, this app's own entry reports canUninstall=false and
+    // hides the uninstall row.
+    @Test
+    fun recentSectionLongPressShowsSameDialog() {
+        val app = InstrumentationRegistry.getInstrumentation()
+            .targetContext.applicationContext as QuietLauncherApp
+        runBlocking { app.container.recentStore.record(ownAppTarget()) }
+        seedCatalog(listOf(ownEntry(AppCategory.Productivity)))
+        rule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.recentRows.value.isNotEmpty()
+        }
+        openAllApps()
+
+        // The first match is the 「最近」 row — it precedes every category.
+        rule.onAllNodesWithText("Quiet Intent Launcher").onFirst()
+            .performTouchInput { longClick() }
+        rule.waitForIdle()
+
+        rule.onNodeWithText(ownComponent().packageName).assertIsDisplayed()
+        rule.onNodeWithText(res(R.string.app_info)).assertIsDisplayed()
+        rule.onAllNodesWithText(res(R.string.all_apps_uninstall))
+            .assertCountEquals(0)
+    }
+
+    // I38-T15: TalkBack hears the long-press affordance (design 12).
+    @Test
+    fun cellExposesLongClickLabel() {
+        seedCatalog(listOf(entry("pkg.game", "Game App", AppCategory.Game)))
+        openAllApps()
+
+        val node = rule.onNodeWithText("Game App").fetchSemanticsNode()
+        val longClick = if (SemanticsActions.OnLongClick in node.config) {
+            node.config[SemanticsActions.OnLongClick]
+        } else {
+            null
+        }
+        assertEquals(res(R.string.do_action_menu), longClick?.label)
+    }
+
+    // I38-T31: 戻る dismisses the dialog and changes nothing else.
+    @Test
+    fun dialogBackDismissesAndKeepsScreen() {
+        seedCatalog(
+            listOf(
+                entry(
+                    "pkg.game", "Game App", AppCategory.Game,
+                    canUninstall = true,
+                ),
+            ),
+        )
+        openAllApps()
+
+        rule.onNodeWithText("Game App").performTouchInput { longClick() }
+        rule.waitForIdle()
+        rule.onAllNodesWithText(res(R.string.back)).onLast().performClick()
+        rule.waitForIdle()
+
+        rule.onAllNodesWithText("pkg.game").assertCountEquals(0)
+        assertEquals(HomeScreen.AllApps, viewModel.screen.value)
+        assertTrue(uninstallRequests.isEmpty())
     }
 }
