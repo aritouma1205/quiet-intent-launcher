@@ -6,6 +6,7 @@ import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -99,6 +100,11 @@ class SettingsStore(
         return try {
             store.updateData(transform)
             true
+        } catch (e: CancellationException) {
+            // Cancellation is not a write failure: propagate instead of
+            // degrading (Issue #42 — CancellationException extends
+            // IllegalStateException, so it must be rethrown first).
+            throw e
         } catch (e: CorruptionException) {
             degrade(e.message)
             false
@@ -160,6 +166,9 @@ class SettingsStore(
         val storeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val store = try {
             dataStoreFactory(storeScope)
+        } catch (e: CancellationException) {
+            storeScope.cancel()
+            throw e
         } catch (e: IllegalStateException) {
             storeScope.cancel()
             degrade(e.message)
@@ -170,6 +179,7 @@ class SettingsStore(
         store.data
             .catch { e ->
                 when (e) {
+                    is CancellationException -> throw e
                     is CorruptionException, is IOException,
                     is IllegalStateException,
                     -> degrade(e.message)
