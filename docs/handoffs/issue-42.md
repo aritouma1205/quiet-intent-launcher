@@ -100,6 +100,9 @@
   base commit（e391cd6・変更前コード）でも 6回中3回 FAIL を確認した
   **既存フレーク**（`_lastFailureAtElapsedMs` の読み取りが collect 側コルーチンの
   反映と競合するテスト側のタイミング依存）。本変更による回帰ではない。
+- `WeatherServiceTest.autoRefreshSkipsAReadingYoungerThanThirtyMinutes` も同種の
+  既存フレーク（`cacheStore.snapshot.first` 成立と `service.ui.snapshot` への伝播が
+  別コルーチンで競合）。MINOR-1 対応前のコードでも 6回中4回 FAIL を確認済み。
 - `RecentStoreTest.recording the same target keeps a single entry` も同様に
   `entries.first { it.size == 1 }` が stale 値を取り得る既存の競合で、
   全量実行時に1度だけ FAIL を観測（再実行で緑）。
