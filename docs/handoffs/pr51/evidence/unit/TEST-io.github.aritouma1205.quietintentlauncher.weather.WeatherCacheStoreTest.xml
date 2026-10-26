@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-26T08:46:44.802Z" hostname="pop-os" time="0.757">
+  <properties/>
+  <testcase name="writes before start return false immediately" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.002"/>
+  <testcase name="a cancelled write propagates and keeps the snapshot" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.013"/>
+  <testcase name="a region mismatch keeps the stored snapshot" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.215"/>
+  <testcase name="a save issued before the open finishes waits and lands" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.312"/>
+  <testcase name="a writer superseded before dispatch returns false instead of hanging" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.208"/>
+  <testcase name="a failed open makes writes return false without hanging" classname="io.github.aritouma1205.quietintentlauncher.weather.WeatherCacheStoreTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

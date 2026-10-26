@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.aritouma1205.quietintentlauncher.calendar.DayStartMillisTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-26T08:46:43.230Z" hostname="pop-os" time="0.008">
+  <properties/>
+  <testcase name="exact midnight stays midnight" classname="io.github.aritouma1205.quietintentlauncher.calendar.DayStartMillisTest" time="0.003"/>
+  <testcase name="last millisecond of the day collapses to that days midnight" classname="io.github.aritouma1205.quietintentlauncher.calendar.DayStartMillisTest" time="0.0"/>
+  <testcase name="new years eve stays in the old year and new years day in the new" classname="io.github.aritouma1205.quietintentlauncher.calendar.DayStartMillisTest" time="0.001"/>
+  <testcase name="month-end evening stays inside the ending month" classname="io.github.aritouma1205.quietintentlauncher.calendar.DayStartMillisTest" time="0.0"/>
+  <testcase name="the same instant resolves in whatever zone the device is in" classname="io.github.aritouma1205.quietintentlauncher.calendar.DayStartMillisTest" time="0.003"/>
+  <testcase name="first minute of the day collapses to midnight" classname="io.github.aritouma1205.quietintentlauncher.calendar.DayStartMillisTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
