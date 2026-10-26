@@ -140,6 +140,10 @@
     <string name="calendar_no_handler">カレンダーを開けるアプリがありません</string>
     <string name="today_open_calendar">%1$sをカレンダーで開く</string>
     <string name="today_upcoming">これから</string>
+    <string name="today_volume">音量</string>
+    <string name="volume_output">出力先</string>
+    <string name="volume_output_change">出力先を変更</string>
+    <string name="volume_output_open_failed">出力先の切り替え画面を開けませんでした</string>
 
     <!-- Weather labels (design 8.2: WMO weather codes; unknown → 天気情報) -->
     <string name="weather_clear">快晴</string>

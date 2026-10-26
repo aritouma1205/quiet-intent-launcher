@@ -1,7 +1,10 @@
 package io.github.aritouma1205.quietintentlauncher.home
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -13,9 +16,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.aritouma1205.quietintentlauncher.R
 import io.github.aritouma1205.quietintentlauncher.calendar.EventSection
 import io.github.aritouma1205.quietintentlauncher.calendar.TodayEvent
+import io.github.aritouma1205.quietintentlauncher.system.VolumeUi
 import io.github.aritouma1205.quietintentlauncher.today.TodayUi
 import io.github.aritouma1205.quietintentlauncher.today.WeatherBlock
 import io.github.aritouma1205.quietintentlauncher.ui.QuietLauncherTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,15 +61,18 @@ class TodayPanelStatesTest {
         section = EventSection.Upcoming,
     )
 
-    private fun setToday(state: TodayUi) {
+    private fun setToday(state: TodayUi, volume: VolumeUi = VolumeUi(7, 15)) {
         rule.setContent {
             QuietLauncherTheme {
                 TodayPanel(
                     state = state,
+                    volume = volume,
                     panelWidthPx = 320f,
                     onClose = {},
                     onEventTap = {},
                     onDateTap = {},
+                    onVolumeFractionChange = {},
+                    onOutputTap = {},
                 )
             }
         }
@@ -126,5 +134,39 @@ class TodayPanelStatesTest {
         rule.onAllNodes(hasText("バッテリー", substring = true))
             .assertCountEquals(0)
         rule.onNodeWithText("9月27日 土曜日").assertIsDisplayed()
+    }
+
+    // ---- 音量 block (Issue #49) ----------------------------------------------
+
+    @Test
+    fun volumeBlockIsPresentEvenForMinimalToday() {
+        // 最小 TodayUi（予定・天気・バッテリーなし）でも音量ブロックは
+        // 常時表示 — メディア音量は常に存在するので空セクションではない
+        // (Issue #49 受入: ブロック自体は常時表示).
+        setToday(TodayUi())
+
+        rule.onNodeWithText(res(R.string.today_volume)).assertIsDisplayed()
+        rule.onNode(
+            SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress),
+        ).assertExists()
+        rule.onNodeWithText(res(R.string.volume_output)).assertExists()
+    }
+
+    @Test
+    fun outputRowExposesButtonRoleAndClickLabel() {
+        // TalkBack は行を「出力先を変更、ボタン」系に読む (Issue #49):
+        // clickable の onClickLabel と Role.Button がマージ行に乗ること。
+        setToday(baseState())
+
+        val node = rule.onNodeWithText(res(R.string.volume_output))
+            .fetchSemanticsNode()
+        assertEquals(
+            Role.Button,
+            node.config[SemanticsProperties.Role],
+        )
+        assertEquals(
+            res(R.string.volume_output_change),
+            node.config.getOrNull(SemanticsActions.OnClick)?.label,
+        )
     }
 }

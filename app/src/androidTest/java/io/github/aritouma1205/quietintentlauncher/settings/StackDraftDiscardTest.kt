@@ -84,6 +84,7 @@ class StackDraftDiscardTest {
                 onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
+                onOpenMediaOutput = {},
             )
         }
         rule.waitForIdle()

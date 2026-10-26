@@ -81,6 +81,7 @@ class HomeInputIntegrationTest {
                 onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
+                onOpenMediaOutput = {},
             )
         }
         rule.waitForIdle()

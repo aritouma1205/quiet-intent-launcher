@@ -36,6 +36,8 @@ import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
 import io.github.aritouma1205.quietintentlauncher.settings.WeatherLocation
 import io.github.aritouma1205.quietintentlauncher.system.SystemAction
+import io.github.aritouma1205.quietintentlauncher.system.VolumeUi
+import io.github.aritouma1205.quietintentlauncher.system.volumeIndexFromFraction
 import io.github.aritouma1205.quietintentlauncher.today.TodayUi
 import io.github.aritouma1205.quietintentlauncher.today.WeatherBlock
 import io.github.aritouma1205.quietintentlauncher.torch.TorchResult
@@ -258,6 +260,21 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private val _today = MutableStateFlow(TodayUi())
     val today: StateFlow<TodayUi> = _today.asStateFlow()
 
+    /**
+     * Media volume for the TODAY slider (Issue #49). Lives outside
+     * [today]: the level is OS state refreshed at panel open, on
+     * foreground return and through the open-scoped VOLUME_CHANGED
+     * receiver — never a launcher-owned guess.
+     */
+    private val _volume = MutableStateFlow(VolumeUi(volume = 0, max = 0))
+    val volume: StateFlow<VolumeUi> = _volume.asStateFlow()
+
+    /** 「出力先」 row → OS media output panel; the Activity launches it. */
+    private val _mediaOutputRequests =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val mediaOutputRequests: SharedFlow<Unit> =
+        _mediaOutputRequests.asSharedFlow()
+
     /** Weather state surfaced to TODAY/GLANCE and the info settings. */
     val weatherUi: StateFlow<WeatherService.WeatherUi> = container.weatherService.ui
 
@@ -282,6 +299,13 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     private var refreshEventsJob: Job? = null
     private var eventsObserverUnregister: (() -> Unit)? = null
+
+    /**
+     * VOLUME_CHANGED receiver registration, held only while TODAY is
+     * open (Issue #49, design 15): same lifecycle as
+     * [eventsObserverUnregister] — the slider is the only consumer.
+     */
+    private var volumeObserverUnregister: (() -> Unit)? = null
 
     /**
      * Whether the launcher UI is in the foreground. The minute ticker
@@ -456,12 +480,21 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                         eventsObserverUnregister?.invoke()
                         eventsObserverUnregister = container.calendarAccess
                             .observeChanges { refreshEvents() }
+                        // The volume receiver lives only while TODAY is
+                        // open (Issue #49): hardware-key changes repaint
+                        // the slider through it; the open itself re-reads
+                        // first so a broadcast-free device still shows
+                        // the true level.
+                        refreshVolume()
+                        volumeObserverUnregister?.invoke()
+                        volumeObserverUnregister = container.mediaVolume
+                            .observe { refreshVolume() }
                     }
-                    HomeOverlay.Glance -> refreshToday()
-                    else -> {
-                        eventsObserverUnregister?.invoke()
-                        eventsObserverUnregister = null
+                    HomeOverlay.Glance -> {
+                        releaseTodayObservers()
+                        refreshToday()
                     }
+                    else -> releaseTodayObservers()
                 }
             }
         }
@@ -469,12 +502,19 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     override fun onCleared() {
         // viewModelScope cancellation stops the collectors, but the
-        // ContentObserver lives on the ContentResolver — unregister it
-        // explicitly so a cleared ViewModel never keeps watching the
-        // provider (design 15).
+        // ContentObserver lives on the ContentResolver and the volume
+        // receiver on the Context — unregister both explicitly so a
+        // cleared ViewModel never keeps watching either (design 15).
+        releaseTodayObservers()
+        super.onCleared()
+    }
+
+    /** Drops every open-scoped subscription of the TODAY panel. */
+    private fun releaseTodayObservers() {
         eventsObserverUnregister?.invoke()
         eventsObserverUnregister = null
-        super.onCleared()
+        volumeObserverUnregister?.invoke()
+        volumeObserverUnregister = null
     }
 
     /**
@@ -1325,6 +1365,42 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * Re-reads the OS media volume (Issue #49). Called at the designed
+     * refresh points — TODAY opened, foreground return — and on every
+     * MUSIC VOLUME_CHANGED broadcast while the panel stays open.
+     */
+    fun refreshVolume() {
+        _volume.value = VolumeUi(
+            volume = container.mediaVolume.current(),
+            max = container.mediaVolume.max(),
+        )
+    }
+
+    /**
+     * Slider input → STREAM_MUSIC index (Issue #49). The write goes
+     * through AudioManager and the state is re-read immediately — the
+     * slider always shows the level the OS accepted, never the
+     * requested one.
+     */
+    fun onVolumeFractionChanged(fraction: Float) {
+        container.mediaVolume.set(
+            volumeIndexFromFraction(fraction, _volume.value.max),
+        )
+        refreshVolume()
+    }
+
+    /**
+     * 「出力先」 row (Issue #49): opens the OS media output panel as an
+     * external flow. It is a dialog-type OS surface, so TODAY stays
+     * composed underneath and the armed flag is released on resume —
+     * the same lifecycle as the accessibility-settings hand-off.
+     */
+    fun openMediaOutput() {
+        nav.beginExternalFlow()
+        _mediaOutputRequests.tryEmit(Unit)
+    }
+
     /** Tapping an event opens it in a calendar app (design 8.1). */
     fun onEventTapped(event: TodayEvent) {
         val intent = container.calendarAccess.viewEventIntent(event)
@@ -1577,6 +1653,9 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         // success — GLANCE/TODAY never wait on the network.
         refreshToday()
         refreshEvents()
+        // The volume slider re-reads too — broadcasts may have been
+        // missed while the receiver was unregistered (Issue #49).
+        refreshVolume()
         container.weatherService.requestAutoRefresh()
     }
 

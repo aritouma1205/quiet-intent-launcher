@@ -58,6 +58,14 @@ class HomeNavigation(initial: HomeScreen = HomeScreen.Quiet) {
 
     private var externalFlowActive = false
 
+    /**
+     * Test seam: whether an external-flow hand-off is currently armed
+     * (Issue #49). The flag itself drives [onBackgrounded]; this probe
+     * lets instrumentation assert the arm without a state transition.
+     */
+    internal val externalFlowArmed: Boolean
+        get() = externalFlowActive
+
     fun navigateTo(target: HomeScreen) {
         stack.addLast(target)
         publish()
