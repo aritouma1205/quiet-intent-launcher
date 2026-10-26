@@ -701,6 +701,7 @@ fun TodayPanel(
     panelWidthPx: Float,
     onClose: () -> Unit,
     onEventTap: (TodayEvent) -> Unit,
+    onDateTap: () -> Unit,
 ) {
     val context = LocalContext.current
     // Keyed to the default zone so a TIMEZONE_CHANGED refresh rebuilds the
@@ -726,9 +727,22 @@ fun TodayPanel(
         ) {
             // Now: date+weekday on one line, weather packed right below.
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // The date row opens today in a calendar app (Issue #48);
+                // the 48dp floor keeps the tap target reachable at large
+                // font sizes too.
                 Text(
                     text = "${state.dateText} ${state.weekdayText}",
                     style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                        .clickable(
+                            onClickLabel = stringResource(
+                                R.string.today_open_calendar,
+                                "${state.dateText} ${state.weekdayText}",
+                            ),
+                            onClick = onDateTap,
+                        ),
                 )
                 state.weather?.let { weather ->
                     Column {

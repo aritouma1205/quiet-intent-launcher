@@ -64,6 +64,7 @@ class TodayPanelStatesTest {
                     panelWidthPx = 320f,
                     onClose = {},
                     onEventTap = {},
+                    onDateTap = {},
                 )
             }
         }

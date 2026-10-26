@@ -165,6 +165,20 @@ class CalendarAccess(private val context: Context) {
     }
 
     /**
+     * VIEW intent opening the day containing [atMillis] in a calendar
+     * app (Issue #48). Same contract as [viewEventIntent]: the caller
+     * checks [canOpenEvent] first.
+     */
+    fun viewDayIntent(atMillis: Long): Intent = Intent(Intent.ACTION_VIEW)
+        .setData(
+            CalendarContract.CONTENT_URI.buildUpon()
+                .appendPath("time")
+                .also { ContentUris.appendId(it, atMillis) }
+                .build(),
+        )
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /**
      * VIEW intent opening the event in a calendar app (design 8.1). The
      * caller checks [canOpenEvent] first; with no handler the row stays
      * visible and the UI explains the limitation.
@@ -211,6 +225,21 @@ class CalendarAccess(private val context: Context) {
 
     companion object {
         private const val DAY_MS = 24L * 60 * 60_000L
+
+        /**
+         * Device-timezone midnight (00:00.000) of the day containing
+         * [atMillis]. java.util.Calendar keeps it a pure function so JVM
+         * tests can sweep the date boundaries.
+         */
+        internal fun dayStartMillis(atMillis: Long): Long {
+            val cal = java.util.Calendar.getInstance()
+            cal.timeInMillis = atMillis
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            cal.set(java.util.Calendar.MINUTE, 0)
+            cal.set(java.util.Calendar.SECOND, 0)
+            cal.set(java.util.Calendar.MILLISECOND, 0)
+            return cal.timeInMillis
+        }
 
         private val CALENDAR_PROJECTION = arrayOf(
             CalendarContract.Calendars._ID,
