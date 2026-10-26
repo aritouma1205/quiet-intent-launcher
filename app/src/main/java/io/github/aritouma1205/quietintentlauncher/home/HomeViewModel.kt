@@ -91,6 +91,9 @@ enum class HomeMessage {
     /** No calendar app can display the tapped event (design 8.1). */
     NoEventHandler,
 
+    /** No calendar app can open the tapped date (Issue #48). */
+    NoCalendarHandler,
+
     /** The optional system service is not enabled/connected (design 13). */
     SystemServiceOff,
 
@@ -1330,6 +1333,22 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         } else {
             // No handler: the row stays visible and the UI explains.
             _messages.tryEmit(HomeMessage.NoEventHandler)
+        }
+    }
+
+    /**
+     * Tapping the date row opens today in a calendar app (Issue #48):
+     * the same emit-path as event rows, no armed flag — the upcoming
+     * backgrounding closes the panel either way.
+     */
+    fun onDateTapped() {
+        val intent = container.calendarAccess.viewDayIntent(
+            CalendarAccess.dayStartMillis(container.wallClock()),
+        )
+        if (container.calendarAccess.canOpenEvent(intent)) {
+            _eventIntents.tryEmit(intent)
+        } else {
+            _messages.tryEmit(HomeMessage.NoCalendarHandler)
         }
     }
 

@@ -146,6 +146,8 @@ fun QuietLauncherRoot(
                     HomeMessage.NoExternalHandler ->
                         R.string.search_no_external_handler
                     HomeMessage.NoEventHandler -> R.string.event_no_handler
+                    HomeMessage.NoCalendarHandler ->
+                        R.string.calendar_no_handler
                     HomeMessage.SystemServiceOff -> R.string.tool_service_off
                     HomeMessage.SystemActionFailed -> R.string.tool_action_failed
                     HomeMessage.ToolNoFlash -> R.string.tool_no_flash
@@ -232,6 +234,7 @@ fun QuietLauncherRoot(
                         onContextTap = { viewModel.onActionTapped(it.action) },
                         onContextEdit = { viewModel.openContextSlotEditor(it.slotIndex) },
                         onEventTap = viewModel::onEventTapped,
+                        onDateTap = viewModel::onDateTapped,
                         toolRows = viewModel.toolRows.collectAsState().value,
                         onToolTap = viewModel::onToolTapped,
                         onRevealSettled = viewModel::onRevealSettled,
@@ -519,6 +522,7 @@ private fun QuietScreen(
     onContextTap: (ContextRow) -> Unit,
     onContextEdit: (ContextRow) -> Unit,
     onEventTap: (TodayEvent) -> Unit,
+    onDateTap: () -> Unit,
     toolRows: List<ToolRow>,
     onToolTap: (ToolItem) -> Unit,
     onRevealSettled: () -> Unit,
@@ -819,6 +823,7 @@ private fun QuietScreen(
                         panelWidthPx = panelWidthPx,
                         onClose = onCloseOverlay,
                         onEventTap = onEventTap,
+                        onDateTap = onDateTap,
                     )
                 }
             }
