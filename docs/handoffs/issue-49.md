@@ -43,7 +43,7 @@
 - `HomeNavigation.externalFlowArmed`（internal probe）を追加し、UI遷移に依存せず
   arm状態を直接検証可能にした（arm維持・rollback・1回消費の全ケースで使用）。
 
-## 検証結果（head: 実装完了commit、emulator-5556 API36）
+## 検証結果（PR #52 head: 0b29bee、emulator-5556 API36）
 
 | Test ID | 検証 | 結果 |
 |---|---|---|
@@ -58,7 +58,7 @@
 | I49-L3 | `sliderSetProgressChangesTheRealStreamVolume`: seam無しでSetProgress→実STREAM_MUSIC変化＋復元。`realStreamChangeRepaintsTheSliderViaTheOsBroadcast`: 外部`setStreamVolume`（ハードキー相当）→実broadcastで追従 | PASS（emulator実施） |
 | build/lint | `:app:testDebugUnitTest` 全PASS（VolumeScaleTest含む）、`:app:lintDebug` エラー0、`:app:connectedDebugAndroidTest` 195件全PASS | PASS |
 
-証跡: `docs/handoffs/pr<PR番号>/evidence/`（unit XML群・instrumentation-results.xml・lint結果）
+証跡: `docs/handoffs/pr52/evidence/`（unit XML群・instrumentation-results.xml・lint結果）
 
 既知の非本件flake: `WeatherServiceTest`（実時間依存のタイミングテスト）が
 同一suite内で断続的にFAILすることがある。本変更とは無関係（当該領域に非接触）。
