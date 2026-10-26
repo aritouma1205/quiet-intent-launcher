@@ -30,6 +30,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,6 +70,8 @@ import io.github.aritouma1205.quietintentlauncher.settings.DerivedOp
 import io.github.aritouma1205.quietintentlauncher.settings.DoAction
 import io.github.aritouma1205.quietintentlauncher.settings.GlancePosition
 import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
+import io.github.aritouma1205.quietintentlauncher.system.VolumeUi
+import io.github.aritouma1205.quietintentlauncher.system.volumeFractionFromIndex
 import io.github.aritouma1205.quietintentlauncher.today.TodayUi
 import io.github.aritouma1205.quietintentlauncher.ui.imageVector
 import android.text.format.DateFormat
@@ -692,15 +695,20 @@ private fun StatusLine(text: String) {
 
 /**
  * TODAY panel (left, design 8.1). Order: date/weekday, weather, the next
- * events, battery. Blocks without data are omitted entirely — the panel
- * never leaves empty placeholders.
+ * events, battery — and always the 「音量」 block (Issue #49). Blocks
+ * without data are omitted entirely — the panel never leaves empty
+ * placeholders — but the volume block always exists because media volume
+ * always exists.
  */
 @Composable
 fun TodayPanel(
     state: TodayUi,
+    volume: VolumeUi,
     panelWidthPx: Float,
     onClose: () -> Unit,
     onEventTap: (TodayEvent) -> Unit,
+    onVolumeFractionChange: (Float) -> Unit,
+    onOutputTap: () -> Unit,
 ) {
     val context = LocalContext.current
     // Keyed to the default zone so a TIMEZONE_CHANGED refresh rebuilds the
@@ -797,6 +805,60 @@ fun TodayPanel(
                     // bodyLarge to quiet footer size.
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.6f),
+                )
+            }
+
+            // 音量 block (Issue #49): media volume slider plus the 「出力先」
+            // entry that opens the OS media output panel. The slider mirrors
+            // the OS level (hardware-key changes repaint it through the
+            // open-scoped receiver) and M3 attaches the SetProgress /
+            // ProgressBar semantics for assistive control.
+            PanelDivider()
+            Text(
+                text = stringResource(R.string.today_volume),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .padding(bottom = 4.dp)
+                    .semantics { heading() },
+            )
+            Slider(
+                value = volumeFractionFromIndex(volume.volume, volume.max),
+                onValueChange = onVolumeFractionChange,
+                // 0..max has max + 1 positions: max - 1 intermediate stops.
+                steps = (volume.max - 1).coerceAtLeast(0),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp),
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
+                    .clickable(
+                        onClickLabel = stringResource(
+                            R.string.volume_output_change,
+                        ),
+                        role = Role.Button,
+                        onClick = onOutputTap,
+                    )
+                    .padding(vertical = 8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.volume_output),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "›",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        // Decorative affordance glyph — the merged row label
+                        // stays 「出力先」 only.
+                        .clearAndSetSemantics {},
                 )
             }
         }

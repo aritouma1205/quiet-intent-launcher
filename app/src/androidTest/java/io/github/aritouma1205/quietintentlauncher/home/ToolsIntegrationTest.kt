@@ -112,6 +112,7 @@ class ToolsIntegrationTest {
                 onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
+                onOpenMediaOutput = {},
             )
         }
         rule.waitForIdle()

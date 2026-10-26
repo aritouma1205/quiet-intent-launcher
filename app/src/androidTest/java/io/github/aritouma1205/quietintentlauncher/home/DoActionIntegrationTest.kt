@@ -102,6 +102,7 @@ class DoActionIntegrationTest {
                 onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
+                onOpenMediaOutput = {},
             )
         }
         rule.waitForIdle()

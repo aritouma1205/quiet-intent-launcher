@@ -19,6 +19,7 @@ import io.github.aritouma1205.quietintentlauncher.settings.SettingsData
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsSerializer
 import io.github.aritouma1205.quietintentlauncher.settings.SettingsStore
 import io.github.aritouma1205.quietintentlauncher.system.AssistiveServiceTracker
+import io.github.aritouma1205.quietintentlauncher.system.MediaVolumeAccess
 import io.github.aritouma1205.quietintentlauncher.system.QuietSystemService
 import io.github.aritouma1205.quietintentlauncher.system.SystemActions
 import io.github.aritouma1205.quietintentlauncher.system.ToolLauncher
@@ -112,6 +113,13 @@ class AppContainer(context: Context) {
      * subscription, CAMERA requested at first use. No resident service.
      */
     val torch = TorchController(context)
+
+    /**
+     * Media volume bridge (Issue #49): STREAM_MUSIC read/write plus the
+     * VOLUME_CHANGED receiver. The ViewModel registers the receiver only
+     * while the TODAY panel is open.
+     */
+    val mediaVolume = MediaVolumeAccess(context)
 
     /**
      * Optional system operations (design 13): the facade the service binds

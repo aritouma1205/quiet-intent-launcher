@@ -121,6 +121,7 @@ class AllAppsIntegrationTest {
                 onUninstallApp = { uninstallRequests += it },
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
+                onOpenMediaOutput = {},
             )
         }
         rule.waitForIdle()

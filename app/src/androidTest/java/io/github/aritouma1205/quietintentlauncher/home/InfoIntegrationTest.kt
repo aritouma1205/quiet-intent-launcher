@@ -98,6 +98,7 @@ class InfoIntegrationTest {
                 onUninstallApp = {},
                 onOpenEvent = {},
                 onOpenAccessibilitySettings = {},
+                onOpenMediaOutput = {},
             )
         }
         rule.waitForIdle()

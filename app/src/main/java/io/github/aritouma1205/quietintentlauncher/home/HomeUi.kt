@@ -90,6 +90,7 @@ import io.github.aritouma1205.quietintentlauncher.settings.SystemActionsSettings
 import io.github.aritouma1205.quietintentlauncher.settings.ToolItem
 import io.github.aritouma1205.quietintentlauncher.settings.ToolsOpenMode
 import io.github.aritouma1205.quietintentlauncher.settings.VibrationMode
+import io.github.aritouma1205.quietintentlauncher.system.VolumeUi
 import io.github.aritouma1205.quietintentlauncher.today.TodayUi
 import io.github.aritouma1205.quietintentlauncher.ui.DeepScrim
 import io.github.aritouma1205.quietintentlauncher.ui.QuietBadgeBackground
@@ -111,6 +112,7 @@ fun QuietLauncherRoot(
     onUninstallApp: (String) -> Unit,
     onOpenEvent: (Intent) -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
+    onOpenMediaOutput: () -> Unit,
 ) {
     QuietLauncherTheme {
         val screen by viewModel.screen.collectAsState()
@@ -180,6 +182,12 @@ fun QuietLauncherRoot(
                 onOpenAccessibilitySettings()
             }
         }
+        LaunchedEffect(Unit) {
+            // 「出力先」 opens the OS media output panel (Issue #49); the
+            // ViewModel armed the external flow before emitting, so the
+            // Activity only has to dispatch the intent.
+            viewModel.mediaOutputRequests.collect { onOpenMediaOutput() }
+        }
 
         val showRecovery = settingsState is SettingsState.Degraded && !recoveryDismissed
         var resetConfirm by remember { mutableStateOf(false) }
@@ -214,6 +222,7 @@ fun QuietLauncherRoot(
                         overlay = overlay,
                         settings = viewModel.currentSettings(),
                         today = viewModel.today.collectAsState().value,
+                        volume = viewModel.volume.collectAsState().value,
                         onFreeAreaEvent = viewModel::onFreeAreaEvent,
                         onGlanceHold = viewModel::setGlanceHold,
                         onOpenSearch = { viewModel.nav.navigateTo(HomeScreen.Search) },
@@ -232,6 +241,9 @@ fun QuietLauncherRoot(
                         onContextTap = { viewModel.onActionTapped(it.action) },
                         onContextEdit = { viewModel.openContextSlotEditor(it.slotIndex) },
                         onEventTap = viewModel::onEventTapped,
+                        onVolumeFractionChange =
+                            viewModel::onVolumeFractionChanged,
+                        onOutputTap = viewModel::openMediaOutput,
                         toolRows = viewModel.toolRows.collectAsState().value,
                         onToolTap = viewModel::onToolTapped,
                         onRevealSettled = viewModel::onRevealSettled,
@@ -501,6 +513,7 @@ private fun QuietScreen(
     overlay: HomeOverlay?,
     settings: SettingsData,
     today: TodayUi,
+    volume: VolumeUi,
     onFreeAreaEvent: (FreeAreaEvent) -> Unit,
     onGlanceHold: (Boolean) -> Unit,
     onOpenSearch: () -> Unit,
@@ -519,6 +532,8 @@ private fun QuietScreen(
     onContextTap: (ContextRow) -> Unit,
     onContextEdit: (ContextRow) -> Unit,
     onEventTap: (TodayEvent) -> Unit,
+    onVolumeFractionChange: (Float) -> Unit,
+    onOutputTap: () -> Unit,
     toolRows: List<ToolRow>,
     onToolTap: (ToolItem) -> Unit,
     onRevealSettled: () -> Unit,
@@ -816,9 +831,12 @@ private fun QuietScreen(
                 } else {
                     TodayPanel(
                         state = today,
+                        volume = volume,
                         panelWidthPx = panelWidthPx,
                         onClose = onCloseOverlay,
                         onEventTap = onEventTap,
+                        onVolumeFractionChange = onVolumeFractionChange,
+                        onOutputTap = onOutputTap,
                     )
                 }
             }

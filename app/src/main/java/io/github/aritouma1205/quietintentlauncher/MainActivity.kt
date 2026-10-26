@@ -28,6 +28,16 @@ class MainActivity : ComponentActivity() {
     private val container: AppContainer
         get() = (application as QuietLauncherApp).container
 
+    companion object {
+        /**
+         * `Settings.Panel.ACTION_MEDIA_OUTPUT` is a @SystemApi constant —
+         * the action string is stable since API 30, so the literal is
+         * used directly (Issue #49).
+         */
+        internal const val ACTION_MEDIA_OUTPUT =
+            "com.android.settings.panel.action.MEDIA_OUTPUT"
+    }
+
     // internal so instrumentation can observe the broadcast-driven
     // time-change path through the real activity (design 8.1, A08).
     internal val viewModel: HomeViewModel by viewModels {
@@ -73,6 +83,7 @@ class MainActivity : ComponentActivity() {
                 onUninstallApp = ::openUninstall,
                 onOpenEvent = ::openCalendarEvent,
                 onOpenAccessibilitySettings = { openAccessibilitySettings() },
+                onOpenMediaOutput = { openMediaOutputPanel() },
             )
         }
     }
@@ -177,6 +188,21 @@ class MainActivity : ComponentActivity() {
         fallbackIntent: Intent = Intent(Settings.ACTION_SETTINGS),
     ) {
         launchExternalOrToast(intent, R.string.all_apps_launch_failed, fallbackIntent)
+    }
+
+    /**
+     * OS media output panel for the TODAY 「出力先」 row (Issue #49): a
+     * dialog-type OS surface the armed external flow covers. When the
+     * panel action does not resolve, the sound settings are the fallback;
+     * a total failure rolls the armed flag back through the shared guard.
+     * internal with injectable intents so instrumentation can exercise
+     * the rollback on both arms (same rule as the other external flows).
+     */
+    internal fun openMediaOutputPanel(
+        intent: Intent = Intent(ACTION_MEDIA_OUTPUT),
+        fallbackIntent: Intent = Intent(Settings.ACTION_SOUND_SETTINGS),
+    ) {
+        launchExternalOrToast(intent, R.string.volume_output_open_failed, fallbackIntent)
     }
 
     /**
