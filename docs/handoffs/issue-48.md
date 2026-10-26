@@ -39,7 +39,7 @@
 全体再実行（emulator-5556 / API 36、flock 直列化）:
 `testDebugUnitTest` 343件 0失敗、`connectedDebugAndroidTest` 189件 0失敗、
 `lintDebug` 0 errors / 既存warningのみ。
-証跡は `docs/handoffs/prNN/evidence/` に保存（PR番号確定後に確定）。
+証跡は `docs/handoffs/pr51/evidence/` に保存済み。
 
 ## 実機確認（ラウンド7候補・pending-device-checks.md）
 
